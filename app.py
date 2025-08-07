@@ -14,5 +14,9 @@ db = SQLAlchemy(app)
 def index():
     return render_template('base.html')
 
+@app.route('/prueba')
+def prueba():
+    return render_template('prueba.html')
+
 if __name__ == '__main__':
     app.run(debug=True)
