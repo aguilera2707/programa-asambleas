@@ -1,0 +1,34 @@
+<!-- templates/admin_nominaciones.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel de Nominaciones</title>
+</head>
+<body>
+    <h1>Panel de Nominaciones</h1>
+
+    <form method="POST">
+        <input type="text" name="nombre" placeholder="Nombre del nominado" required>
+        <input type="text" name="categoria" placeholder="Categoría" required>
+        <textarea name="descripcion" placeholder="Descripción (opcional)"></textarea>
+        <button type="submit">Agregar nominación</button>
+    </form>
+
+    <hr>
+
+    <h2>Nominaciones registradas:</h2>
+    <ul>
+        {% for n in nominaciones %}
+            <li>
+                <strong>{{ n.nombre }}</strong> - {{ n.categoria }}<br>
+                {{ n.descripcion }}<br>
+                <em>Votos: {{ n.votos }}</em>
+            </li>
+        {% endfor %}
+    </ul>
+
+    <br>
+    <a href="{{ url_for('nom.principal') }}">← Volver al inicio</a>
+</body>
+</html>

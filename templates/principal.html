@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NOMINACIONES</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/principal.css') }}">
+</head>
+<body>
+    <header>
+    <h1>NOMINACIONES</h1>
+    <div class="faq-toggle" id="menuToggle">
+        <span></span>
+        <span></span>
+        <span></span>
+    </div>
+    <nav id="admin-menu" class="hidden">
+    <ul>
+        <li><a href="{{ url_for('admin.index') }}">Administrador</a></li>
+        </ul>
+    </nav>
+    </header>
+
+    <main>
+    <div class="button-card"
+            onclick="location.href='{{ url_for('nom.nominar_alumno') }}'">
+        Nominar Alumno
+    </div>
+        <div class="button-card"
+            onclick="location.href='{{ url_for('nom.nominar_personal') }}'">
+        Nominar Personal
+    </div>
+    </main>
+
+    <script>
+        document.getElementById('menuToggle').addEventListener('click', function() {
+        document.getElementById('admin-menu').classList.toggle('hidden');
+        });
+    </script>
+</body>
+</html>

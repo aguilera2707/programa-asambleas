@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nominar Personal</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/nominacion_personal.css') }}">
+</head>
+<body>
+        <header>
+        <h1>Nominar Personal</h1>
+    </header>
+    <main>
+    <form action="{{ url_for('nom.nominar_personal') }}" method="post">
+        <label for="nominador">Escribe tu nombre:</label>
+        <input type="text" id="nominador" name="nominador" required>
+
+        <label for="valores">Valores:</label>
+        <select id="valores" name="valores" multiple required>
+        {% for valor in valores %}
+            <option value="{{ valor.id }}">{{ valor.nombre }}</option>
+        {% endfor %}
+        </select>
+
+        <label for="nominado">¿A quién nominas?</label>
+        <input type="text" id="nominado" name="nominado" required>
+
+        <label for="razon">¿Por qué lo nominas?</label>
+        <textarea id="razon" name="razon" rows="3" required></textarea>
+
+        <button type="submit">Enviar</button>
+    </form>
+    </main>
+</body>
+</html>
