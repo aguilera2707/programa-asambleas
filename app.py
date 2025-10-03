@@ -30,6 +30,9 @@ app.config.update(
 db.init_app(app)
 mail.init_app(app)
 
+with app.app_context():
+    db.create_all()
+
 # Panel de administración
 admin = Admin(app, name='Panel Admin', template_mode='bootstrap4')
 admin.add_view(ModelView(Valor, db.session, category='Configuración'))
