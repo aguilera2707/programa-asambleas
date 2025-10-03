@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Invitación Asamblea</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2cm; }
+        h1 { color: darkred; }
+        p { font-size: 14px; }
+    </style>
+</head>
+<body>
+    <h1>Invitación a la Asamblea</h1>
+    <p>Estimado/a <strong>{{ nominado }}</strong>,</p>
+    <p>Has sido nominado por el valor de <strong>{{ valor }}</strong>.</p>
+    <p>Nomina: {{ quien_nomina }}</p>
+    <p>Razón: {{ texto_adicional }}</p>
+    <p>Fecha del evento: {{ fecha_evento }}</p>
+</body>
+</html>

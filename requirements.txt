@@ -15,3 +15,4 @@ docx2pdf
 Flask-Mail
 Flask-Admin
 gunicorn
+weasyprint

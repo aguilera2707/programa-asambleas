@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from extensions import db, mail
 from flask_mail import Message
 from models import Valor, Nominacion
-from utils import generar_pdf, ciclo_actual
+from utils import generar_pdf_html, ciclo_actual   # 👈 usamos generar_pdf_html
 import os
 
 nom = Blueprint('nom', __name__)
@@ -32,7 +32,6 @@ def nominar_personal():
         razon       = request.form['razon']
 
         valores = Valor.query.filter(Valor.id.in_(valores_ids)).all()
-        plantilla = os.path.join(os.getcwd(), 'docx_templates', 'formato_asamblea.docx')
         output_dir = os.path.join(os.getcwd(), 'invitaciones', 'personal')
 
         for valor in valores:
@@ -44,8 +43,11 @@ def nominar_personal():
                 'texto_adicional' : razon
             }
             filename = f"{nominado}_{valor.nombre}"
-            pdf_path = generar_pdf(plantilla, output_dir, context, filename)
 
+            # 🟩 Generar PDF con WeasyPrint desde plantilla HTML
+            pdf_path = generar_pdf_html('invitacion.html', context, output_dir, filename)
+
+            # Crear correo
             msg = Message(
                 subject=f"Invitación Asamblea: {valor.nombre}",
                 recipients=[f"{nominado}@colegio.edu.mx"]
@@ -58,9 +60,9 @@ def nominar_personal():
             )
             with open(pdf_path, 'rb') as fp:
                 msg.attach(f"{filename}.pdf", "application/pdf", fp.read())
-            # mail.send(msg)  # Descomenta esto cuando configures SMTP
+            # mail.send(msg)  # Descomenta cuando configures SMTP
 
-            # 🟩 GUARDAR también la nominación en la base de datos
+            # Guardar nominación en BD
             nueva_nom = Nominacion(
                 nombre=nominado,
                 categoria=valor.nombre,
@@ -68,7 +70,6 @@ def nominar_personal():
             )
             db.session.add(nueva_nom)
 
-        # ⬇️ Confirmamos todo al final
         db.session.commit()
 
         flash(f'Se generaron y enviaron {len(valores)} invitaciones para {nominado}.')
@@ -76,7 +77,6 @@ def nominar_personal():
 
     valores = Valor.query.all()
     return render_template('nominacion_personal.html', valores=valores)
-
 
 # Panel de nominaciones (admin)
 @nom.route('/admin/nominaciones', methods=['GET', 'POST'])
