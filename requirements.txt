@@ -16,3 +16,13 @@ Flask-Mail
 Flask-Admin
 gunicorn
 weasyprint
+Flask==3.0.3
+Flask-Login==0.6.3
+Flask-Mail==0.9.1
+Flask-SQLAlchemy==3.1.1
+Flask-Admin==1.6.1
+gunicorn==23.0.0
+Werkzeug==3.0.3
+pandas==2.2.2
+openpyxl==3.1.5
+XlsxWriter==3.2.0
