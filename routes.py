@@ -302,7 +302,7 @@ def eliminar_usuario(id):
     db.session.commit()
     return jsonify({"message": f"Usuario {usuario.nombre} eliminado correctamente."}), 200
 
-@app.route("/check_db")
+@nom.route("/check_db")
 def check_db():
     try:
         db.session.execute("SELECT 1")
