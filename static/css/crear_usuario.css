@@ -1,0 +1,127 @@
+    body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #f7f7f7;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    }
+
+    .crear-usuario-container {
+    background-color: #fff;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    width: 400px;
+    text-align: left;
+    }
+
+    .crear-usuario-container h2 {
+    text-align: center;
+    color: #900000;
+    margin-bottom: 25px;
+    }
+
+    .form label {
+    display: block;
+    margin-top: 10px;
+    font-weight: 600;
+    color: #333;
+    }
+
+    .form input,
+    .form select {
+    width: 100%;
+    padding: 10px;
+    margin-top: 6px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+    }
+
+    .form input:focus,
+    .form select:focus {
+    border-color: #900000;
+    outline: none;
+    box-shadow: 0 0 4px rgba(144,0,0,0.3);
+    }
+
+    /* Botones */
+    .acciones {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+    }
+
+    .btn {
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: 600;
+    transition: 0.3s;
+    font-size: 0.95rem;
+    }
+
+    .btn-primary {
+    background-color: #900000;
+    color: #fff;
+    }
+
+    .btn-primary:hover {
+    background-color: #b70000;
+    }
+
+    .btn-secondary {
+    background-color: #555;
+    color: #fff;
+    }
+
+    .btn-secondary:hover {
+    background-color: #333;
+    }
+
+    .mensaje {
+    margin-top: 15px;
+    text-align: center;
+    font-weight: 600;
+    }
+
+    .mensaje:contains("✅") {
+    color: #155724;
+    }
+
+    .mensaje:contains("⚠️"),
+    .mensaje:contains("❌") {
+    color: #721c24;
+    }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+    .crear-usuario-container {
+        width: 90%;
+        padding: 25px;
+    }
+    }
+    /* Botón de volver */
+    .btn-volver {
+    display: inline-block;
+    background-color: #ffc400; /* dorado */
+    color: #000;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    transition: 0.3s;
+    border: 2px solid #b38b2e;
+    }
+
+    .btn-volver:hover {
+    background-color: #b38b2e;
+    color: #fff;
+    }

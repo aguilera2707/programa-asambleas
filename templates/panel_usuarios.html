@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestión de usuarios</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_usuarios.css') }}">
+    <!-- DataTables + jQuery -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+</head>
+<body>
+    <header class="header">
+        <h1>👥 Gestión de usuarios</h1>
+        <a href="{{ url_for('nom.panel_admin') }}" class="btn-volver">⮌ Volver al panel</a>
+    </header>
+
+    <!-- 🔔 Mensajes flash (alertas elegantes) -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+            {% for category, message in messages %}
+                <div class="flash-message {{ category }}">
+                    {{ message }}
+                    <span class="close-btn" onclick="this.parentElement.remove()">×</span>
+                </div>
+            {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <main class="contenedor">
+        <div class="tabs">
+            <button class="tab active" data-tab="admins">Administradores</button>
+            <button class="tab" data-tab="profesores">Profesores</button>
+            <button class="tab" data-tab="alumnos">Estudiantes</button>
+        </div>
+
+        <!-- ADMINISTRADORES -->
+        <section class="tab-content active" id="admins">
+            <div class="acciones">
+                <a href="{{ url_for('nom.descargar_plantilla', rol='admin') }}" class="btn btn-descargar">📥 Descargar plantilla</a>
+                <form action="{{ url_for('nom.importar_usuarios', rol='admin') }}" 
+                        method="POST" 
+                        enctype="multipart/form-data" 
+                        class="form-import" 
+                        id="form-admin">
+                    <input type="file" name="file" accept=".xlsx,.csv" id="admin-file" required hidden>
+                    <button type="button" class="btn btn-subir" onclick="document.getElementById('admin-file').click()">📤 Subir archivo</button>
+                </form>
+                <a href="{{ url_for('nom.crear_usuario') }}" class="btn btn-crear">➕ Crear manualmente</a>
+            </div>
+            <div class="tabla">
+                <table id="tabla-admins" class="tabla-usuarios">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Email</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- PROFESORES -->
+        <section class="tab-content" id="profesores">
+            <div class="acciones">
+                <a href="{{ url_for('nom.descargar_plantilla', rol='profesor') }}" class="btn btn-descargar">📥 Descargar plantilla</a>
+                <form action="{{ url_for('nom.importar_usuarios', rol='profesor') }}" 
+                        method="POST" 
+                        enctype="multipart/form-data" 
+                        class="form-import" 
+                        id="form-prof">
+                    <input type="file" name="file" accept=".xlsx,.csv" id="prof-file" required hidden>
+                    <button type="button" class="btn btn-subir" onclick="document.getElementById('prof-file').click()">📤 Subir archivo</button>
+                </form>
+                <a href="{{ url_for('nom.crear_usuario') }}" class="btn btn-crear">➕ Crear manualmente</a>
+            </div>
+            <div class="tabla">
+                <table id="tabla-profesores" class="tabla-usuarios">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Email</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ESTUDIANTES -->
+        <section class="tab-content" id="alumnos">
+            <div class="acciones">
+                <a href="{{ url_for('nom.descargar_plantilla', rol='alumno') }}" class="btn btn-descargar">📥 Descargar plantilla</a>
+                <form action="{{ url_for('nom.importar_usuarios', rol='alumno') }}" 
+                        method="POST" 
+                        enctype="multipart/form-data" 
+                        class="form-import" 
+                        id="form-alum">
+                    <input type="file" name="file" accept=".xlsx,.csv" id="alum-file" required hidden>
+                    <button type="button" class="btn btn-subir" onclick="document.getElementById('alum-file').click()">📤 Subir archivo</button>
+                </form>
+                <a href="{{ url_for('nom.crear_usuario') }}" class="btn btn-crear">➕ Crear manualmente</a>
+            </div>
+            <div class="tabla">
+                <table id="tabla-alumnos" class="tabla-usuarios">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Email</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Loader (círculo girando dorado) -->
+        <div id="loader" class="loader-overlay hidden">
+            <div class="loader"></div>
+            <p class="loader-text">Procesando archivo...</p>
+        </div>
+    </main>
+
+    <script>
+        // Intercambiar pestañas
+        const tabs = document.querySelectorAll(".tab");
+        const contents = document.querySelectorAll(".tab-content");
+
+        tabs.forEach(tab => {
+            tab.addEventListener("click", () => {
+                tabs.forEach(t => t.classList.remove("active"));
+                contents.forEach(c => c.classList.remove("active"));
+
+                tab.classList.add("active");
+                document.getElementById(tab.dataset.tab).classList.add("active");
+            });
+        });
+
+        // Automatizar envío de formularios al seleccionar archivo
+        ['admin', 'prof', 'alum'].forEach(role => {
+            const fileInput = document.getElementById(`${role}-file`);
+            const form = document.getElementById(`form-${role}`);
+            if (fileInput && form) {
+                fileInput.addEventListener('change', () => {
+                    if (fileInput.files.length > 0) {
+                        document.getElementById("loader").classList.remove("hidden");
+                        form.submit();
+                    }
+                });
+            }
+        });
+
+        // Ocultar loader al terminar carga de página
+        window.addEventListener('load', () => {
+            document.getElementById("loader").classList.add("hidden");
+        });
+
+        // Ocultar automáticamente las alertas después de 4 segundos
+        setTimeout(() => {
+            document.querySelectorAll('.flash-message').forEach(msg => {
+                msg.style.transition = "opacity 0.5s ease";
+                msg.style.opacity = "0";
+                setTimeout(() => msg.remove(), 500);
+            });
+        }, 4000);
+
+        // ---------- CARGAR DATATABLES DINÁMICAMENTE ----------
+        function cargarTabla(rol, idTabla) {
+            fetch(`/admin/usuarios/lista/${rol}`)
+                .then(res => res.json())
+                .then(data => {
+                    const tabla = $(`#${idTabla}`).DataTable({
+                        destroy: true,
+                        data: data,
+                        responsive: true, // 👈 mejora añadida
+                        columns: [
+                            { data: 'id' },
+                            { data: 'nombre' },
+                            { data: 'email' },
+                            {
+                                data: null,
+                                render: function (data) {
+                                    return `
+                                        <button class="btn-accion btn-editar" onclick="editarUsuario(${data.id})">✏️</button>
+                                        <button class="btn-accion btn-eliminar" onclick="eliminarUsuario(${data.id})">🗑️</button>
+                                    `;
+                                }
+                            }
+                        ],
+                        language: {
+                            url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+                        }
+                    });
+                })
+                .catch(err => console.error('Error cargando usuarios:', err));
+        }
+
+        // Cargar tablas al cambiar pestaña
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const rol = tab.dataset.tab === "admins" ? "admin"
+                            : tab.dataset.tab === "profesores" ? "profesor"
+                            : "alumno";
+                const idTabla = `tabla-${tab.dataset.tab}`;
+                cargarTabla(rol, idTabla);
+            });
+        });
+
+        // Cargar la primera tabla (admin) por defecto
+        document.addEventListener("DOMContentLoaded", () => {
+            cargarTabla('admin', 'tabla-admins');
+        });
+
+        // Acciones (por ahora placeholders)
+        function editarUsuario(id) {
+            alert("Editar usuario " + id);
+        }
+        function eliminarUsuario(id) {
+            if (confirm("¿Seguro que deseas eliminar este usuario?")) {
+                fetch(`/admin/usuarios/eliminar/${id}`, { method: 'DELETE' })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.message);
+                    location.reload();
+                });
+            }
+        }
+    </script>
+</body>
+</html>

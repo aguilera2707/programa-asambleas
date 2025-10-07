@@ -7,34 +7,56 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/principal.css') }}">
 </head>
 <body>
-    <header>
-    <h1>NOMINACIONES</h1>
-    <div class="faq-toggle" id="menuToggle">
-        <span></span>
-        <span></span>
-        <span></span>
-    </div>
-    <nav id="admin-menu" class="hidden">
-    <ul>
-        <li><a href="{{ url_for('admin.index') }}">Administrador</a></li>
-        </ul>
-    </nav>
+    <header class="main-header">
+        <h1>Programa de Nominaciones</h1>
+
+        <div class="faq-toggle" id="menuToggle">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+
+        <nav id="admin-menu" class="hidden">
+            <ul>
+                {% if current_user.rol == 'admin' %}
+                    <li><a href="{{ url_for('nom.panel_admin') }}">Panel de administrador</a></li>
+                {% else %}
+                    <li><a href="{{ url_for('nom.panel_admin') }}" class="disabled">Panel de administrador</a></li>
+                {% endif %}
+                <li><a href="{{ url_for('nom.logout') }}">Cerrar sesión</a></li>
+            </ul>
+        </nav>
     </header>
 
+    <!-- Bloque de mensajes flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
     <main>
-    <div class="button-card"
-            onclick="location.href='{{ url_for('nom.nominar_alumno') }}'">
-        Nominar Alumno
-    </div>
-        <div class="button-card"
-            onclick="location.href='{{ url_for('nom.nominar_personal') }}'">
-        Nominar Personal
-    </div>
+        <h2>Bienvenido, {{ current_user.nombre }}</h2>
+        <p class="rol-info">Tu rol actual: <strong>{{ current_user.rol }}</strong></p>
+
+        <div class="buttons-container">
+            <div class="button-card" onclick="location.href='{{ url_for('nom.nominar_alumno') }}'">
+                🧑‍🎓 Nominar Alumno
+            </div>
+
+            <div class="button-card" onclick="location.href='{{ url_for('nom.nominar_personal') }}'">
+                🧑‍🏫 Nominar Personal
+            </div>
+        </div>
     </main>
 
     <script>
         document.getElementById('menuToggle').addEventListener('click', function() {
-        document.getElementById('admin-menu').classList.toggle('hidden');
+            document.getElementById('admin-menu').classList.toggle('hidden');
         });
     </script>
 </body>

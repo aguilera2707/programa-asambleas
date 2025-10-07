@@ -1,0 +1,66 @@
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Usuarios</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/usuarios.css') }}">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.dataTables.min.css">
+    </head>
+
+    <body>
+    <header class="admin-header">
+        <h1>Gestión de Usuarios</h1>
+        <div class="admin-user-info">
+        <span>{{ current_user.nombre }}</span>
+        <a href="{{ url_for('nom.principal') }}" class="btn btn-secondary">Volver</a>
+        </div>
+    </header>
+
+    <main class="admin-main">
+        <div class="tabs">
+        <button class="tab-button active" data-tab="admins">Administradores</button>
+        <button class="tab-button" data-tab="profesores">Profesores</button>
+        <button class="tab-button" data-tab="estudiantes">Estudiantes</button>
+        </div>
+
+        <!-- Contenedor de pestañas -->
+        <div class="tab-content active" id="admins">
+        {% include 'usuarios_tab.html' with context %}
+        </div>
+        <div class="tab-content" id="profesores">
+        {% include 'usuarios_tab.html' with context %}
+        </div>
+        <div class="tab-content" id="estudiantes">
+        {% include 'usuarios_tab.html' with context %}
+        </div>
+    </main>
+
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
+
+    <script>
+        // --- Control de pestañas ---
+        document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(btn.dataset.tab).classList.add('active');
+        });
+        });
+
+        // --- Inicializar DataTables ---
+        $(document).ready(function () {
+        $('table.display').DataTable({
+            pageLength: 10,
+            dom: 'Bfrtip',
+            buttons: ['excel', 'csv', 'pdf']
+        });
+        });
+    </script>
+    </body>
+    </html>

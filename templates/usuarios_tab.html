@@ -1,0 +1,40 @@
+    <div class="actions">
+    <a href="{{ url_for('nom.descargar_plantilla', rol='admin') }}" class="btn btn-secondary">📥 Descargar plantilla</a>
+
+    <form action="{{ url_for('nom.importar_usuarios', rol='admin') }}" method="POST" enctype="multipart/form-data" class="form-import">
+        <label for="file" class="btn btn-primary">📤 Importar Excel</label>
+        <input type="file" id="file" name="file" accept=".xlsx,.csv" hidden required>
+        <button type="submit" class="btn btn-primary">Subir</button>
+    </form>
+
+    <a href="{{ url_for('nom.crear_usuario') }}" class="btn btn-primary">➕ Crear usuario</a>
+    <button class="btn btn-danger">🗑️ Eliminar seleccionados</button>
+    </div>
+
+    <table class="display" style="width:100%">
+    <thead>
+        <tr>
+        <th><input type="checkbox" id="selectAll"></th>
+        <th>Nombre</th>
+        <th>Email</th>
+        <th>Rol</th>
+        <th>Fecha de creación</th>
+        <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for usuario in usuarios if usuario.rol == 'admin' %}
+        <tr>
+        <td><input type="checkbox" class="userCheckbox" value="{{ usuario.id }}"></td>
+        <td>{{ usuario.nombre }}</td>
+        <td>{{ usuario.email }}</td>
+        <td>{{ usuario.rol }}</td>
+        <td>{{ usuario.fecha_creacion.strftime('%Y-%m-%d') if usuario.fecha_creacion else '—' }}</td>
+        <td>
+            <a href="#" class="btn btn-secondary">Editar</a>
+            <a href="{{ url_for('nom.eliminar_usuario', id=usuario.id) }}" class="btn btn-danger">Eliminar</a>
+        </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    </table>

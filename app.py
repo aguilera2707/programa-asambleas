@@ -1,13 +1,8 @@
-# app.py
-
 from flask import Flask
-from flask_admin import Admin
-from flask_admin.contrib.sqla import ModelView
 from extensions import db, mail
-from models import Valor, CicloEscolar, Bloque, Alumno
-from admin_views import CicloEscolarAdmin
+from models import Valor, CicloEscolar, Bloque, Alumno, Usuario
+from flask_login import LoginManager
 import os
-
 
 
 app = Flask(__name__)
@@ -25,20 +20,27 @@ app.config.update(
     MAIL_PASSWORD='tu_password',
     MAIL_DEFAULT_SENDER=('Colegio Asambleas', 'no-reply@colegio.edu.mx')
 )
+# 🔹 Límite de tamaño para archivos subidos (2 MB)
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024
+
+# --- 🔐 Configuración de Flask-Login ---
+login_manager = LoginManager()
+login_manager.login_view = 'nom.login'
+login_manager.init_app(app)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return Usuario.query.get(int(user_id))
+# ---------------------------------------
+
 
 # Inicialización de extensiones
 db.init_app(app)
 mail.init_app(app)
 
+# Crear tablas si no existen
 with app.app_context():
     db.create_all()
-
-# Panel de administración
-admin = Admin(app, name='Panel Admin', template_mode='bootstrap4')
-admin.add_view(ModelView(Valor, db.session, category='Configuración'))
-admin.add_view(CicloEscolarAdmin(CicloEscolar, db.session, category='Configuración'))
-admin.add_view(ModelView(Bloque, db.session, category='Configuración'))
-admin.add_view(ModelView(Alumno, db.session, category='Alumnos'))
 
 # Rutas (Blueprint)
 from routes import nom

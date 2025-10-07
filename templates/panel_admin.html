@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel de Administración</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_admin.css') }}">
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Encabezado -->
+        <header class="admin-header">
+            <h1>Panel de Administración</h1>
+            <div class="admin-user-info">
+                <span>{{ current_user.nombre }}</span>
+                <a href="{{ url_for('nom.logout') }}" class="btn btn-secondary">Cerrar sesión</a>
+            </div>
+        </header>
+
+        <!-- Contenido principal -->
+        <main class="admin-main">
+            <h2>Gestión del ciclo escolar</h2>
+            <p>Selecciona una acción para administrar el sistema:</p>
+
+            <div class="admin-cards">
+                <!-- Crear usuario -->
+                <div class="card card-action">
+                    <h3>👤 Crear usuario</h3>
+                    <p>Agrega nuevos administradores, maestros o alumnos al sistema.</p>
+                    <a href="{{ url_for('nom.panel_usuarios') }}" class="btn btn-primary">Ir</a>
+                </div>
+
+                <!-- Crear ciclo escolar -->
+                <div class="card card-action">
+                    <h3>📅 Ciclo escolar</h3>
+                    <p>Define o cambia el ciclo escolar actual (por ejemplo, 2025–2026).</p>
+                    <a href="#" class="btn btn-primary">Próximamente</a>
+                </div>
+
+                <!-- Valores y nominaciones -->
+                <div class="card card-action">
+                    <h3>🏅 Valores y nominaciones</h3>
+                    <p>Gestiona los valores institucionales y las nominaciones del personal.</p>
+                    <a href="{{ url_for('nom.panel_nominaciones') }}" class="btn btn-primary">Ir</a>
+                </div>
+
+                <!-- Reportes -->
+                <div class="card card-action">
+                    <h3>📊 Reportes</h3>
+                    <p>Consulta estadísticas de nominaciones y asistencia a asambleas.</p>
+                    <a href="#" class="btn btn-primary">Próximamente</a>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

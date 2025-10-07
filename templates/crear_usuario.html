@@ -1,0 +1,44 @@
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crear nuevo usuario</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/crear_usuario.css') }}">
+    </head>
+
+    <body>
+    
+    <div class="crear-usuario-container">
+        <a href="{{ url_for('nom.panel_usuarios') }}" class="btn btn-volver">⮌ Volver atras</a>
+        <h2>Crear nuevo usuario</h2>
+        <form action="{{ url_for('nom.crear_usuario') }}" method="POST" class="form">
+        <label for="nombre">Nombre completo:</label>
+        <input type="text" id="nombre" name="nombre" placeholder="Ej. Juan Pérez" required>
+
+        <label for="correo">Correo electrónico:</label>
+        <input type="email" id="correo" name="correo" placeholder="ejemplo@correo.com" required>
+
+        <label for="password">Contraseña:</label>
+        <input type="password" id="password" name="password" placeholder="Mínimo 8 caracteres" required>
+
+        <label for="rol">Rol:</label>
+        <select id="rol" name="rol" required>
+            <option value="">Selecciona un rol</option>
+            <option value="admin">Administrador</option>
+            <option value="profesor">Profesor</option>
+            <option value="estudiante">Estudiante</option>
+        </select>
+
+        <div class="acciones">
+            <button type="submit" class="btn btn-primary">Crear usuario</button>
+            <a href="{{ url_for('nom.panel_admin') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+        </form>
+
+        {% if mensaje %}
+        <p class="mensaje">{{ mensaje }}</p>
+        {% endif %}
+    </div>
+    </body>
+    </html>
