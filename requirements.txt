@@ -24,7 +24,10 @@ XlsxWriter==3.2.0
 # --- Word, PDF, plantillas ---
 docxtpl==0.20.1
 docx2pdf==0.1.8
-weasyprint==66.0
+weasyprint==59.0  # 👈 downgraded para compatibilidad Render/Linux
+
+# --- Driver PostgreSQL ---
+psycopg2-binary>=2.9.6  # 👈 necesario para Neon.tech
 
 # --- Servidor ---
 gunicorn==23.0.0
