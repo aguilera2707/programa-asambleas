@@ -301,3 +301,11 @@ def eliminar_usuario(id):
     db.session.delete(usuario)
     db.session.commit()
     return jsonify({"message": f"Usuario {usuario.nombre} eliminado correctamente."}), 200
+
+@app.route("/check_db")
+def check_db():
+    try:
+        db.session.execute("SELECT 1")
+        return "✅ Conectado correctamente a Neon.tech"
+    except Exception as e:
+        return f"❌ Error de conexión: {e}"

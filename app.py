@@ -3,9 +3,19 @@ from extensions import db, mail
 from models import Valor, CicloEscolar, Bloque, Alumno, Usuario
 from flask_login import LoginManager
 import os
-
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
+# Detecta automáticamente si hay DATABASE_URL (Render)
+# Si no hay, usa SQLite local (para tus pruebas)
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
+    'DATABASE_URL', 'sqlite:///local.db'
+)
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+
 app.secret_key = 'clave_segura'
 
 # Configuración de base de datos y correo
