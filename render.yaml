@@ -2,8 +2,13 @@ services:
   - type: web
     name: programa-asambleas
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      echo "Instalando dependencias con Python 3.11.9"
+      pip install --upgrade pip
+      pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+    build:
+      pythonVersion: 3.11.9
