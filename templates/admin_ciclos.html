@@ -1,29 +1,86 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
     <meta charset="UTF-8">
-    <title>Ciclos Escolares</title>
-</head>
-<body>
-    <h1>Gestión de Ciclos Escolares</h1>
+    <title>Gestión de Ciclos Escolares</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_ciclos.css') }}">
+    </head>
+    <body>
+    <div class="container">
+        <h1>Gestión de Ciclos Escolares</h1>
 
-    <form method="POST">
+        <form method="POST">
         <input type="text" name="nombre" placeholder="Ej. 2025-2026" required>
         <input type="date" name="fecha_inicio">
         <input type="date" name="fecha_fin">
         <button type="submit">Crear ciclo</button>
-    </form>
+        </form>
 
-    <h2>Listado de ciclos</h2>
-    <table border="1">
-        <tr><th>Nombre</th><th>Activo</th><th>Fechas</th></tr>
-        {% for ciclo in ciclos %}
-        <tr>
+        <h2>Listado de ciclos</h2>
+        <table>
+        <thead>
+            <tr>
+            <th>Nombre</th>
+            <th>Activo</th>
+            <th>Fechas</th>
+            <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ciclo in ciclos %}
+            <tr id="fila-{{ ciclo.id }}">
             <td>{{ ciclo.nombre }}</td>
-            <td>{% if ciclo.activo %}✅{% else %}❌{% endif %}</td>
+            <td class="estado">
+                {% if ciclo.activo %}
+                <span class="activo">✅</span>
+                {% else %}
+                <span class="inactivo">❌</span>
+                {% endif %}
+            </td>
             <td>{{ ciclo.fecha_inicio }} - {{ ciclo.fecha_fin }}</td>
-        </tr>
-        {% endfor %}
-    </table>
-</body>
-</html>
+            <td>
+                {% if not ciclo.activo %}
+                <button class="btn btn-activar" onclick="activarCiclo({{ ciclo.id }})">Activar</button>
+                {% else %}
+                <button class="btn btn-eliminar" disabled>Activo</button>
+                {% endif %}
+            </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+
+    <script>
+    async function activarCiclo(id) {
+        if (!confirm("¿Seguro que deseas activar este ciclo escolar? Esto desactivará los demás.")) return;
+
+        const resp = await fetch(`/admin/ciclos/activar/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+        });
+
+        if (resp.ok) {
+        // Actualiza visualmente la tabla
+        document.querySelectorAll(".estado span").forEach(e => e.textContent = "❌");
+        document.querySelectorAll(".btn").forEach(b => {
+            b.textContent = "Activar";
+            b.disabled = false;
+            b.classList.remove("btn-eliminar");
+            b.classList.add("btn-activar");
+        });
+
+        const fila = document.getElementById(`fila-${id}`);
+        fila.querySelector(".estado span").textContent = "✅";
+        const btn = fila.querySelector(".btn");
+        btn.textContent = "Activo";
+        btn.disabled = true;
+        btn.classList.remove("btn-activar");
+        btn.classList.add("btn-eliminar");
+        } else {
+        alert("Error al activar el ciclo. Intenta nuevamente.");
+        }
+    }
+    </script>
+    </body>
+    </html>

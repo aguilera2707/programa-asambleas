@@ -1,0 +1,66 @@
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+    <meta charset="UTF-8">
+    <title>Maestros del ciclo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_maestros.css') }}">
+    </head>
+    <body>
+    <div class="container">
+        <h1>Maestros del ciclo {{ ciclo.nombre if ciclo else '—' }}</h1>
+
+        <!-- 🔔 Mensajes flash (toast flotantes) -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="toast-container">
+            {% for category, message in messages %}
+                <div class="toast toast-{{ category }}">{{ message }}</div>
+            {% endfor %}
+            </div>
+        {% endif %}
+        {% endwith %}
+
+        {% if ciclo %}
+        <form action="{{ url_for('admin_bp.importar_maestros_ciclo') }}" method="POST" enctype="multipart/form-data">
+            <input type="file" name="file" accept=".xlsx,.csv" required>
+            <button type="submit">Importar maestros</button>
+        </form>
+
+        <h2>Listado de maestros</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Ciclo</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for m in maestros %}
+            <tr>
+                <td>{{ m.nombre }}</td>
+                <td>{{ m.correo }}</td>
+                <td>{{ ciclo.nombre }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3">No hay maestros registrados aún.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="text-align:center; color:#a00;">⚠️ No hay un ciclo activo. Activa un ciclo antes de importar maestros.</p>
+        {% endif %}
+    </div>
+
+    <!-- 💨 Animación para ocultar mensajes -->
+    <script>
+        setTimeout(() => {
+        document.querySelectorAll('.toast').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(-10px)';
+            setTimeout(() => el.remove(), 600);
+        });
+        }, 3000);
+    </script>
+    </body>
+    </html>

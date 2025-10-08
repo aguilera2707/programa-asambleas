@@ -24,12 +24,12 @@
         </form>
     </div>
 
-    <script>
-// === 🩺 Mantener la app despierta en Render ===
+<script>
+// === 🔁 Mantener la app activa (igual que Pasaporte Escolar) ===
 setInterval(() => {
-    fetch(window.location.origin + "/keepalive", { method: "GET", cache: "no-store" })
-    .then(r => console.log("Ping keep-alive →", r.status))
-    .catch(() => console.warn("⚠️ Error en keep-alive"));
+    fetch("/status", { cache: "no-store" })
+        .then(() => console.log("Ping a /status"))
+        .catch(() => console.warn("⚠️ Error en ping keep-alive"));
 }, 5 * 60 * 1000); // cada 5 minutos
 </script>
 
