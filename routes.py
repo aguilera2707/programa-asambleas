@@ -1,33 +1,45 @@
 # routes.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file
 from flask_login import login_user, logout_user, login_required, current_user
 from extensions import db, mail
 from flask_mail import Message
-from models import Valor, Nominacion, Usuario
-from utils import generar_pdf, ciclo_actual
 from werkzeug.utils import secure_filename
+from models import Valor, Nominacion, Usuario, CicloEscolar
+from utils import generar_pdf, ciclo_actual
 import pandas as pd
-from flask import send_file
-from io import BytesIO
-from flask import jsonify
-from models import CicloEscolar
+import tempfile
 import os
+from io import BytesIO
 
+
+# -------------------------------
+# 🔹 Definición de Blueprints
+# -------------------------------
 nom = Blueprint('nom', __name__)
+admin_bp = Blueprint('admin_bp', __name__, url_prefix='/admin')
 
 
+# -------------------------------
+# 🔹 Ruta Keep-Alive (para evitar que Render se duerma)
+# -------------------------------
 @nom.route("/keepalive")
 def keepalive():
     return "OK", 200
 
 
-# --- Rutas principales y nominaciones ---
+# -------------------------------
+# 🔹 Página principal (protegida)
+# -------------------------------
 @nom.route('/')
 @login_required
 def principal():
     ciclo = ciclo_actual()
     return render_template('principal.html', ciclo=ciclo, usuario=current_user)
 
+
+# -------------------------------
+# 🔹 Nominaciones
+# -------------------------------
 @nom.route('/nominaciones/alumno', methods=['GET', 'POST'])
 def nominar_alumno():
     if request.method == 'POST':
@@ -35,13 +47,14 @@ def nominar_alumno():
         return redirect(url_for('nom.principal'))
     return render_template('nominacion_alumno.html')
 
-@nom.route('/nominaciones/personal', methods=['GET','POST'])
+
+@nom.route('/nominaciones/personal', methods=['GET', 'POST'])
 def nominar_personal():
     if request.method == 'POST':
-        nominador   = request.form['nominador']
+        nominador = request.form['nominador']
         valores_ids = list(map(int, request.form.getlist('valores')))
-        nominado    = request.form['nominado']
-        razon       = request.form['razon']
+        nominado = request.form['nominado']
+        razon = request.form['razon']
 
         valores = Valor.query.filter(Valor.id.in_(valores_ids)).all()
         output_dir = os.path.join(os.getcwd(), 'invitaciones', 'personal')
@@ -55,7 +68,6 @@ def nominar_personal():
                 'texto_adicional': razon
             }
             filename = f"{nominado}_{valor.nombre}"
-
             pdf_path = generar_pdf('invitacion.html', context, output_dir, filename)
 
             msg = Message(
@@ -80,7 +92,10 @@ def nominar_personal():
     valores = Valor.query.all()
     return render_template('nominacion_personal.html', valores=valores)
 
-# --- Panel nominaciones admin ---
+
+# -------------------------------
+# 🔹 Panel de nominaciones (admin)
+# -------------------------------
 @nom.route('/admin/nominaciones', methods=['GET', 'POST'])
 def panel_nominaciones():
     if request.method == 'POST':
@@ -95,7 +110,10 @@ def panel_nominaciones():
     nominaciones = Nominacion.query.all()
     return render_template('admin_nominaciones.html', nominaciones=nominaciones)
 
-# --- Login ---
+
+# -------------------------------
+# 🔹 Login y logout
+# -------------------------------
 @nom.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -112,7 +130,30 @@ def login():
 
     return render_template('login.html')
 
-# --- Crear usuario ---
+
+@nom.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash("Sesión cerrada correctamente.", "success")
+    return redirect(url_for('nom.login'))
+
+
+# -------------------------------
+# 🔹 Panel de administración general
+# -------------------------------
+@nom.route('/admin')
+@login_required
+def panel_admin():
+    if current_user.rol != 'admin':
+        flash("🚫 Se necesita ser administrador para poder acceder a este apartado.", "danger")
+        return redirect(url_for('nom.principal'))
+    return render_template('panel_admin.html')
+
+
+# -------------------------------
+# 🔹 Crear usuario manualmente
+# -------------------------------
 @nom.route('/crear_usuario', methods=['GET', 'POST'])
 @login_required
 def crear_usuario():
@@ -150,24 +191,11 @@ def crear_usuario():
 
     return render_template('crear_usuario.html', mensaje=mensaje)
 
-@nom.route('/admin')
-@login_required
-def panel_admin():
-    if current_user.rol != 'admin':
-        flash("🚫 Se necesita ser administrador para poder acceder a este apartado.", "danger")
-        return redirect(url_for('nom.principal'))
-    return render_template('panel_admin.html')
 
-# --- Cerrar sesión ---
-@nom.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    flash("Sesión cerrada correctamente.", "success")
-    return redirect(url_for('nom.login'))
-
-import tempfile
-UPLOAD_FOLDER = tempfile.gettempdir()  # ✅ Usa carpeta temporal del sistema (Windows/Linux compatible)
+# -------------------------------
+# 🔹 Importar usuarios desde Excel o CSV
+# -------------------------------
+UPLOAD_FOLDER = tempfile.gettempdir()
 ALLOWED_EXTENSIONS = {'xlsx', 'csv'}
 
 def allowed_file(filename):
@@ -195,13 +223,11 @@ def importar_usuarios(rol):
     file.save(filepath)
 
     try:
-        # Leer archivo Excel o CSV
         if filename.endswith('.xlsx'):
             df = pd.read_excel(filepath)
         else:
             df = pd.read_csv(filepath)
 
-        # Validar columnas requeridas
         columnas_requeridas = {'nombre', 'email', 'contraseña'}
         if not columnas_requeridas.issubset(set(df.columns.str.lower())):
             flash("❌ La plantilla no contiene las columnas requeridas (nombre, email, contraseña).", "danger")
@@ -218,14 +244,13 @@ def importar_usuarios(rol):
 
             existente = Usuario.query.filter_by(email=email).first()
             if existente:
-                continue  # Evitar duplicados
+                continue
 
             nuevo_usuario = Usuario(nombre=nombre, email=email, rol=rol)
             nuevo_usuario.set_password(password)
             db.session.add(nuevo_usuario)
             usuarios_creados += 1
 
-            # Guardar por lotes de 50 para no saturar
             if usuarios_creados % 50 == 0:
                 db.session.commit()
 
@@ -242,6 +267,10 @@ def importar_usuarios(rol):
 
     return redirect(url_for('nom.panel_usuarios'))
 
+
+# -------------------------------
+# 🔹 Panel de usuarios
+# -------------------------------
 @nom.route('/admin/usuarios')
 @login_required
 def panel_usuarios():
@@ -250,6 +279,7 @@ def panel_usuarios():
         return redirect(url_for('nom.principal'))
     return render_template('panel_usuarios.html')
 
+
 @nom.route('/admin/usuarios/plantilla/<rol>')
 @login_required
 def descargar_plantilla(rol):
@@ -257,25 +287,21 @@ def descargar_plantilla(rol):
         flash("🚫 Solo los administradores pueden descargar plantillas.", "danger")
         return redirect(url_for('nom.panel_usuarios'))
 
-    # Crea la plantilla base
     columnas = ["nombre", "email", "contraseña"]
     df = pd.DataFrame(columns=columnas)
-
-    # Usa BytesIO para evitar escribir en disco
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name=f"{rol.capitalize()}s")
-
     output.seek(0)
-    filename = f"Plantilla_{rol}.xlsx"
 
     return send_file(
         output,
         as_attachment=True,
-        download_name=filename,
+        download_name=f"Plantilla_{rol}.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    
+
+
 @nom.route('/admin/usuarios/lista/<rol>')
 @login_required
 def lista_usuarios(rol):
@@ -284,12 +310,7 @@ def lista_usuarios(rol):
 
     usuarios = Usuario.query.filter_by(rol=rol).all()
     data = [
-        {
-            "id": u.id,
-            "nombre": u.nombre,
-            "email": u.email,
-            "rol": u.rol
-        }
+        {"id": u.id, "nombre": u.nombre, "email": u.email, "rol": u.rol}
         for u in usuarios
     ]
     return jsonify(data)
@@ -309,6 +330,10 @@ def eliminar_usuario(id):
     db.session.commit()
     return jsonify({"message": f"Usuario {usuario.nombre} eliminado correctamente."}), 200
 
+
+# -------------------------------
+# 🔹 Ruta de prueba de conexión a Neon
+# -------------------------------
 @nom.route("/check_db")
 def check_db():
     try:
@@ -316,9 +341,11 @@ def check_db():
         return "✅ Conectado correctamente a Neon.tech"
     except Exception as e:
         return f"❌ Error de conexión: {e}"
-    
-    admin_bp = Blueprint('admin_bp', __name__, url_prefix='/admin')
 
+
+# -------------------------------
+# 🔹 Administración de ciclos escolares
+# -------------------------------
 @admin_bp.route('/ciclos', methods=['GET', 'POST'])
 def gestionar_ciclos():
     ciclos = CicloEscolar.query.order_by(CicloEscolar.id.desc()).all()
