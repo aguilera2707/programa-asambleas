@@ -1,0 +1,98 @@
+    body {
+    font-family: 'Poppins', sans-serif;
+    background: #f8f9fc;
+    color: #333;
+    margin: 0;
+    padding: 0;
+    }
+
+    .container {
+    width: 90%;
+    max-width: 900px;
+    margin: 40px auto;
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+    text-align: center;
+    color: #800000;
+    margin-bottom: 25px;
+    }
+
+    .import-form {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    }
+
+    .import-form input[type="file"] {
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    }
+
+    .import-form button {
+    background: #800000;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    }
+
+    .import-form button:hover {
+    background: #a61a1a;
+    }
+
+    /* Tabla */
+    table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: center;
+    }
+
+    thead {
+    background: #800000;
+    color: white;
+    }
+
+    th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    }
+
+    tbody tr:nth-child(even) {
+    background: #f2f2f2;
+    }
+
+    /* Mensajes tipo toast */
+    .toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 999;
+    }
+
+    .toast {
+    background: #28a745;
+    color: white;
+    padding: 12px 18px;
+    margin-top: 10px;
+    border-radius: 6px;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+    transition: 0.6s;
+    }
+
+    .toast-danger { background: #dc3545; }
+    .toast-warning { background: #ffc107; color: #222; }
+
+    .warning {
+    text-align: center;
+    color: #b00;
+    font-weight: 500;
+    }

@@ -39,22 +39,24 @@ class Maestro(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
     correo = db.Column(db.String(120), unique=True, nullable=False)
-    ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'))
+    ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'), nullable=False)
 
     def __repr__(self):
         return f"<Maestro {self.nombre}>"
 
 
 # -------------------------------
-# 🔹 Modelo: Bloque (agrupa grados y salones del ciclo)
+# 🔹 Modelo: Bloque
 # -------------------------------
 class Bloque(db.Model):
     __tablename__ = 'bloques'
 
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
-    descripcion = db.Column(db.Text, nullable=True)
-    ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'))
+    ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'), nullable=False)
+
+    # Relación inversa: cada bloque tiene muchos alumnos
+    alumnos = db.relationship('Alumno', backref='bloque', lazy=True)
 
     def __repr__(self):
         return f"<Bloque {self.nombre}>"
@@ -72,8 +74,8 @@ class Alumno(db.Model):
     grupo = db.Column(db.String(5), nullable=False)
     nivel = db.Column(db.String(50), nullable=False)
 
-    bloque_id = db.Column(db.Integer, db.ForeignKey('bloques.id'))
-    ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'))
+    ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'), nullable=False)
+    bloque_id = db.Column(db.Integer, db.ForeignKey('bloques.id'), nullable=True)
 
     def __repr__(self):
         return f"<Alumno {self.nombre} - {self.grado}{self.grupo}>"
@@ -87,7 +89,7 @@ class Valor(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(50), nullable=False)
-    ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'))
+    ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'), nullable=False)
 
     def __repr__(self):
         return f"<Valor {self.nombre}>"
