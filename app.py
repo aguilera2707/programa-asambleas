@@ -1,12 +1,24 @@
+# app.py
 from flask import Flask
 from extensions import db, mail
 from flask_login import LoginManager
-import os
-from models import Usuario
-from routes import nom  # importa blueprint aquí directamente
-
+from flask_admin import Admin
 from dotenv import load_dotenv
+import os
+
+# Modelos y vistas admin
+from models import Usuario, CicloEscolar
+from admin_views import CicloEscolarAdmin
+
+# Blueprints
+from routes import nom, admin_bp
+
+
+# -------------------------------
+# 🔹 Cargar variables de entorno (.env)
+# -------------------------------
 load_dotenv()
+
 
 def create_app():
     app = Flask(__name__)
@@ -15,16 +27,16 @@ def create_app():
     # 🔹 Configuración de base de datos
     # -------------------------------
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
-        'DATABASE_URL',  # URL de Neon (Render la inyecta automáticamente)
-        'sqlite:///local.db'  # Fallback para entorno local
+        'DATABASE_URL',             # Render inyecta esta variable automáticamente
+        'sqlite:///local.db'        # Fallback local
     )
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     # -------------------------------
     # 🔹 Configuración general
     # -------------------------------
-    app.secret_key = 'clave_segura'
-    app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # Límite de 2 MB
+    app.secret_key = os.getenv('SECRET_KEY', 'clave_segura')
+    app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2 MB máx.
 
     # -------------------------------
     # 🔹 Configuración de correo
@@ -56,9 +68,16 @@ def create_app():
         return Usuario.query.get(int(user_id))
 
     # -------------------------------
-    # 🔹 Registrar Blueprint principal
+    # 🔹 Configuración de Flask-Admin
+    # -------------------------------
+    admin = Admin(app, name='Panel Administrativo', template_mode='bootstrap4')
+    admin.add_view(CicloEscolarAdmin(CicloEscolar, db.session, category='Configuración'))
+
+    # -------------------------------
+    # 🔹 Registrar Blueprints
     # -------------------------------
     app.register_blueprint(nom)
+    app.register_blueprint(admin_bp)
 
     # -------------------------------
     # 🔹 Crear tablas si no existen
@@ -69,7 +88,7 @@ def create_app():
     return app
 
 
-# ✅ Punto de entrada estándar para Flask y Render
+# ✅ Punto de entrada estándar para Flask / Render
 app = create_app()
 
 if __name__ == '__main__':

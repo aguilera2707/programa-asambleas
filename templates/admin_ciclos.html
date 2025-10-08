@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Ciclos Escolares</title>
+</head>
+<body>
+    <h1>Gestión de Ciclos Escolares</h1>
+
+    <form method="POST">
+        <input type="text" name="nombre" placeholder="Ej. 2025-2026" required>
+        <input type="date" name="fecha_inicio">
+        <input type="date" name="fecha_fin">
+        <button type="submit">Crear ciclo</button>
+    </form>
+
+    <h2>Listado de ciclos</h2>
+    <table border="1">
+        <tr><th>Nombre</th><th>Activo</th><th>Fechas</th></tr>
+        {% for ciclo in ciclos %}
+        <tr>
+            <td>{{ ciclo.nombre }}</td>
+            <td>{% if ciclo.activo %}✅{% else %}❌{% endif %}</td>
+            <td>{{ ciclo.fecha_inicio }} - {{ ciclo.fecha_fin }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

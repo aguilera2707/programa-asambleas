@@ -10,9 +10,16 @@ import pandas as pd
 from flask import send_file
 from io import BytesIO
 from flask import jsonify
+from models import CicloEscolar
 import os
 
 nom = Blueprint('nom', __name__)
+
+
+@nom.route("/keepalive")
+def keepalive():
+    return "OK", 200
+
 
 # --- Rutas principales y nominaciones ---
 @nom.route('/')
@@ -309,3 +316,19 @@ def check_db():
         return "✅ Conectado correctamente a Neon.tech"
     except Exception as e:
         return f"❌ Error de conexión: {e}"
+    
+    admin_bp = Blueprint('admin_bp', __name__, url_prefix='/admin')
+
+@admin_bp.route('/ciclos', methods=['GET', 'POST'])
+def gestionar_ciclos():
+    ciclos = CicloEscolar.query.order_by(CicloEscolar.id.desc()).all()
+    if request.method == 'POST':
+        nombre = request.form['nombre']
+        inicio = request.form.get('fecha_inicio')
+        fin = request.form.get('fecha_fin')
+        nuevo = CicloEscolar(nombre=nombre, fecha_inicio=inicio, fecha_fin=fin)
+        db.session.add(nuevo)
+        db.session.commit()
+        flash(f'Ciclo {nombre} creado correctamente.')
+        return redirect(url_for('admin_bp.gestionar_ciclos'))
+    return render_template('admin_ciclos.html', ciclos=ciclos)

@@ -23,5 +23,15 @@
             <button type="submit">Entrar</button>
         </form>
     </div>
+
+    <script>
+// === 🩺 Mantener la app despierta en Render ===
+setInterval(() => {
+    fetch(window.location.origin + "/keepalive", { method: "GET", cache: "no-store" })
+    .then(r => console.log("Ping keep-alive →", r.status))
+    .catch(() => console.warn("⚠️ Error en keep-alive"));
+}, 5 * 60 * 1000); // cada 5 minutos
+</script>
+
 </body>
 </html>
