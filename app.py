@@ -5,6 +5,9 @@ import os
 from models import Usuario
 from routes import nom  # importa blueprint aquí directamente
 
+from dotenv import load_dotenv
+load_dotenv()
+
 def create_app():
     app = Flask(__name__)
 

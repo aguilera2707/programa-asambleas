@@ -27,7 +27,7 @@ docx2pdf==0.1.8
 weasyprint==59.0  # 👈 downgraded para compatibilidad Render/Linux
 
 # --- Driver PostgreSQL ---
-psycopg2-binary>=2.9.6  # 👈 necesario para Neon.tech
+psycopg2-binary>=2.9.10  # 👈 necesario para Neon.tech
 
 # --- Servidor ---
 gunicorn==23.0.0
