@@ -96,3 +96,25 @@
     color: #b00;
     font-weight: 500;
     }
+
+    td[contenteditable="true"] {
+    background: #fff8e1;
+    outline: none;
+    cursor: text;
+    }
+
+    .btn-guardar, .btn-eliminar {
+    border: none;
+    cursor: pointer;
+    background: none;
+    font-size: 16px;
+    margin: 0 5px;
+    }
+
+    .btn-guardar:hover {
+    color: green;
+    }
+
+    .btn-eliminar:hover {
+    color: crimson;
+    }

@@ -21,9 +21,18 @@
         {% endwith %}
 
         {% if ciclo %}
-        <form action="{{ url_for('admin_bp.importar_alumnos_ciclo') }}" method="POST" enctype="multipart/form-data" class="import-form">
+        <!-- 🔹 Importar alumnos por bloque -->
+        <form action="{{ url_for('admin_bp.importar_alumnos_por_bloque') }}" method="POST" enctype="multipart/form-data" class="import-form">
+            <select name="bloque_id" required>
+            <option value="">— Selecciona bloque —</option>
+            {% for b in bloques %}
+                <option value="{{ b.id }}">{{ b.nombre }}</option>
+            {% endfor %}
+            </select>
+
             <input type="file" name="file" accept=".xlsx,.csv" required>
             <button type="submit">📤 Importar alumnos</button>
+            <a href="{{ url_for('admin_bp.plantilla_alumnos_bloque') }}" class="link-plantilla">📄 Descargar plantilla</a>
         </form>
 
         <h2>Listado de alumnos</h2>
@@ -39,15 +48,19 @@
             </thead>
             <tbody>
             {% for a in alumnos %}
-            <tr>
-                <td>{{ a.nombre }}</td>
-                <td>{{ a.grado }}</td>
-                <td>{{ a.grupo }}</td>
-                <td>{{ a.nivel }}</td>
+            <tr data-id="{{ a.id }}">
+                <td contenteditable="true">{{ a.nombre }}</td>
+                <td contenteditable="true">{{ a.grado }}</td>
+                <td contenteditable="true">{{ a.grupo }}</td>
+                <td contenteditable="true">{{ a.nivel }}</td>
                 <td>{{ a.bloque.nombre if a.bloque else '—' }}</td>
+                <td>
+                    <button class="btn-guardar">💾</button>
+                    <button class="btn-eliminar">🗑️</button>
+                </td>
             </tr>
             {% else %}
-            <tr><td colspan="5">No hay alumnos registrados aún.</td></tr>
+            <tr><td colspan="6">No hay alumnos registrados aún.</td></tr>
             {% endfor %}
             </tbody>
         </table>
@@ -57,14 +70,50 @@
     </div>
 
     <script>
-    // 💨 Desvanecer mensajes automáticamente
-    setTimeout(() => {
+        // 💨 Desvanecer mensajes automáticamente
+        setTimeout(() => {
         document.querySelectorAll('.toast').forEach(el => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(-10px)';
-        setTimeout(() => el.remove(), 600);
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(-10px)';
+            setTimeout(() => el.remove(), 600);
         });
-    }, 3000);
+        }, 3000);
+
+    document.querySelectorAll(".btn-guardar").forEach(btn => {
+        btn.addEventListener("click", e => {
+            const row = e.target.closest("tr");
+            const id = row.dataset.id;
+            const datos = {
+                nombre: row.cells[0].innerText.trim(),
+                grado: row.cells[1].innerText.trim(),
+                grupo: row.cells[2].innerText.trim(),
+                nivel: row.cells[3].innerText.trim()
+            };
+            fetch(`/admin/alumnos/editar/${id}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(datos)
+            }).then(r => r.json()).then(res => {
+                alert(res.message);
+            });
+        });
+    });
+
+    document.querySelectorAll(".btn-eliminar").forEach(btn => {
+        btn.addEventListener("click", e => {
+            const row = e.target.closest("tr");
+            const id = row.dataset.id;
+            if (!confirm("¿Eliminar este alumno?")) return;
+            fetch(`/admin/alumnos/eliminar/${id}`, { method: "DELETE" })
+                .then(r => r.json())
+                .then(res => {
+                    alert(res.message);
+                    row.remove();
+                });
+        });
+    });
+
+
     </script>
     </body>
     </html>

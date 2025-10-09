@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Bloques del Ciclo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_bloques.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Bloques del ciclo {{ ciclo.nombre }}</h1>
+
+        <!-- 🔔 Mensajes flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('admin_bp.bloques_ciclo') }}">
+            <input type="text" name="nombre" placeholder="Nombre del nuevo bloque" required>
+            <button type="submit">Agregar bloque</button>
+        </form>
+
+        <h2>Bloques registrados</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Bloque</th>
+                    <th>Alumnos</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bloque in bloques %}
+                <tr>
+                    <td>{{ bloque.nombre }}</td>
+                    <td>{{ conteos[bloque.id] }}</td>
+                    <td>
+                        {% if conteos[bloque.id] == 0 %}
+                        <form method="POST" action="{{ url_for('admin_bp.eliminar_bloque', id=bloque.id) }}">
+                            <button class="btn-eliminar" type="submit" onclick="return confirm('¿Eliminar este bloque?')">🗑️</button>
+                        </form>
+                        {% else %}
+                        <span class="bloque-lleno">Bloque activo</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3">No hay bloques registrados aún.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // 💨 Animación de desvanecimiento automático de mensajes flash
+        setTimeout(() => {
+            document.querySelectorAll('.flash-message').forEach(el => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(-10px)';
+                setTimeout(() => el.remove(), 600);
+            });
+        }, 3000);
+    </script>
+</body>
+</html>

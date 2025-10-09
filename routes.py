@@ -12,6 +12,7 @@ import os
 from io import BytesIO
 from models import Maestro
 from models import Alumno, Bloque
+from flask import send_file
 
 
 # -------------------------------
@@ -487,7 +488,7 @@ def alumnos_ciclo():
 
 
 # -------------------------------
-# 🔹 Importar alumnos al ciclo activo
+# 🔹 Importar alumnos al ciclo activo (normalizado y sin duplicados)
 # -------------------------------
 @admin_bp.route('/alumnos/importar', methods=['POST'])
 @login_required
@@ -508,10 +509,12 @@ def importar_alumnos_ciclo():
     try:
         # Detectar formato (Excel o CSV)
         df = pd.read_excel(filepath) if filename.endswith('.xlsx') else pd.read_csv(filepath)
+        df.columns = [c.strip().lower() for c in df.columns]  # Normaliza encabezados
 
         columnas_requeridas = {'nombre', 'grado', 'grupo', 'nivel', 'bloque'}
-        if not columnas_requeridas.issubset(set(df.columns.str.lower())):
-            flash("❌ La plantilla debe contener las columnas: nombre, grado, grupo, nivel, bloque.", "danger")
+        if not columnas_requeridas.issubset(set(df.columns)):
+            faltan = ", ".join(columnas_requeridas - set(df.columns))
+            flash(f"❌ La plantilla debe contener las columnas: {faltan}", "danger")
             return redirect(url_for('admin_bp.alumnos_ciclo'))
 
         ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
@@ -522,13 +525,13 @@ def importar_alumnos_ciclo():
         importados, existentes = 0, 0
 
         for _, row in df.iterrows():
-            nombre = str(row['nombre']).strip()
-            grado = str(row['grado']).strip()
-            grupo = str(row['grupo']).strip()
-            nivel = str(row['nivel']).strip()
-            bloque_nombre = str(row['bloque']).strip()
+            nombre = str(row["nombre"]).strip().title()
+            grado = str(row["grado"]).strip()
+            grupo = str(row["grupo"]).strip().upper()
+            nivel = str(row["nivel"]).strip().capitalize()
+            bloque_nombre = str(row["bloque"]).strip()
 
-            if not nombre or not grado or not grupo or not nivel:
+            if not (nombre and grado and grupo and nivel and bloque_nombre):
                 continue
 
             # Buscar o crear bloque
@@ -538,21 +541,27 @@ def importar_alumnos_ciclo():
                 db.session.add(bloque)
                 db.session.commit()
 
-            # Verificar duplicado
-            existente = Alumno.query.filter_by(nombre=nombre, grado=grado, grupo=grupo, ciclo_id=ciclo_activo.id).first()
-            if existente:
+            # Evita duplicados ignorando mayúsculas/minúsculas
+            ya = Alumno.query.filter(
+                db.func.lower(Alumno.nombre) == nombre.lower(),
+                Alumno.grado == grado,
+                db.func.upper(Alumno.grupo) == grupo.upper(),
+                Alumno.ciclo_id == ciclo_activo.id
+            ).first()
+
+            if ya:
                 existentes += 1
                 continue
 
-            alumno = Alumno(
+            nuevo = Alumno(
                 nombre=nombre,
                 grado=grado,
                 grupo=grupo,
                 nivel=nivel,
-                bloque_id=bloque.id,
-                ciclo_id=ciclo_activo.id
+                ciclo_id=ciclo_activo.id,
+                bloque_id=bloque.id
             )
-            db.session.add(alumno)
+            db.session.add(nuevo)
             importados += 1
 
         db.session.commit()
@@ -560,10 +569,268 @@ def importar_alumnos_ciclo():
 
     except Exception as e:
         db.session.rollback()
-        flash(f"❌ Error al importar: {e}", "danger")
+        flash(f"❌ Error al importar alumnos: {e}", "danger")
 
     finally:
         if os.path.exists(filepath):
             os.remove(filepath)
 
     return redirect(url_for('admin_bp.alumnos_ciclo'))
+
+
+# -------------------------------
+# 🔹 Gestión de Bloques del Ciclo Activo
+# -------------------------------
+@admin_bp.route('/bloques', methods=['GET', 'POST'])
+@login_required
+def bloques_ciclo():
+    if current_user.rol != 'admin':
+        flash("🚫 Solo los administradores pueden acceder.", "danger")
+        return redirect(url_for('nom.principal'))
+
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        flash("⚠️ No hay un ciclo activo. Activa un ciclo antes de administrar bloques.", "warning")
+        return redirect(url_for('admin_bp.gestionar_ciclos'))
+
+    # Crear bloque manualmente
+    if request.method == 'POST':
+        nombre = request.form['nombre'].strip()
+        if not nombre:
+            flash("⚠️ El nombre del bloque no puede estar vacío.", "warning")
+            return redirect(url_for('admin_bp.bloques_ciclo'))
+
+        existente = Bloque.query.filter_by(nombre=nombre, ciclo_id=ciclo.id).first()
+        if existente:
+            flash(f"⚠️ El bloque '{nombre}' ya existe en este ciclo.", "warning")
+        else:
+            nuevo = Bloque(nombre=nombre, ciclo_id=ciclo.id)
+            db.session.add(nuevo)
+            db.session.commit()
+            flash(f"✅ Bloque '{nombre}' creado exitosamente.", "success")
+
+        return redirect(url_for('admin_bp.bloques_ciclo'))
+
+    # Mostrar lista de bloques del ciclo actual
+    bloques = (
+        db.session.query(Bloque)
+        .filter_by(ciclo_id=ciclo.id)
+        .order_by(Bloque.id.asc())
+        .all()
+    )
+
+    # Contar alumnos por bloque
+    conteos = {
+        b.id: Alumno.query.filter_by(bloque_id=b.id).count() for b in bloques
+    }
+
+    return render_template('admin_bloques.html', ciclo=ciclo, bloques=bloques, conteos=conteos)
+
+
+# -------------------------------
+# 🔹 Eliminar bloque (solo si está vacío)
+# -------------------------------
+@admin_bp.route('/bloques/eliminar/<int:id>', methods=['POST'])
+@login_required
+def eliminar_bloque(id):
+    if current_user.rol != 'admin':
+        return jsonify({"error": "No autorizado"}), 403
+
+    bloque = Bloque.query.get_or_404(id)
+    alumnos_asociados = Alumno.query.filter_by(bloque_id=bloque.id).count()
+
+    if alumnos_asociados > 0:
+        flash("❌ No se puede eliminar un bloque con alumnos asignados.", "danger")
+        return redirect(url_for('admin_bp.bloques_ciclo'))
+
+    db.session.delete(bloque)
+    db.session.commit()
+    flash(f"🗑️ Bloque '{bloque.nombre}' eliminado correctamente.", "success")
+    return redirect(url_for('admin_bp.bloques_ciclo'))
+
+ALLOWED_EXT_ALUMNOS = {"xlsx", "csv"}
+
+def _allowed_file_alumnos(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXT_ALUMNOS
+
+# -------------------------------
+# 🔹 Alumnos del ciclo activo (vista + importación por BLOQUE)
+# -------------------------------
+ALLOWED_EXT_ALUMNOS = {"xlsx", "csv"}
+
+def _allowed_file_alumnos(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXT_ALUMNOS
+
+
+@admin_bp.route('/alumnos', methods=['GET'])
+@login_required
+def admin_alumnos():
+    """Vista principal de alumnos del ciclo activo"""
+    if current_user.rol != 'admin':
+        flash("🚫 Solo los administradores pueden acceder.", "danger")
+        return redirect(url_for('nom.principal'))
+
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        flash("⚠️ No hay un ciclo activo. Activa un ciclo primero.", "warning")
+        return redirect(url_for('admin_bp.gestionar_ciclos'))
+
+    bloques = Bloque.query.filter_by(ciclo_id=ciclo.id).order_by(Bloque.id.asc()).all()
+    alumnos = Alumno.query.filter_by(ciclo_id=ciclo.id).order_by(Alumno.grado, Alumno.grupo, Alumno.nombre).all()
+    return render_template('admin_alumnos.html', ciclo=ciclo, bloques=bloques, alumnos=alumnos)
+
+
+@admin_bp.route('/alumnos/importar_bloque', methods=['POST'])
+@login_required
+def importar_alumnos_por_bloque():
+    """Importa alumnos al ciclo activo según bloque seleccionado"""
+    if current_user.rol != 'admin':
+        flash("🚫 Solo los administradores pueden importar alumnos.", "danger")
+        return redirect(url_for('nom.principal'))
+
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        flash("⚠️ No hay un ciclo activo. Activa un ciclo primero.", "warning")
+        return redirect(url_for('admin_bp.gestionar_ciclos'))
+
+    bloque_id = request.form.get("bloque_id", type=int)
+    if not bloque_id:
+        flash("⚠️ Selecciona un bloque para importar.", "warning")
+        return redirect(url_for('admin_bp.admin_alumnos'))
+
+    bloque = Bloque.query.filter_by(id=bloque_id, ciclo_id=ciclo.id).first()
+    if not bloque:
+        flash("❌ El bloque seleccionado no existe en el ciclo activo.", "danger")
+        return redirect(url_for('admin_bp.admin_alumnos'))
+
+    file = request.files.get("file")
+    if not file or file.filename == "":
+        flash("⚠️ No se seleccionó archivo.", "warning")
+        return redirect(url_for('admin_bp.admin_alumnos'))
+    if not _allowed_file_alumnos(file.filename):
+        flash("❌ Solo .xlsx o .csv", "danger")
+        return redirect(url_for('admin_bp.admin_alumnos'))
+
+    filename = secure_filename(file.filename)
+    tmp_path = os.path.join(tempfile.gettempdir(), filename)
+    file.save(tmp_path)
+
+    try:
+        df = pd.read_excel(tmp_path) if filename.lower().endswith(".xlsx") else pd.read_csv(tmp_path)
+        df.columns = [c.strip().lower() for c in df.columns]
+
+        requeridas = {"nombre", "grado", "grupo", "nivel"}
+        if not requeridas.issubset(set(df.columns)):
+            faltan = ", ".join(sorted(requeridas - set(df.columns)))
+            flash(f"❌ Faltan columnas requeridas: {faltan}", "danger")
+            return redirect(url_for('admin_bp.admin_alumnos'))
+
+        importados, existentes = 0, 0
+        for _, row in df.iterrows():
+            nombre = str(row["nombre"]).strip()
+            grado = str(row["grado"]).strip()
+            grupo = str(row["grupo"]).strip()
+            nivel = str(row["nivel"]).strip()
+            if not (nombre and grado and grupo and nivel):
+                continue
+
+            ya = Alumno.query.filter_by(
+                nombre=nombre, grado=grado, grupo=grupo, ciclo_id=ciclo.id
+            ).first()
+            if ya:
+                existentes += 1
+                continue
+
+            nuevo = Alumno(
+                nombre=nombre,
+                grado=grado,
+                grupo=grupo,
+                nivel=nivel,
+                ciclo_id=ciclo.id,
+                bloque_id=bloque.id
+            )
+            db.session.add(nuevo)
+            importados += 1
+
+        db.session.commit()
+        flash(f"✅ {importados} alumnos importados a «{bloque.nombre}». {existentes} ya existían.", "success")
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f"❌ Error al importar: {e}", "danger")
+
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+    return redirect(url_for('admin_bp.admin_alumnos'))
+
+
+# -------------------------------
+# 🔹 Descargar plantilla Excel (alumnos por bloque)
+# -------------------------------
+@admin_bp.route('/alumnos/plantilla')
+@login_required
+def plantilla_alumnos_bloque():
+    """Genera y descarga una plantilla Excel con columnas básicas"""
+    try:
+        # Crear DataFrame vacío con columnas correctas
+        import pandas as pd
+        from io import BytesIO
+
+        columnas = ["nombre", "grado", "grupo", "nivel"]
+        df = pd.DataFrame(columns=columnas)
+
+        # Escribir en memoria (sin guardar en disco)
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+            df.to_excel(writer, index=False, sheet_name="AlumnosPorBloque")
+        output.seek(0)
+
+        # Enviar al navegador como archivo descargable
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name="Plantilla_alumnos_por_bloque.xlsx",
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    except Exception as e:
+        flash(f"❌ Error al generar la plantilla: {e}", "danger")
+        return redirect(url_for('admin_bp.admin_alumnos'))
+
+
+# -------------------------------
+# 🔹 Editar alumno
+# -------------------------------
+@admin_bp.route('/alumnos/editar/<int:id>', methods=['POST'])
+@login_required
+def editar_alumno(id):
+    if current_user.rol != 'admin':
+        return jsonify({"error": "No autorizado"}), 403
+
+    alumno = Alumno.query.get_or_404(id)
+    data = request.get_json()
+
+    alumno.nombre = data.get("nombre", alumno.nombre).title()
+    alumno.grado = data.get("grado", alumno.grado)
+    alumno.grupo = data.get("grupo", alumno.grupo).upper()
+    alumno.nivel = data.get("nivel", alumno.nivel).capitalize()
+
+    db.session.commit()
+    return jsonify({"message": f"Alumno {alumno.nombre} actualizado con éxito."}), 200
+
+
+# -------------------------------
+# 🔹 Eliminar alumno
+# -------------------------------
+@admin_bp.route('/alumnos/eliminar/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_alumno(id):
+    if current_user.rol != 'admin':
+        return jsonify({"error": "No autorizado"}), 403
+
+    alumno = Alumno.query.get_or_404(id)
+    db.session.delete(alumno)
+    db.session.commit()
+    return jsonify({"message": f"Alumno {alumno.nombre} eliminado."}), 200
