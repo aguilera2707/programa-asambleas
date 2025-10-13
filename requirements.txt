@@ -32,3 +32,5 @@ psycopg2-binary>=2.9.10  # 👈 necesario para Neon.tech
 # --- Servidor ---
 gunicorn==23.0.0
 python-dotenv==1.0.1
+
+Flask-Migrate==4.0.5
