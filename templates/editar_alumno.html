@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar alumno</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/editar_alumno.css') }}">
+</head>
+<body>
+    <header class="header">
+        <h1>✏️ Editar alumno</h1>
+        <a href="{{ url_for('nom.panel_usuarios') }}" class="btn-volver">⮌ Volver</a>
+    </header>
+
+    <main class="contenedor">
+        <form action="{{ url_for('admin_bp.actualizar_alumno', id=alumno.id) }}" method="POST" class="form-editar">
+            <label>Nombre:</label>
+            <input type="text" name="nombre" value="{{ alumno.nombre }}" required>
+
+            <label>Grado:</label>
+            <input type="text" name="grado" value="{{ alumno.grado }}" required>
+
+            <label>Grupo:</label>
+            <input type="text" name="grupo" value="{{ alumno.grupo }}" required>
+
+            <label>Nivel:</label>
+            <input type="text" name="nivel" value="{{ alumno.nivel }}" required>
+
+            <button type="submit" class="btn-guardar">💾 Guardar cambios</button>
+        </form>
+    </main>
+</body>
+</html>

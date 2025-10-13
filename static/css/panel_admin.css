@@ -171,3 +171,84 @@
         font-size: 1.3rem;
     }
     }
+
+
+    /* 🔹 Sección de filtros */
+    .filtros {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+
+    .filtros h2 {
+    font-size: 1.3rem;
+    color: #b30000; /* rojo institucional */
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    }
+
+    .fila-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    }
+
+    .fila-filtros label {
+    font-weight: 600;
+    color: #333;
+    }
+
+    .fila-filtros select,
+    .fila-filtros input[type="date"] {
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background-color: #fff;
+    }
+
+    .fila-filtros .btn {
+    background-color: #b30000;
+    color: #fff;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.2s ease;
+    }
+
+    .fila-filtros .btn:hover {
+    background-color: #d30000;
+    }
+
+    /* 🔹 Botón de limpiar distinto */
+    #btn-limpiar {
+    background-color: #fff;
+    color: #b30000;
+    border: 1px solid #b30000;
+    }
+
+    #btn-limpiar:hover {
+    background-color: #b30000;
+    color: #fff;
+    }
+
+    /* 🔹 Responsive */
+    @media (max-width: 768px) {
+    .fila-filtros {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .fila-filtros label {
+        margin-top: 0.5rem;
+    }
+    .filtros {
+        margin: 0 0.5rem 1.5rem 0.5rem;
+    }
+    }

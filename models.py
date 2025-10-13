@@ -23,8 +23,8 @@ class CicloEscolar(db.Model):
     maestros = db.relationship('Maestro', backref='ciclo', lazy=True)
     alumnos = db.relationship('Alumno', backref='ciclo', lazy=True)
     bloques = db.relationship('Bloque', backref='ciclo', lazy=True)
-    valores = db.relationship('Valor', backref='ciclo', lazy=True)
-    nominaciones = db.relationship('Nominacion', backref='ciclo', lazy=True)
+    valores = db.relationship('Valor', back_populates='ciclo', lazy=True)
+
 
     def __repr__(self):
         return f"<CicloEscolar {self.nombre}>"
@@ -88,30 +88,61 @@ class Valor(db.Model):
     __tablename__ = 'valores'
 
     id = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(50), nullable=False)
-    ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'), nullable=False)
+    nombre = db.Column(db.String(100), nullable=False)
+    descripcion = db.Column(db.Text, nullable=True)
+    ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'), nullable=False)  # ✅ FIX
+    activo = db.Column(db.Boolean, default=True)
+
+    ciclo = db.relationship('CicloEscolar', back_populates='valores', lazy=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('nombre', 'ciclo_id', name='unique_valor_por_ciclo'),
+    )
 
     def __repr__(self):
         return f"<Valor {self.nombre}>"
 
 
 # -------------------------------
-# 🔹 Modelo: Nominación (conexión entre maestro, alumno y valor)
+# 🔹 Modelo: Nominación (alumno o personal)
 # -------------------------------
 class Nominacion(db.Model):
     __tablename__ = 'nominaciones'
 
     id = db.Column(db.Integer, primary_key=True)
-    alumno_id = db.Column(db.Integer, db.ForeignKey('alumnos.id'))
-    maestro_id = db.Column(db.Integer, db.ForeignKey('maestros.id'))
-    valor_id = db.Column(db.Integer, db.ForeignKey('valores.id'))
-    ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'))
 
-    razon = db.Column(db.Text, nullable=True)
-    fecha = db.Column(db.DateTime, default=datetime.utcnow)
+    # Puede ser una nominación a alumno o a maestro
+    alumno_id = db.Column(db.Integer, db.ForeignKey('alumnos.id'), nullable=True)
+    maestro_nominado_id = db.Column(db.Integer, db.ForeignKey('maestros.id'), nullable=True)
+
+    # Quien hace la nominación (siempre es un maestro)
+    maestro_id = db.Column(db.Integer, db.ForeignKey('maestros.id'), nullable=False)
+
+    # Valor institucional asociado
+    valor_id = db.Column(db.Integer, db.ForeignKey('valores.id'), nullable=False)
+    ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'), nullable=False)
+
+    comentario = db.Column(db.Text, nullable=True)
+    fecha = db.Column(db.Date, default=db.func.current_date())
+
+    # Relaciones
+    alumno = db.relationship('Alumno', foreign_keys=[alumno_id], backref='nominaciones_alumno', lazy=True)
+    maestro = db.relationship('Maestro', foreign_keys=[maestro_id], backref='nominaciones_hechas', lazy=True)
+    maestro_nominado = db.relationship('Maestro', foreign_keys=[maestro_nominado_id], backref='nominaciones_recibidas', lazy=True)
+    valor = db.relationship('Valor', backref='nominaciones_valor', lazy=True)
+    ciclo = db.relationship('CicloEscolar', backref='nominaciones_registradas', lazy=True)
+    tipo = db.Column(db.String(20), default='alumno')  # 'alumno' o 'personal'
 
     def __repr__(self):
-        return f"<Nominacion Alumno={self.alumno_id} Valor={self.valor_id}>"
+        if self.alumno_id:
+            return f"<Nominacion Alumno {self.alumno_id} - Valor {self.valor_id}>"
+        elif self.maestro_nominado_id:
+            return f"<Nominacion Maestro {self.maestro_nominado_id} - Valor {self.valor_id}>"
+        else:
+            return f"<Nominacion sin objetivo - Valor {self.valor_id}>"
+
+
+
 
 
 # -------------------------------

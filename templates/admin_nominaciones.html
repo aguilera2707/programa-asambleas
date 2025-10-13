@@ -1,34 +1,217 @@
-<!-- templates/admin_nominaciones.html -->
-<!DOCTYPE html>
-<html lang="es">
-<head>
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
     <meta charset="UTF-8">
-    <title>Panel de Nominaciones</title>
-</head>
-<body>
-    <h1>Panel de Nominaciones</h1>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Nominaciones del ciclo {{ ciclo.nombre }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_nominaciones.css') }}">
 
-    <form method="POST">
-        <input type="text" name="nombre" placeholder="Nombre del nominado" required>
-        <input type="text" name="categoria" placeholder="Categoría" required>
-        <textarea name="descripcion" placeholder="Descripción (opcional)"></textarea>
-        <button type="submit">Agregar nominación</button>
-    </form>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/valores.css') }}">
+    </head>
+    <body>
+    <div class="contenedor-valores">
 
-    <hr>
+    <!-- 🔹 FILTROS DE NOMINACIONES -->
+    <div class="filtros">
+        <h2>🔍 Filtros</h2>
+        <div class="fila-filtros">
+        <label>Tipo:</label>
+        <select id="filtro-tipo">
+            <option value="">Todos</option>
+            <option value="alumno">Alumnos</option>
+            <option value="personal">Personal</option>
+        </select>
 
-    <h2>Nominaciones registradas:</h2>
-    <ul>
-        {% for n in nominaciones %}
-            <li>
-                <strong>{{ n.nombre }}</strong> - {{ n.categoria }}<br>
-                {{ n.descripcion }}<br>
-                <em>Votos: {{ n.votos }}</em>
-            </li>
+        <label>Valor:</label>
+        <select id="filtro-valor">
+            <option value="">Todos</option>
+        </select>
+
+        <label>Maestro:</label>
+        <select id="filtro-maestro">
+            <option value="">Todos</option>
+        </select>
+
+        <label>Desde:</label>
+        <input type="date" id="filtro-desde">
+
+        <label>Hasta:</label>
+        <input type="date" id="filtro-hasta">
+
+        <button class="btn" id="btn-filtrar">Filtrar</button>
+        <button class="btn" id="btn-limpiar">Limpiar</button>
+        </div>
+    </div>
+
+    <h1 class="titulo-seccion">🏅 Nominaciones del ciclo {{ ciclo.nombre }}</h1>
+
+    <!-- Botón Exportar alumnos -->
+    <button class="btn-export" id="btn-export-alumnos">
+    📥 Descargar Excel (Alumnos)
+    </button>
+
+    <!-- 🧑‍🎓 Nominaciones de alumnos -->
+    <h2 style="margin-top:1.5rem;">🧑‍🎓 Nominaciones de alumnos</h2>
+    {% if nominaciones_alumnos %}
+    <table class="tabla-valores">
+        <thead>
+        <tr>
+            <th>Fecha</th>
+            <th>Alumno</th>
+            <th>Maestro que nomina</th>
+            <th>Valor</th>
+            <th>Comentario</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for nom in nominaciones_alumnos %}
+        <tr>
+            <td>{{ nom.fecha.strftime('%d/%m/%Y') }}</td>
+            <td>{{ nom.alumno.nombre }}</td>
+            <td>{{ nom.maestro.nombre }}</td>
+            <td>{{ nom.valor.nombre }}</td>
+            <td>{{ nom.comentario or '-' }}</td>
+        </tr>
         {% endfor %}
-    </ul>
+        </tbody>
+    </table>
+    {% else %}
+    <p class="mensaje-vacio">No hay nominaciones de alumnos.</p>
+    {% endif %}
 
-    <br>
-    <a href="{{ url_for('nom.principal') }}">← Volver al inicio</a>
-</body>
-</html>
+    <!-- Botón Exportar personal -->
+    <button class="btn-export" id="btn-export-personal">
+    📥 Descargar Excel (Personal)
+    </button>
+
+    <!-- 🍎 Nominaciones de personal -->
+    <h2 style="margin-top:2rem;">🍎 Nominaciones de personal</h2>
+    {% if nominaciones_personal %}
+    <table class="tabla-valores">
+        <thead>
+        <tr>
+            <th>Fecha</th>
+            <th>Nomina</th>
+            <th>Nomina a</th>
+            <th>Valor</th>
+            <th>Comentario</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for nom in nominaciones_personal %}
+        <tr>
+            <td>{{ nom.fecha.strftime('%d/%m/%Y') }}</td>
+            <td>{{ nom.maestro.nombre }}</td>
+            <td>{{ nom.maestro_nominado.nombre if nom.maestro_nominado else '-' }}</td>
+            <td>{{ nom.valor.nombre }}</td>
+            <td>{{ nom.comentario or '-' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="mensaje-vacio">No hay nominaciones de personal.</p>
+    {% endif %}
+    </div>
+
+    <script>
+    async function getJSON(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("Error HTTP " + r.status);
+    return await r.json();
+    }
+
+    function leerFiltros() {
+    return {
+        tipo: document.querySelector("#filtro-tipo").value,
+        valor_id: document.querySelector("#filtro-valor").value,
+        maestro_id: document.querySelector("#filtro-maestro").value,
+        fecha_desde: document.querySelector("#filtro-desde").value,
+        fecha_hasta: document.querySelector("#filtro-hasta").value
+    };
+    }
+
+    function buildQuery(params) {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+        if (v !== "") q.append(k, v);
+    });
+    return q.toString();
+    }
+
+    async function cargarCombos() {
+    const valores = await getJSON("/admin/catalogo/valores");
+    const maestros = await getJSON("/admin/catalogo/maestros");
+
+    const selValor = document.querySelector("#filtro-valor");
+    const selMaestro = document.querySelector("#filtro-maestro");
+
+    selValor.innerHTML = '<option value="">Todos</option>' +
+        valores.map(v => `<option value="${v.id}">${v.nombre}</option>`).join('');
+
+    selMaestro.innerHTML = '<option value="">Todos</option>' +
+        maestros.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+    }
+
+    async function cargarTabla() {
+    const params = leerFiltros();
+    const q = buildQuery(params);
+    const data = await getJSON("/admin/nominaciones/data?" + q);
+
+    const tablaAlumnos = document.querySelector(".tabla-valores:nth-of-type(1) tbody");
+    const tablaPersonal = document.querySelector(".tabla-valores:nth-of-type(2) tbody");
+    tablaAlumnos.innerHTML = "";
+    tablaPersonal.innerHTML = "";
+
+    data.items.forEach(n => {
+        if (n.tipo === "alumno") {
+        tablaAlumnos.innerHTML += `
+            <tr>
+            <td>${n.fecha}</td>
+            <td>${n.alumno}</td>
+            <td>${n.maestro}</td>
+            <td>${n.valor}</td>
+            <td>${n.comentario}</td>
+            </tr>`;
+        } else if (n.tipo === "personal") {
+        tablaPersonal.innerHTML += `
+            <tr>
+            <td>${n.fecha}</td>
+            <td>${n.maestro}</td>
+            <td>${n.maestro_nominado}</td>
+            <td>${n.valor}</td>
+            <td>${n.comentario}</td>
+            </tr>`;
+        }
+    });
+    }
+
+    document.querySelector("#btn-filtrar").addEventListener("click", cargarTabla);
+    document.querySelector("#btn-limpiar").addEventListener("click", async () => {
+    ["#filtro-tipo", "#filtro-valor", "#filtro-maestro", "#filtro-desde", "#filtro-hasta"]
+        .forEach(sel => document.querySelector(sel).value = "");
+    await cargarTabla();
+    });
+
+    (async function init() {
+    await cargarCombos();
+    })();
+
+    // 🧾 Exportar con filtros activos
+    function exportar(tipo) {
+    const params = leerFiltros();
+    params.tipo = tipo; // fuerza el tipo según el botón
+    const q = buildQuery(params);
+    const url = "/admin/nominaciones/export?" + q;
+    window.location.href = url;
+    }
+
+    document.querySelector("#btn-export-alumnos")
+    .addEventListener("click", () => exportar("alumno"));
+
+    document.querySelector("#btn-export-personal")
+    .addEventListener("click", () => exportar("personal"));
+    </script>
+
+    </body>
+    </html>

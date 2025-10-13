@@ -2,34 +2,70 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Nominar Personal</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/nominacion_personal.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/nominacion_alumno.css') }}">
 </head>
 <body>
-        <header>
-        <h1>Nominar Personal</h1>
+
+    <header>
+        <h2>🍎 Nominaciones de personal del ciclo {{ ciclo.nombre }}</h2>
     </header>
+
     <main>
-    <form action="{{ url_for('nom.nominar_personal') }}" method="post">
-        <label for="nominador">Escribe tu nombre:</label>
-        <input type="text" id="nominador" name="nominador" required>
+        <form method="POST" class="form-nominacion">
+            <label for="maestros">Selecciona maestro(s):</label>
+            <select name="maestros" id="maestros" multiple required>
+                {% for m in maestros %}
+                    <option value="{{ m.id }}">{{ m.nombre }}</option>
+                {% endfor %}
+            </select>
 
-        <label for="valores">Valores:</label>
-        <select id="valores" name="valores" multiple required>
-        {% for valor in valores %}
-            <option value="{{ valor.id }}">{{ valor.nombre }}</option>
-        {% endfor %}
-        </select>
+            <label for="valor_id">Selecciona el valor:</label>
+            <select name="valor_id" id="valor_id" required>
+                <option value="">Selecciona un valor</option>
+                {% for valor in valores %}
+                    <option value="{{ valor.id }}">{{ valor.nombre }}</option>
+                {% endfor %}
+            </select>
 
-        <label for="nominado">¿A quién nominas?</label>
-        <input type="text" id="nominado" name="nominado" required>
+            <label for="comentario">Comentario (opcional):</label>
+            <input type="text" id="comentario" name="comentario" placeholder="Comentario opcional...">
 
-        <label for="razon">¿Por qué lo nominas?</label>
-        <textarea id="razon" name="razon" rows="3" required></textarea>
+            <button type="submit" class="btn-registrar">Registrar nominación</button>
+        </form>
 
-        <button type="submit">Enviar</button>
-    </form>
+        <hr>
+
+        <section class="tabla-nominaciones">
+            <h3>🧾 Tus nominaciones registradas</h3>
+            {% if nominaciones %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nominas a</th>
+                        <th>Valor</th>
+                        <th>Comentario</th>
+                        <th>Fecha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for n in nominaciones %}
+                    {% if n.maestro_nominado %}
+                    <tr>
+                        <td>{{ n.maestro_nominado.nombre }}</td>
+                        <td>{{ n.valor.nombre }}</td>
+                        <td>{{ n.comentario or '-' }}</td>
+                        <td>{{ n.fecha.strftime('%d/%m/%Y') }}</td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p><em>No tienes nominaciones registradas aún.</em></p>
+            {% endif %}
+        </section>
     </main>
+
 </body>
 </html>

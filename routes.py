@@ -13,6 +13,9 @@ from io import BytesIO
 from models import Maestro
 from models import Alumno, Bloque
 from flask import send_file
+from datetime import datetime
+from flask import send_file, request, jsonify
+from flask import jsonify
 
 
 # -------------------------------
@@ -44,78 +47,6 @@ def principal():
     return render_template('principal.html', ciclo=ciclo, usuario=current_user)
 
 
-# -------------------------------
-# 🔹 Nominaciones
-# -------------------------------
-@nom.route('/nominaciones/alumno', methods=['GET', 'POST'])
-def nominar_alumno():
-    if request.method == 'POST':
-        flash('Nominación de alumno guardada (placeholder).')
-        return redirect(url_for('nom.principal'))
-    return render_template('nominacion_alumno.html')
-
-
-@nom.route('/nominaciones/personal', methods=['GET', 'POST'])
-def nominar_personal():
-    if request.method == 'POST':
-        nominador = request.form['nominador']
-        valores_ids = list(map(int, request.form.getlist('valores')))
-        nominado = request.form['nominado']
-        razon = request.form['razon']
-
-        valores = Valor.query.filter(Valor.id.in_(valores_ids)).all()
-        output_dir = os.path.join(os.getcwd(), 'invitaciones', 'personal')
-
-        for valor in valores:
-            context = {
-                'fecha_evento': '2025-08-15',
-                'valor': valor.nombre,
-                'quien_nomina': nominador,
-                'nominado': nominado,
-                'texto_adicional': razon
-            }
-            filename = f"{nominado}_{valor.nombre}"
-            pdf_path = generar_pdf('invitacion.html', context, output_dir, filename)
-
-            msg = Message(
-                subject=f"Invitación Asamblea: {valor.nombre}",
-                recipients=[f"{nominado}@colegio.edu.mx"]
-            )
-            msg.body = (
-                f"Hola {nominado},\n\n"
-                f"Has sido nominado para el valor «{valor.nombre}» por {nominador}.\n"
-                "Adjunto encontrarás tu invitación en PDF.\n\n"
-                "¡Nos vemos en la asamblea!\n"
-            )
-            # mail.send(msg)  # Descomenta cuando configures SMTP
-
-            nueva_nom = Nominacion(nombre=nominado, categoria=valor.nombre, descripcion=razon)
-            db.session.add(nueva_nom)
-
-        db.session.commit()
-        flash(f'Se generaron y enviaron {len(valores)} invitaciones para {nominado}.')
-        return redirect(url_for('nom.principal'))
-
-    valores = Valor.query.all()
-    return render_template('nominacion_personal.html', valores=valores)
-
-
-# -------------------------------
-# 🔹 Panel de nominaciones (admin)
-# -------------------------------
-@nom.route('/admin/nominaciones', methods=['GET', 'POST'])
-def panel_nominaciones():
-    if request.method == 'POST':
-        nombre = request.form['nombre']
-        categoria = request.form['categoria']
-        descripcion = request.form.get('descripcion', '')
-        nueva = Nominacion(nombre=nombre, categoria=categoria, descripcion=descripcion)
-        db.session.add(nueva)
-        db.session.commit()
-        return redirect(url_for('nom.panel_nominaciones'))
-
-    nominaciones = Nominacion.query.all()
-    return render_template('admin_nominaciones.html', nominaciones=nominaciones)
 
 
 # -------------------------------
@@ -834,3 +765,540 @@ def eliminar_alumno(id):
     db.session.delete(alumno)
     db.session.commit()
     return jsonify({"message": f"Alumno {alumno.nombre} eliminado."}), 200
+
+
+# -------------------------------
+# 🔹 Decorador para rutas solo de administrador
+# -------------------------------
+from functools import wraps
+from flask import abort
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.rol != 'admin':
+            flash("🚫 Solo los administradores pueden acceder a esta sección.", "danger")
+            return redirect(url_for('nom.principal'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+# -------------------------------
+# 🔹 VALORES POR CICLO ESCOLAR
+# -------------------------------
+@admin_bp.route('/valores', methods=['GET'])
+@login_required
+def listar_valores():
+    # Usar tu modelo correcto
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo_activo:
+        flash("⚠️ No hay ciclo activo.", "warning")
+        return redirect(url_for('admin_bp.gestionar_ciclos'))
+
+    valores = Valor.query.filter_by(ciclo_id=ciclo_activo.id).all()
+    # 👇 Aquí corregimos la ruta del template
+    return render_template('valores.html', valores=valores, ciclo=ciclo_activo)
+
+
+
+@admin_bp.route('/valores/nuevo', methods=['POST'])
+@login_required
+def crear_valor():
+    nombre = request.form.get('nombre', '').strip().title()
+    descripcion = request.form.get('descripcion', '').strip()
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+
+    if not ciclo_activo:
+        flash("⚠️ No hay ciclo activo.", "danger")
+        return redirect(url_for('admin_bp.listar_valores'))
+
+    if Valor.query.filter_by(nombre=nombre, ciclo_id=ciclo_activo.id).first():
+        flash("⚠️ Ya existe un valor con ese nombre en este ciclo.", "warning")
+        return redirect(url_for('admin_bp.listar_valores'))
+
+    nuevo = Valor(nombre=nombre, descripcion=descripcion, ciclo_id=ciclo_activo.id)
+    db.session.add(nuevo)
+    db.session.commit()
+    flash("✅ Valor agregado exitosamente.", "success")
+    return redirect(url_for('admin_bp.listar_valores'))
+
+
+@admin_bp.route('/valores/<int:id>/toggle', methods=['POST'])
+@login_required
+@admin_required
+def alternar_valor(id):
+    """Activa o desactiva un valor existente."""
+    valor = Valor.query.get_or_404(id)
+    valor.activo = not valor.activo
+    db.session.commit()
+    flash(f"🔁 Valor {'activado' if valor.activo else 'desactivado'}.", "info")
+    return redirect(url_for('admin_bp.listar_valores'))
+
+
+@admin_bp.route('/valores/<int:id>/eliminar', methods=['POST'])
+@login_required
+@admin_required
+def eliminar_valor(id):
+    """Elimina un valor del ciclo actual."""
+    valor = Valor.query.get_or_404(id)
+    db.session.delete(valor)
+    db.session.commit()
+    flash("🗑️ Valor eliminado correctamente.", "success")
+    return redirect(url_for('admin_bp.listar_valores'))
+
+@admin_bp.route('/nominaciones', methods=['GET'])
+@login_required
+@admin_required
+def gestionar_nominaciones():
+    """Vista de administración para revisar todas las nominaciones del ciclo activo"""
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo_activo:
+        flash("⚠️ No hay ciclo escolar activo.", "warning")
+        return redirect(url_for('admin_bp.gestionar_ciclos'))
+
+    # Traer todas las nominaciones ordenadas por fecha
+    nominaciones = (
+        Nominacion.query
+        .filter_by(ciclo_id=ciclo_activo.id)
+        .order_by(Nominacion.fecha.desc())
+        .all()
+    )
+
+    # Dividir por tipo
+    nominaciones_alumnos = [n for n in nominaciones if n.tipo == "alumno"]
+    nominaciones_personal = [n for n in nominaciones if n.tipo == "personal"]
+
+    return render_template(
+        'admin_nominaciones.html',
+        ciclo=ciclo_activo,
+        nominaciones_alumnos=nominaciones_alumnos,
+        nominaciones_personal=nominaciones_personal
+    )
+
+
+
+# Maestro nomina a alumnos
+@nom.route('/nominaciones/alumno', methods=['GET', 'POST'])
+@login_required
+def nominar_alumno():
+    # 1️⃣ Validar rol del usuario
+    if current_user.rol != 'profesor':
+        flash("🚫 Solo los profesores pueden registrar nominaciones.", "danger")
+        return redirect(url_for('nom.principal'))
+
+    # 2️⃣ Validar que haya ciclo activo
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo_activo:
+        flash("⚠️ No hay ciclo activo disponible.", "warning")
+        return redirect(url_for('nom.principal'))
+
+    # 3️⃣ Obtener maestro actual
+    maestro = Maestro.query.filter_by(correo=current_user.email, ciclo_id=ciclo_activo.id).first()
+    if not maestro:
+        flash("⚠️ No se encontró tu registro como maestro en el ciclo activo.", "warning")
+        return redirect(url_for('nom.principal'))
+
+    # 4️⃣ Procesar envío del formulario
+    if request.method == 'POST':
+        valor_id = request.form.get('valor_id')
+        alumno_ids = request.form.getlist('alumnos')  # permite varios
+        comentario = request.form.get('comentario', '').strip()
+
+        if not valor_id or not alumno_ids:
+            flash("⚠️ Selecciona al menos un alumno y un valor.", "warning")
+            return redirect(url_for('nom.nominar_alumno'))
+
+        for alumno_id in alumno_ids:
+            # Evita duplicados: mismo maestro, alumno y valor en el mismo ciclo
+            existente = Nominacion.query.filter_by(
+                alumno_id=alumno_id,
+                maestro_id=maestro.id,
+                valor_id=valor_id,
+                ciclo_id=ciclo_activo.id
+            ).first()
+            if existente:
+                continue
+
+            nueva_nom = Nominacion(
+                alumno_id=alumno_id,
+                maestro_id=maestro.id,
+                valor_id=valor_id,
+                ciclo_id=ciclo_activo.id,
+                comentario=comentario
+            )
+            db.session.add(nueva_nom)
+
+        db.session.commit()
+        flash(f"✅ Nominación registrada correctamente ({len(alumno_ids)} alumnos).", "success")
+        return redirect(url_for('nom.nominar_alumno'))
+
+    # 5️⃣ Cargar datos del formulario
+    alumnos = Alumno.query.filter_by(ciclo_id=ciclo_activo.id).order_by(Alumno.grado, Alumno.grupo, Alumno.nombre).all()
+    valores = Valor.query.filter_by(ciclo_id=ciclo_activo.id, activo=True).all()
+
+    # 6️⃣ Mostrar también las nominaciones previas de este maestro
+    nominaciones = Nominacion.query.filter_by(ciclo_id=ciclo_activo.id, maestro_id=maestro.id).order_by(Nominacion.fecha.desc()).all()
+
+    return render_template('nominacion_alumno.html', alumnos=alumnos, valores=valores, nominaciones=nominaciones, ciclo=ciclo_activo)
+
+@nom.route('/nominaciones/maestro', methods=['GET', 'POST'])
+@login_required
+def nominar_maestro():
+    maestro = Maestro.query.filter_by(correo=current_user.email).first()
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+
+    if request.method == 'POST':
+        valor_id = request.form.get('valor_id')
+        maestros_ids = request.form.getlist('maestros')
+        comentario = request.form.get('comentario', '').strip()
+
+        if not valor_id or not maestros_ids:
+            flash("⚠️ Selecciona al menos un maestro y un valor.", "warning")
+            return redirect(url_for('nom.nominar_maestro'))
+
+        for m_id in maestros_ids:
+            nueva_nom = Nominacion(
+                alumno_id=None,
+                maestro_id=maestro.id,  # nominador
+                valor_id=valor_id,
+                ciclo_id=ciclo_activo.id,
+                comentario=f"Nominación a maestro ID {m_id}: {comentario}"
+            )
+            db.session.add(nueva_nom)
+
+        db.session.commit()
+        flash(f"✅ Nominación registrada correctamente ({len(maestros_ids)} maestros).", "success")
+        return redirect(url_for('nom.nominar_maestro'))
+
+    maestros = Maestro.query.filter(
+        Maestro.ciclo_id == ciclo_activo.id,
+        Maestro.id != maestro.id
+    ).all()
+    valores = Valor.query.filter_by(ciclo_id=ciclo_activo.id, activo=True).all()
+    return render_template('nominacion_personal.html', maestros=maestros, valores=valores, ciclo=ciclo_activo)
+
+
+# Maestro nomina a otro maestro
+@nom.route('/nominaciones/personal', methods=['GET', 'POST'])
+@login_required
+def nominar_personal():
+    if current_user.rol != 'profesor':
+        flash("🚫 Solo los profesores pueden registrar nominaciones.", "danger")
+        return redirect(url_for('nom.principal'))
+
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo_activo:
+        flash("⚠️ No hay ciclo activo disponible.", "warning")
+        return redirect(url_for('nom.principal'))
+
+    maestro = Maestro.query.filter_by(correo=current_user.email, ciclo_id=ciclo_activo.id).first()
+    if not maestro:
+        flash("⚠️ No se encontró tu registro como maestro en el ciclo activo.", "warning")
+        return redirect(url_for('nom.principal'))
+
+    if request.method == 'POST':
+        valor_id = request.form.get('valor_id')
+        nominados = request.form.getlist('maestros')
+        comentario = request.form.get('comentario', '').strip()
+
+        if not valor_id or not nominados:
+            flash("⚠️ Selecciona al menos un maestro y un valor.", "warning")
+            return redirect(url_for('nom.nominar_personal'))
+
+        for nominado_id in nominados:
+            existente = Nominacion.query.filter_by(
+                maestro_nominado_id=nominado_id,
+                maestro_id=maestro.id,
+                valor_id=valor_id,
+                ciclo_id=ciclo_activo.id
+            ).first()
+            if existente:
+                continue
+
+            nueva_nom = Nominacion(
+                maestro_nominado_id=nominado_id,
+                maestro_id=maestro.id,
+                valor_id=valor_id,
+                ciclo_id=ciclo_activo.id,
+                comentario=comentario
+            )
+            db.session.add(nueva_nom)
+
+        db.session.commit()
+        flash(f"✅ Nominación registrada correctamente ({len(nominados)} maestros).", "success")
+        return redirect(url_for('nom.nominar_personal'))
+
+    maestros = Maestro.query.filter(Maestro.id != maestro.id, Maestro.ciclo_id == ciclo_activo.id).all()
+    valores = Valor.query.filter_by(ciclo_id=ciclo_activo.id, activo=True).all()
+    nominaciones = Nominacion.query.filter_by(ciclo_id=ciclo_activo.id, maestro_id=maestro.id).order_by(Nominacion.fecha.desc()).all()
+
+    return render_template('nominacion_personal.html', maestros=maestros, valores=valores, nominaciones=nominaciones, ciclo=ciclo_activo)
+
+
+@nom.route('/admin/nominaciones/export', methods=['GET'])
+@login_required
+def exportar_nominaciones_excel():
+    """
+    Exporta nominaciones del ciclo activo a Excel.
+    ?tipo=alumno|personal  (opcional; si no se envía, exporta todo)
+    """
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo_activo:
+        return jsonify({"error": "No hay ciclo escolar activo."}), 400
+
+    q = Nominacion.query.filter_by(ciclo_id=ciclo_activo.id)
+    tipo = request.args.get('tipo')
+    if tipo in ('alumno', 'personal'):
+        q = q.filter(Nominacion.tipo == tipo)
+
+    q = q.order_by(Nominacion.fecha.desc()).all()
+
+    filas = []
+    for n in q:
+        filas.append({
+            "Fecha": n.fecha.strftime("%Y-%m-%d %H:%M") if n.fecha else "",
+            "Tipo": n.tipo or "",
+            "Valor": n.valor.nombre if getattr(n, 'valor', None) else "",
+            "Maestro (autor)": n.maestro.nombre if getattr(n, 'maestro', None) else "",
+            "Alumno nominado": n.alumno.nombre if getattr(n, 'alumno', None) else "",
+            "Personal nominado": n.maestro_nominado.nombre if getattr(n, 'maestro_nominado', None) else "",
+            "Comentario": (n.comentario or n.razon) if hasattr(n, 'comentario') or hasattr(n, 'razon') else "",
+        })
+
+    df = pd.DataFrame(filas)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Nominaciones')
+        ws = writer.sheets['Nominaciones']
+        for i, col in enumerate(df.columns):
+            width = 12
+            if not df.empty:
+                width = min(60, max(12, df[col].astype(str).map(len).max() + 2))
+            ws.set_column(i, i, width)
+    output.seek(0)
+
+    nombre = f"nominaciones_{tipo or 'todas'}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=nombre,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    
+@nom.route('/admin/nominaciones/data', methods=['GET'])
+@login_required
+def obtener_nominaciones_data():
+    """Devuelve nominaciones del ciclo activo filtradas por parámetros opcionales."""
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo_activo:
+        return jsonify({"items": [], "error": "No hay ciclo activo."})
+
+    tipo = request.args.get('tipo')  # alumno | personal
+    valor_id = request.args.get('valor_id', type=int)
+    maestro_id = request.args.get('maestro_id', type=int)
+    fecha_desde = request.args.get('fecha_desde')
+    fecha_hasta = request.args.get('fecha_hasta')
+
+    q = Nominacion.query.filter(Nominacion.ciclo_id == ciclo_activo.id)
+
+    if tipo in ('alumno', 'personal'):
+        q = q.filter(Nominacion.tipo == tipo)
+    if valor_id:
+        q = q.filter(Nominacion.valor_id == valor_id)
+    if maestro_id:
+        q = q.filter(Nominacion.maestro_id == maestro_id)
+
+    if fecha_desde:
+        try:
+            fd = datetime.strptime(fecha_desde, "%Y-%m-%d")
+            q = q.filter(Nominacion.fecha >= fd)
+        except ValueError:
+            pass
+
+    if fecha_hasta:
+        try:
+            fh = datetime.strptime(fecha_hasta, "%Y-%m-%d")
+            fh = fh.replace(hour=23, minute=59, second=59)
+            q = q.filter(Nominacion.fecha <= fh)
+        except ValueError:
+            pass
+
+    nominaciones = q.order_by(Nominacion.fecha.desc()).all()
+
+    datos = []
+    for n in nominaciones:
+        datos.append({
+            "id": n.id,
+            "fecha": n.fecha.strftime("%d/%m/%Y"),
+            "tipo": n.tipo,
+            "valor": n.valor.nombre if n.valor else "",
+            "maestro": n.maestro.nombre if n.maestro else "",
+            "alumno": n.alumno.nombre if getattr(n, 'alumno', None) else "",
+            "maestro_nominado": n.maestro_nominado.nombre if getattr(n, 'maestro_nominado', None) else "",
+            "comentario": n.comentario or "",
+        })
+
+    return jsonify({"items": datos, "total": len(datos)})
+
+@nom.route('/admin/catalogo/valores')
+@login_required
+def catalogo_valores():
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    valores = Valor.query.filter_by(ciclo_id=ciclo_activo.id).order_by(Valor.nombre.asc()).all()
+    return jsonify([{"id": v.id, "nombre": v.nombre} for v in valores])
+
+@nom.route('/admin/catalogo/maestros')
+@login_required
+def catalogo_maestros():
+    maestros = Maestro.query.order_by(Maestro.nombre.asc()).all()
+    return jsonify([{"id": m.id, "nombre": m.nombre} for m in maestros])
+
+
+@nom.route('/admin/usuarios/lista/alumnos')
+@login_required
+def lista_alumnos():
+    """Devuelve JSON con alumnos del ciclo activo."""
+    if current_user.rol != 'admin':
+        return jsonify({"error": "No autorizado"}), 403
+
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo_activo:
+        return jsonify({"error": "No hay ciclo activo."}), 400
+
+    alumnos = Alumno.query.filter_by(ciclo_id=ciclo_activo.id).order_by(
+        Alumno.grado, Alumno.grupo, Alumno.nombre
+    ).all()
+
+    data = [
+        {
+            "id": a.id,
+            "nombre": a.nombre,
+            "grado": a.grado,
+            "grupo": a.grupo,
+            "nivel": a.nivel
+        }
+        for a in alumnos
+    ]
+    return jsonify(data)
+
+
+# -------------------------------
+# 🔹 Editar alumno (vista y actualización)
+# -------------------------------
+@admin_bp.route('/alumnos/editar/<int:id>', methods=['GET'])
+@login_required
+def editar_alumno_vista(id):
+    if current_user.rol != 'admin':
+        flash("🚫 Solo los administradores pueden acceder.", "danger")
+        return redirect(url_for('nom.principal'))
+
+    alumno = Alumno.query.get_or_404(id)
+    return render_template('editar_alumno.html', alumno=alumno)
+
+
+@admin_bp.route('/alumnos/editar/<int:id>', methods=['POST'])
+@login_required
+def actualizar_alumno(id):
+    if current_user.rol != 'admin':
+        flash("🚫 Solo los administradores pueden editar alumnos.", "danger")
+        return redirect(url_for('nom.principal'))
+
+    alumno = Alumno.query.get_or_404(id)
+    alumno.nombre = request.form.get('nombre', alumno.nombre).strip().title()
+    alumno.grado = request.form.get('grado', alumno.grado).strip()
+    alumno.grupo = request.form.get('grupo', alumno.grupo).strip().upper()
+    alumno.nivel = request.form.get('nivel', alumno.nivel).strip().capitalize()
+
+    db.session.commit()
+    flash(f"✅ Alumno {alumno.nombre} actualizado correctamente.", "success")
+    return redirect(url_for('nom.panel_usuarios'))
+
+# -------------------------------
+# 🔹 Editar usuario (admin o profesor)
+# -------------------------------
+@nom.route('/admin/usuarios/editar/<int:id>', methods=['GET'])
+@login_required
+def editar_usuario_vista(id):
+    if current_user.rol != 'admin':
+        flash("🚫 Solo los administradores pueden acceder a esta sección.", "danger")
+        return redirect(url_for('nom.principal'))
+
+    usuario = Usuario.query.get_or_404(id)
+    return render_template('editar_usuario.html', usuario=usuario)
+
+
+@nom.route('/admin/usuarios/editar/<int:id>', methods=['POST'])
+@login_required
+def actualizar_usuario(id):
+    if current_user.rol != 'admin':
+        flash("🚫 No autorizado.", "danger")
+        return redirect(url_for('nom.principal'))
+
+    usuario = Usuario.query.get_or_404(id)
+    usuario.nombre = request.form.get('nombre', usuario.nombre).strip().title()
+    usuario.email = request.form.get('email', usuario.email).strip().lower()
+    usuario.rol = request.form.get('rol', usuario.rol)
+
+    db.session.commit()
+    flash(f"✅ Usuario {usuario.nombre} actualizado correctamente.", "success")
+    return redirect(url_for('nom.panel_usuarios'))
+
+
+# -------------------------------
+# 🔹 Editar profesor (vista + actualización)
+# -------------------------------
+# ============================================================
+# ✏️ Editar PROFESOR (GET muestra formulario / POST guarda)
+# ============================================================
+
+@admin_bp.route('/maestros/lista')
+@login_required
+def lista_maestros_json():
+    # Solo admin
+    if current_user.rol != 'admin':
+        return jsonify({"error": "No autorizado"}), 403
+
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        return jsonify([])
+
+    maes = Maestro.query.filter_by(ciclo_id=ciclo.id).order_by(Maestro.nombre.asc()).all()
+    data = [{"id": m.id, "nombre": m.nombre, "email": m.correo} for m in maes]
+    return jsonify(data)
+
+@admin_bp.route('/maestros/editar/<int:id>', methods=['GET'])
+@login_required
+def editar_maestro_vista(id):
+    if current_user.rol != 'admin':
+        flash("🚫 Solo los administradores.", "danger")
+        return redirect(url_for('nom.panel_usuarios'))
+
+    maestro = Maestro.query.get_or_404(id)
+    return render_template('editar_profesor.html', maestro=maestro)
+
+@admin_bp.route('/maestros/editar/<int:id>', methods=['POST'])
+@login_required
+def actualizar_maestro(id):
+    if current_user.rol != 'admin':
+        flash("🚫 Solo los administradores.", "danger")
+        return redirect(url_for('nom.panel_usuarios'))
+
+    maestro = Maestro.query.get_or_404(id)
+    maestro.nombre = request.form.get('nombre', maestro.nombre).strip()
+    maestro.correo = request.form.get('correo', maestro.correo).strip().lower()
+    db.session.commit()
+    flash("✅ Maestro actualizado correctamente.", "success")
+    return redirect(url_for('nom.panel_usuarios'))
+
+@admin_bp.route('/maestros/eliminar/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_maestro(id):
+    if current_user.rol != 'admin':
+        return jsonify({"message": "No autorizado"}), 403
+
+    maestro = Maestro.query.get_or_404(id)
+    db.session.delete(maestro)
+    db.session.commit()
+
+    return jsonify({"message": "✅ Maestro eliminado correctamente"})
+

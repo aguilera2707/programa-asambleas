@@ -1,0 +1,27 @@
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+    <meta charset="UTF-8">
+    <title>Editar profesor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/editar_profesor.css') }}">
+    </head>
+    <body>
+    <header class="header">
+        <h1>✏️ Editar profesor</h1>
+        <a href="{{ url_for('nom.panel_usuarios') }}" class="btn-volver">⮌ Volver</a>
+
+    </header>
+
+    <main class="contenedor">
+        <form action="{{ url_for('admin_bp.actualizar_maestro', id=maestro.id) }}" method="POST" class="form-editar">
+        <label>Nombre completo:</label>
+        <input type="text" name="nombre" value="{{ maestro.nombre }}" required>
+
+        <label>Correo institucional:</label>
+        <input type="email" name="correo" value="{{ maestro.correo }}" required>
+
+        <button type="submit" class="btn-guardar">💾 Guardar cambios</button>
+        </form>
+    </main>
+    </body>
+    </html>

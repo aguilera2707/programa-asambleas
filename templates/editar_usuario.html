@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar usuario</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/editar_usuario.css') }}">
+</head>
+<body>
+    <header class="header">
+        <h1>✏️ Editar usuario</h1>
+        <a href="{{ url_for('nom.panel_usuarios') }}" class="btn-volver">⮌ Volver</a>
+    </header>
+
+    <main class="contenedor">
+        <form action="{{ url_for('nom.actualizar_usuario', id=usuario.id) }}" method="POST" class="form-editar">
+            <label>Nombre:</label>
+            <input type="text" name="nombre" value="{{ usuario.nombre }}" required>
+
+            <label>Email:</label>
+            <input type="email" name="email" value="{{ usuario.email }}" required>
+
+            <label>Rol:</label>
+            <select name="rol" required>
+                <option value="admin" {% if usuario.rol == 'admin' %}selected{% endif %}>Administrador</option>
+                <option value="profesor" {% if usuario.rol == 'profesor' %}selected{% endif %}>Profesor</option>
+            </select>
+
+            <button type="submit" class="btn-guardar">💾 Guardar cambios</button>
+        </form>
+    </main>
+</body>
+</html>

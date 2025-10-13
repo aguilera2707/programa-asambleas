@@ -5,8 +5,8 @@ from app import app
 
 # Configura el nuevo usuario admin
 nombre_admin = "Administrador General"
-email_admin = "admin@colegio.edu.mx"
-password_admin = "admin123"
+email_admin = "admin@cela.edu.mx"
+password_admin = "12345"
 rol_admin = "admin"
 
 with app.app_context():

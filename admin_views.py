@@ -16,3 +16,5 @@ class CicloEscolarAdmin(ModelView):
             for otro in otros:
                 otro.activo = False
             db.session.commit()
+            
+

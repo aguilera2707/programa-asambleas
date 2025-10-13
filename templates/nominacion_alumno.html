@@ -1,8 +1,69 @@
 <!DOCTYPE html>
 <html lang="es">
-<head><meta charset="UTF-8"><title>Nominar Alumno</title></head>
+<head>
+    <meta charset="UTF-8">
+    <title>Nominar Alumno</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/nominacion_alumno.css') }}">
+</head>
 <body>
-    <h1>Formulario de nominación de alumnos (en construcción)</h1>
-    <p>Aquí irá el formulario para nominar alumnos.</p>
+
+    <header>
+        <h2>🏫 Nominaciones de alumnos del ciclo {{ ciclo.nombre }}</h2>
+    </header>
+
+    <main>
+        <form method="POST" class="form-nominacion">
+            <label for="alumnos">Selecciona alumno(s):</label>
+            <select name="alumnos" id="alumnos" multiple required>
+                {% for alumno in alumnos %}
+                    <option value="{{ alumno.id }}">{{ alumno.nombre }} ({{ alumno.grado }}°{{ alumno.grupo }})</option>
+                {% endfor %}
+            </select>
+
+            <label for="valor_id">Selecciona el valor:</label>
+            <select name="valor_id" id="valor_id" required>
+                <option value="">Selecciona un valor</option>
+                {% for valor in valores %}
+                    <option value="{{ valor.id }}">{{ valor.nombre }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="comentario">Comentario (opcional):</label>
+            <input type="text" id="comentario" name="comentario" placeholder="Comentario opcional...">
+
+            <button type="submit" class="btn-registrar">Registrar nominación</button>
+        </form>
+
+        <hr>
+
+        <section class="tabla-nominaciones">
+            <h3>🧾 Tus nominaciones registradas</h3>
+            {% if nominaciones %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Alumno</th>
+                        <th>Valor</th>
+                        <th>Comentario</th>
+                        <th>Fecha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for n in nominaciones %}
+                    <tr>
+                        <td>{{ n.alumno.nombre }}</td>
+                        <td>{{ n.valor.nombre }}</td>
+                        <td>{{ n.comentario or '-' }}</td>
+                        <td>{{ n.fecha.strftime('%d/%m/%Y') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p><em>No tienes nominaciones registradas aún.</em></p>
+            {% endif %}
+        </section>
+    </main>
+
 </body>
 </html>

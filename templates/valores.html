@@ -1,0 +1,65 @@
+    <!doctype html>
+    <html lang="es">
+    <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Valores del ciclo {{ ciclo.nombre or (ciclo.anio_inicio ~ '–' ~ ciclo.anio_fin) }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_admin.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/valores.css') }}">
+    </head>
+    <body>
+    <div class="contenedor-valores">
+        <h1 class="titulo-seccion">🏫 Valores del ciclo {{ ciclo.nombre or (ciclo.anio_inicio ~ '–' ~ ciclo.anio_fin) }}</h1>
+
+        <div class="formulario-nuevo">
+        <form method="POST" action="{{ url_for('admin_bp.crear_valor') }}" class="form-valores">
+            <input type="text" name="nombre" placeholder="Nombre del valor" required>
+            <input type="text" name="descripcion" placeholder="Descripción (opcional)">
+            <button type="submit" class="btn-rojo">➕ Agregar valor</button>
+        </form>
+        </div>
+
+        {% if valores %}
+        <div class="tabla-contenedor">
+        <table class="tabla-valores">
+            <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Descripción</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for valor in valores %}
+            <tr class="{{ 'inactivo' if not valor.activo else '' }}">
+                <td>{{ valor.nombre }}</td>
+                <td>{{ valor.descripcion or '' }}</td>
+                <td>
+                {% if valor.activo %}
+                    <span class="estado activo">Activo</span>
+                {% else %}
+                    <span class="estado inactivo">Inactivo</span>
+                {% endif %}
+                </td>
+                <td class="acciones">
+                <form method="POST" action="{{ url_for('admin_bp.alternar_valor', id=valor.id) }}" style="display:inline;">
+                    <button type="submit" class="btn-accion btn-toggle">
+                    {{ '🔴 Desactivar' if valor.activo else '🟢 Activar' }}
+                    </button>
+                </form>
+                <form method="POST" action="{{ url_for('admin_bp.eliminar_valor', id=valor.id) }}" style="display:inline;" onsubmit="return confirm('¿Eliminar este valor?');">
+                    <button type="submit" class="btn-accion btn-eliminar">🗑️ Eliminar</button>
+                </form>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <p class="mensaje-vacio">No hay valores registrados para este ciclo.</p>
+        {% endif %}
+    </div>
+    </body>
+    </html>
