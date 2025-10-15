@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Seleccionar grado</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/seleccionar_bloque.css') }}">
+</head>
+<body>
+
+<header class="admin-header">
+    <div class="admin-header-left">
+        <h1>🎓 Grados de {{ bloque.nombre }}</h1>
+    </div>
+    <div class="admin-user-info">
+        <span>{{ current_user.nombre }}</span>
+        <a href="{{ url_for('nom.logout') }}" class="btn-logout">Cerrar sesión</a>
+    </div>
+</header>
+
+<main class="contenedor-bloques">
+    <h2>Selecciona el grado dentro de este bloque</h2>
+
+    <div class="bloques-grid">
+        {% for grado in grados %}
+        <a href="{{ url_for('nom.nominar_alumno', bloque_id=bloque.id, grado=grado) }}" class="card-bloque">
+            <span class="emoji">📚</span>
+            <h3>{{ grado }}</h3>
+            <p>Grado académico</p>
+        </a>
+        {% else %}
+        <p>No hay grados registrados en este bloque.</p>
+        {% endfor %}
+    </div>
+</main>
+
+</body>
+</html>

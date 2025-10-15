@@ -1,52 +1,63 @@
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
+<!DOCTYPE html>
+<html lang="es">
+<head>
     <meta charset="UTF-8">
     <title>Alumnos del ciclo</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_alumnos.css') }}">
-    </head>
-    <body>
-    <div class="container">
-        <h1>Alumnos del ciclo {{ ciclo.nombre if ciclo else '—' }}</h1>
+</head>
+<body>
+<div class="container">
 
-        <!-- 🔔 Mensajes flash -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="toast-container">
-            {% for category, message in messages %}
-                <div class="toast toast-{{ category }}">{{ message }}</div>
-            {% endfor %}
-            </div>
-        {% endif %}
-        {% endwith %}
+    <!-- 🔙 Botón para regresar -->
+    <div class="top-bar">
+        <a href="{{ url_for('nom.panel_admin') }}" class="btn-volver">⮌ Volver al panel</a>
+        
+    </div>
+    <h1>Alumnos del ciclo {{ ciclo.nombre if ciclo else '—' }}</h1>
+    <!-- 🔔 Mensajes flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="toast-container">
+        {% for category, message in messages %}
+            <div class="toast toast-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        </div>
+    {% endif %}
+    {% endwith %}
 
-        {% if ciclo %}
-        <!-- 🔹 Importar alumnos por bloque -->
-        <form action="{{ url_for('admin_bp.importar_alumnos_por_bloque') }}" method="POST" enctype="multipart/form-data" class="import-form">
+    {% if ciclo %}
+    <!-- 🔹 Acciones superiores -->
+    <div class="acciones-bar">
+        <form action="{{ url_for('admin_bp.importar_alumnos_por_bloque') }}" method="POST" enctype="multipart/form-data" class="form-import">
             <select name="bloque_id" required>
-            <option value="">— Selecciona bloque —</option>
-            {% for b in bloques %}
-                <option value="{{ b.id }}">{{ b.nombre }}</option>
-            {% endfor %}
+                <option value="">— Selecciona bloque —</option>
+                {% for b in bloques %}
+                    <option value="{{ b.id }}">{{ b.nombre }}</option>
+                {% endfor %}
             </select>
 
             <input type="file" name="file" accept=".xlsx,.csv" required>
-            <button type="submit">📤 Importar alumnos</button>
-            <a href="{{ url_for('admin_bp.plantilla_alumnos_bloque') }}" class="link-plantilla">📄 Descargar plantilla</a>
+            <button type="submit" class="btn-importar">📥 Importar alumnos</button>
+            <a href="{{ url_for('admin_bp.plantilla_alumnos_bloque') }}" class="btn-descargar">📄 Descargar plantilla</a>
         </form>
 
-        <h2>Listado de alumnos</h2>
-        <table>
-            <thead>
+        <a href="{{ url_for('admin_bp.crear_alumno_manual') }}" class="btn-create">+ Crear manualmente</a>
+    </div>
+
+    <!-- 🔹 Tabla de alumnos -->
+    <h2>Listado de alumnos</h2>
+    <table>
+        <thead>
             <tr>
                 <th>Nombre</th>
                 <th>Grado</th>
                 <th>Grupo</th>
                 <th>Nivel</th>
                 <th>Bloque</th>
+                <th>Acciones</th>
             </tr>
-            </thead>
-            <tbody>
+        </thead>
+        <tbody>
             {% for a in alumnos %}
             <tr data-id="{{ a.id }}">
                 <td contenteditable="true">{{ a.nombre }}</td>
@@ -62,23 +73,24 @@
             {% else %}
             <tr><td colspan="6">No hay alumnos registrados aún.</td></tr>
             {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <p class="warning">⚠️ No hay un ciclo activo. Activa un ciclo antes de importar alumnos.</p>
-        {% endif %}
-    </div>
+        </tbody>
+    </table>
+    {% else %}
+    <p class="warning">⚠️ No hay un ciclo activo. Activa un ciclo antes de importar alumnos.</p>
+    {% endif %}
+</div>
 
-    <script>
-        // 💨 Desvanecer mensajes automáticamente
-        setTimeout(() => {
+<script>
+    // 💨 Desvanecer mensajes automáticamente
+    setTimeout(() => {
         document.querySelectorAll('.toast').forEach(el => {
             el.style.opacity = '0';
             el.style.transform = 'translateY(-10px)';
             setTimeout(() => el.remove(), 600);
         });
-        }, 3000);
+    }, 3000);
 
+    // 💾 Guardar cambios
     document.querySelectorAll(".btn-guardar").forEach(btn => {
         btn.addEventListener("click", e => {
             const row = e.target.closest("tr");
@@ -99,6 +111,7 @@
         });
     });
 
+    // 🗑️ Eliminar alumno
     document.querySelectorAll(".btn-eliminar").forEach(btn => {
         btn.addEventListener("click", e => {
             const row = e.target.closest("tr");
@@ -112,8 +125,7 @@
                 });
         });
     });
+</script>
 
-
-    </script>
-    </body>
-    </html>
+</body>
+</html>

@@ -55,7 +55,8 @@ class Bloque(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
     ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'), nullable=False)
-
+    orden = db.Column(db.Integer, default=0)  # 👈 Nuevo campo para controlar el orden
+    
     # Relación inversa: cada bloque tiene muchos alumnos
     alumnos = db.relationship('Alumno', backref='bloque', lazy=True)
 

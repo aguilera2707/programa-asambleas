@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestión de usuarios</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/usuarios.css') }}">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+</head>
+
+<body>
+    <header class="admin-header">
+        <h1>👥 Gestión de {{ rol_actual|capitalize }}s</h1>
+        <div class="admin-user-info">
+            <span>{{ current_user.nombre }}</span>
+            <a href="{{ url_for('nom.panel_admin') }}" class="btn btn-secondary">↩ Volver al panel</a>
+        </div>
+    </header>
+
+    <main class="admin-main">
+        <div class="acciones-superior">
+            <a href="{{ url_for('nom.crear_usuario') }}" class="btn btn-danger">➕ Crear manualmente</a>
+        </div>
+
+        <table id="usuarios" class="display" style="width:100%">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Email</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in usuarios %}
+                <tr>
+                    <td>{{ u.id }}</td>
+                    <td>{{ u.nombre }}</td>
+                    <td>{{ u.email }}</td>
+                    <td>
+                        <a href="{{ url_for('nom.editar_usuario_vista', id=u.id) }}" class="btn-accion edit">✏️</a>
+                        <a href="{{ url_for('nom.eliminar_usuario', id=u.id) }}" class="btn-accion delete">🗑️</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </main>
+
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('#usuarios').DataTable({
+                language: { url: "//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json" },
+                pageLength: 10
+            });
+        });
+    </script>
+</body>
+</html>

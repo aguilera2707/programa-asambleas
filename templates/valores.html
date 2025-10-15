@@ -9,6 +9,9 @@
     </head>
     <body>
     <div class="contenedor-valores">
+        <div class="admin-user-info">
+            <a href="{{ url_for('nom.panel_admin') }}" class="btn btn-secondary">↩ Volver al panel</a>
+        </div>
         <h1 class="titulo-seccion">🏫 Valores del ciclo {{ ciclo.nombre or (ciclo.anio_inicio ~ '–' ~ ciclo.anio_fin) }}</h1>
 
         <div class="formulario-nuevo">

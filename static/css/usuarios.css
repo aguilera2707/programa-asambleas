@@ -1,165 +1,190 @@
-    /* === GESTIÓN DE USUARIOS === */
+/* === ESTILO PANEL DE USUARIOS === */
 
-    body {
-    font-family: 'Poppins', sans-serif;
-    background-color: #f8f8f8;
-    color: #333;
+/* Reset general */
+* {
     margin: 0;
     padding: 0;
-    }
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
 
-    /* Encabezado */
-    .admin-header {
-    background-color: #900000;
-    color: #fff;
-    padding: 15px 25px;
+body {
+    background-color: #f8f8f8;
+    color: #333;
+    min-height: 100vh;
+}
+
+/* ===== ENCABEZADO ===== */
+.admin-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    background-color: #900000;
+    color: #fff;
+    padding: 15px 25px;
     border-radius: 0 0 12px 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    }
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
 
-    .admin-header h1 {
-    font-size: 1.5rem;
-    }
+.admin-header h1 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
 
-    .admin-user-info {
+.admin-user-info {
     display: flex;
     align-items: center;
     gap: 15px;
-    }
+}
 
-    .admin-user-info span {
+.admin-user-info span {
     font-weight: 600;
-    }
+    text-transform: capitalize;
+}
 
-    .btn {
+.admin-user-info .btn-secondary {
+    background-color: #333;
+    color: #fff;
     padding: 8px 14px;
     border-radius: 8px;
     text-decoration: none;
     font-weight: 600;
-    cursor: pointer;
-    border: none;
-    transition: 0.2s ease-in-out;
-    }
+    transition: 0.3s ease;
+}
 
-    .btn-primary {
-    background-color: #900000;
-    color: #fff;
-    }
+.admin-user-info .btn-secondary:hover {
+    background-color: #b30000;
+}
 
-    .btn-primary:hover {
-    background-color: #b70000;
-    }
+/* ===== CONTENIDO PRINCIPAL ===== */
+.admin-main {
+    padding: 25px 40px;
+}
 
-    .btn-secondary {
-    background-color: #555;
-    color: #fff;
-    }
+/* Acciones superiores */
+.acciones-superior {
+    margin-bottom: 20px;
+}
 
-    .btn-secondary:hover {
-    background-color: #333;
-    }
-
-    .btn-danger {
-    background-color: #b00020;
-    color: #fff;
-    }
-
-    .btn-danger:hover {
-    background-color: #d32f2f;
-    }
-
-    /* Pestañas */
-    .tabs {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin: 25px 0;
-    }
-
-    .tab-button {
-    background-color: #900000;
+.btn-danger {
+    background-color: #b30000;
     color: #fff;
     border: none;
-    padding: 10px 20px;
+    padding: 10px 18px;
     border-radius: 8px;
     font-weight: 600;
-    cursor: pointer;
-    transition: 0.3s;
-    }
+    text-decoration: none;
+    transition: all 0.2s ease-in-out;
+}
 
-    .tab-button:hover {
-    background-color: #b70000;
-    }
+.btn-danger:hover {
+    background-color: #d00000;
+    transform: translateY(-1px);
+}
 
-    .tab-button.active {
-    background-color: #d4af37; /* dorado */
-    color: #000;
-    }
-
-    /* Contenido */
-    .tab-content {
-    display: none;
-    }
-
-    .tab-content.active {
-    display: block;
-    }
-
-    /* Acciones */
-    .actions {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-    justify-content: center;
-    flex-wrap: wrap;
-    }
-
-    .actions .btn {
-    font-size: 0.9rem;
-    }
-
-    /* Tabla */
-    table.display {
-    width: 95%;
-    margin: 0 auto;
+/* ===== TABLA ===== */
+table.dataTable {
+    width: 100% !important;
     border-collapse: collapse;
-    background: #fff;
-    border-radius: 12px;
+    background-color: #fff;
+    border-radius: 10px;
     overflow: hidden;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
-    }
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
 
-    table.display th,
-    table.display td {
-    padding: 10px;
-    text-align: center;
-    }
-
-    table.display thead {
-    background-color: #900000;
+table.dataTable thead th {
+    background-color: #900000 !important;
     color: #fff;
-    }
+    text-align: left;
+    padding: 12px 10px;
+    font-weight: 600;
+}
 
-    table.display tbody tr:hover {
-    background-color: #f7f2f2;
-    }
+table.dataTable tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
 
-    /* Responsive */
-    @media (max-width: 768px) {
-    .tabs {
+table.dataTable tbody tr:hover {
+    background-color: #ffeaea;
+    transition: background 0.3s ease;
+}
+
+/* Acciones (editar, eliminar) */
+.btn-accion {
+    display: inline-block;
+    font-size: 1rem;
+    padding: 5px 7px;
+    border-radius: 6px;
+    text-decoration: none;
+    margin: 0 2px;
+    transition: 0.2s;
+}
+
+.btn-accion.edit {
+    background-color: #ffb703;
+    color: #000;
+}
+
+.btn-accion.edit:hover {
+    background-color: #e6a500;
+}
+
+.btn-accion.delete {
+    background-color: #d62828;
+    color: #fff;
+}
+
+.btn-accion.delete:hover {
+    background-color: #b71c1c;
+}
+
+/* ===== DATATABLE CONTROLS ===== */
+.dataTables_wrapper {
+    margin-top: 10px;
+}
+
+.dataTables_length,
+.dataTables_filter {
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.dataTables_info,
+.dataTables_paginate {
+    margin-top: 15px;
+    color: #333;
+}
+
+/* ===== RESPONSIVO ===== */
+@media (max-width: 768px) {
+    .admin-header {
         flex-direction: column;
-        align-items: center;
+        gap: 10px;
+        align-items: flex-start;
     }
 
-    table.display {
+    .admin-main {
+        padding: 15px;
+    }
+
+    table.dataTable thead {
+        display: none;
+    }
+
+    table.dataTable tbody td {
+        display: block;
         width: 100%;
-        font-size: 0.9rem;
+        text-align: right;
+        border-bottom: 1px solid #eee;
     }
 
-    .actions {
-        flex-direction: column;
+    table.dataTable tbody td::before {
+        content: attr(data-label);
+        float: left;
+        font-weight: 600;
+        color: #900000;
     }
-    }
+}

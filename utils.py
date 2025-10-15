@@ -2,12 +2,18 @@ import os, platform
 from extensions import db
 from models import CicloEscolar
 
+from functools import wraps
+from flask import redirect, url_for, flash
+from flask_login import current_user
+
 if platform.system() == "Windows":
     import win32com.client
     from docxtpl import DocxTemplate
 else:
     from weasyprint import HTML
     from flask import render_template
+    
+    
 
 def generar_pdf(template_name: str, context: dict, output_dir: str, filename: str):
     os.makedirs(output_dir, exist_ok=True)
@@ -42,3 +48,18 @@ def generar_pdf(template_name: str, context: dict, output_dir: str, filename: st
 
 def ciclo_actual():
     return db.session.query(CicloEscolar).filter_by(activo=True).first()
+
+# 🔹 Decorador para restringir acceso solo a administradores
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash("⚠️ Debes iniciar sesión para acceder a esta página.", "warning")
+            return redirect(url_for('nom.login'))
+
+        if current_user.rol != 'admin':
+            flash("🚫 No tienes permisos para acceder a esta sección.", "danger")
+            return redirect(url_for('nom.principal'))
+
+        return f(*args, **kwargs)
+    return decorated_function

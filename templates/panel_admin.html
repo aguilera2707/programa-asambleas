@@ -6,52 +6,76 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_admin.css') }}">
 </head>
 <body>
-    <div class="admin-container">
-        <!-- Encabezado -->
-        <header class="admin-header">
-            <h1>Panel de Administración</h1>
-            <div class="admin-user-info">
-                <span>{{ current_user.nombre }}</span>
-                <a href="{{ url_for('nom.logout') }}" class="btn btn-secondary">Cerrar sesión</a>
-            </div>
-        </header>
 
-        <!-- Contenido principal -->
+    <!-- 🔹 Encabezado -->
+    <header class="admin-header">
+        <h1>🏫 Panel de Administración</h1>
+        <div class="admin-user-info">
+            <span>{{ current_user.nombre }}</span>
+            <a href="{{ url_for('nom.logout') }}" class="btn-secondary">Cerrar sesión</a>
+        </div>
+    </header>
+
+    <!-- 🔹 Contenido principal -->
+    <div class="admin-container">
         <main class="admin-main">
             <h2>Gestión del ciclo escolar</h2>
-            <p>Selecciona una acción para administrar el sistema:</p>
+            <p>Selecciona una sección para administrar el sistema:</p>
 
+            <!-- 🧱 Tarjetas tipo credencial -->
             <div class="admin-cards">
-                <!-- Crear usuario -->
-                <div class="card card-action">
-                    <h3>👤 Crear usuario</h3>
-                    <p>Agrega nuevos administradores, maestros o alumnos al sistema.</p>
-                    <a href="{{ url_for('nom.panel_usuarios') }}" class="btn btn-primary">Ir</a>
-                </div>
 
-                <!-- Crear ciclo escolar -->
-                <div class="card card-action">
-                    <h3>📅 Ciclo escolar</h3>
-                    <p>Define o cambia el ciclo escolar actual (por ejemplo, 2025–2026).</p>
-                    <a href="#" class="btn btn-primary">Próximamente</a>
-                </div>
+                <a href="{{ url_for('admin_bp.admin_usuarios_por_rol', rol='admin') }}" class="card">
+                    <div class="icon">👑</div>
+                    <h3>Administradores</h3>
+                    <p>Agrega o importa cuentas de administradores del sistema.</p>
+                </a>
 
-                <!-- Valores y nominaciones -->
-                <div class="card card-action">
-                    <h3>🏅 Valores y nominaciones</h3>
+                <a href="{{ url_for('admin_bp.maestros_ciclo') }}" class="card">
+                    <div class="icon">👩‍🏫</div>
+                    <h3>Maestros</h3>
+                    <p>Agrega o importa maestros del ciclo escolar actual.</p>
+                </a>
+
+                <a href="{{ url_for('admin_bp.alumnos_ciclo') }}" class="card">
+                    <div class="icon">🎒</div>
+                    <h3>Alumnos</h3>
+                    <p>Agrega o importa alumnos del ciclo escolar actual.</p>
+                </a>
+
+                <a href="{{ url_for('admin_bp.listar_valores') }}" class="card">
+                    <div class="icon">🏅</div>
+                    <h3>Valores y nominaciones</h3>
                     <p>Gestiona los valores institucionales y las nominaciones del personal.</p>
-                    <a href="{{ url_for('admin_bp.gestionar_nominaciones') }}" class="btn btn-primary">Ir</a>
+                </a>
 
-                </div>
+                <a href="{{ url_for('admin_bp.admin_dashboard') }}" class="card">
+                    <div class="icon">📊</div>
+                    <h3>Dashboard</h3>
+                    <p>Consulta estadísticas y gráficos de nominaciones.</p>
+                </a>
 
-                <!-- Reportes -->
-                <div class="card card-action">
-                <h3>📊 Dashboard</h3>
-                <p>Consulta estadísticas y gráficos de nominaciones.</p>
-                <a href="{{ url_for('admin_bp.admin_dashboard') }}" class="btn btn-primary">Abrir</a>
-                </div>
+                <a href="{{ url_for('admin_bp.gestionar_ciclos') }}" class="card">
+                    <div class="icon">📅</div>
+                    <h3>Ciclo escolar</h3>
+                    <p>Administra los ciclos escolares y activa el vigente.</p>
+                </a>
+
+                <a href="{{ url_for('admin_bp.bloques_ciclo') }}" class="card">
+                    <div class="icon">📚</div>
+                    <h3>Bloques</h3>
+                    <p>Gestiona los bloques académicos del ciclo activo.</p>
+                </a>
+
+                <a href="{{ url_for('admin_bp.calendario_eventos') }}" class="card">
+                    <div class="icon">🗓️</div>
+                    <h3>Eventos</h3>
+                    <p>Programa las asambleas y gestiona los eventos del ciclo.</p>
+                </a>
+
             </div>
         </main>
     </div>
+
 </body>
 </html>

@@ -168,3 +168,101 @@
         width: 100%;
     }
     }
+
+    .btn-create {
+    background-color: #900;
+    color: white;
+    padding: 8px 14px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: bold;
+}
+.btn-create:hover {
+    background-color: #b71c1c;
+}
+
+/* ====== BOTONES DE ACCIÓN (alineados y centrados) ====== */
+.btn-edit,
+.btn-delete {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    margin: 0 3px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 18px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    vertical-align: middle;
+}
+
+/* ✏️ Botón Editar */
+.btn-edit {
+    background-color: var(--dorado-ima);
+    color: #000;
+}
+.btn-edit:hover {
+    background-color: #e5bc13;
+    transform: translateY(-2px);
+}
+
+/* 🗑️ Botón Eliminar */
+.btn-delete {
+    background-color: var(--rojo-ima);
+    color: var(--blanco);
+}
+.btn-delete:hover {
+    background-color: #a31515;
+    transform: translateY(-2px);
+}
+
+/* 🔧 Alineación de la celda de acciones */
+td:last-child {
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* ====== BOTÓN VOLVER ====== */
+.btn-volver {
+    display: inline-block;
+    background-color: var(--dorado-ima);
+    color: var(--negro);
+    font-weight: 600;
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+.btn-volver:hover {
+    background-color: #e0b500;
+    transform: translateY(-2px);
+}
+
+/* ====== BARRA SUPERIOR ====== */
+.top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 20px;
+    margin-bottom: 15px;
+}
+
+/* ====== BOTÓN VOLVER ====== */
+.btn-volver {
+    background-color: var(--dorado-ima);
+    color: var(--negro);
+    font-weight: 600;
+    text-decoration: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.btn-volver:hover {
+    background-color: #e0b500;
+    transform: translateY(-2px);
+}

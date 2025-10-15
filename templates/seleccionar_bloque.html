@@ -22,7 +22,7 @@
 
         <div class="bloques-grid">
         {% for bloque in bloques %}
-            <a href="{{ url_for('nom.nominar_alumno', bloque_id=bloque.id) }}" class="card-bloque">
+            <a href="{{ url_for('nom.seleccionar_grado', bloque_id=bloque.id) }}" class="card-bloque">
             <span class="emoji">🏫</span>
             <h3>{{ bloque.nombre }}</h3>
             <p>{{ bloque.descripcion or 'Bloque académico' }}</p>

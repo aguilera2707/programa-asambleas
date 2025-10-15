@@ -29,6 +29,7 @@
         <table>
             <thead>
                 <tr>
+                    <th>Orden</th>
                     <th>Bloque</th>
                     <th>Alumnos</th>
                     <th>Acciones</th>
@@ -37,6 +38,12 @@
             <tbody>
                 {% for bloque in bloques %}
                 <tr>
+                    <td>
+                        <form method="POST" action="{{ url_for('admin_bp.actualizar_orden_bloque', id=bloque.id) }}">
+                            <input type="number" name="orden" value="{{ bloque.orden or 0 }}" min="0" style="width:60px;text-align:center;">
+                            <button type="submit" style="background:none;border:none;color:#800000;cursor:pointer;">💾</button>
+                        </form>
+                    </td>
                     <td>{{ bloque.nombre }}</td>
                     <td>{{ conteos[bloque.id] }}</td>
                     <td>
@@ -45,12 +52,10 @@
                             <button class="btn-eliminar" type="submit" onclick="return confirm('¿Eliminar este bloque?')">🗑️</button>
                         </form>
                         {% else %}
-                        <span class="bloque-lleno">Bloque activo</span>
+                        <span class="bloque-lleno">Bloque con alumnos</span>
                         {% endif %}
                     </td>
                 </tr>
-                {% else %}
-                <tr><td colspan="3">No hay bloques registrados aún.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

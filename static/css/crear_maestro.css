@@ -1,0 +1,72 @@
+.crear-container {
+    max-width: 500px;
+    margin: 60px auto;
+    background: #fff;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+h2 {
+    color: #900;
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    text-align: left;
+    font-weight: bold;
+    color: #333;
+    margin-top: 15px;
+}
+
+input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    margin-top: 5px;
+}
+
+.btn-volver {
+    display: inline-block;
+    background: #fbc02d;
+    padding: 8px 14px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: #222;
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+.acciones {
+    margin-top: 25px;
+    display: flex;
+    justify-content: space-around;
+}
+
+.btn-crear {
+    background-color: #900;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.btn-crear:hover {
+    background-color: #b71c1c;
+}
+
+.btn-cancelar {
+    background-color: #777;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    text-decoration: none;
+}
+
+.btn-cancelar:hover {
+    background-color: #999;
+}

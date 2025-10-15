@@ -17,7 +17,7 @@ from datetime import datetime
 from flask import send_file, request, jsonify
 from flask import jsonify
 from datetime import datetime
-
+from utils import admin_required
 
 # -------------------------------
 # 🔹 Definición de Blueprints
@@ -93,46 +93,36 @@ def panel_admin():
     return render_template('panel_admin.html')
 
 
-# -------------------------------
-# 🔹 Crear usuario manualmente
-# -------------------------------
+from werkzeug.security import generate_password_hash  # asegúrate de tenerlo arriba
+
 @nom.route('/crear_usuario', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def crear_usuario():
-    if current_user.rol != 'admin':
-        flash("Acceso denegado: solo los administradores pueden crear usuarios.", "warning")
-        return redirect(url_for('nom.principal'))
-
-    mensaje = None
-
     if request.method == 'POST':
-        nombre = request.form['nombre'].strip()
-        email = request.form['correo'].strip().lower()
+        nombre = request.form['nombre']
+        correo = request.form['correo']
         password = request.form['password']
-        rol = request.form['rol']
+        rol = request.form.get('rol', 'admin')  # si no se envía, por defecto admin
 
-        if not nombre or not email or not password or not rol:
-            mensaje = "⚠️ Todos los campos son obligatorios."
-            return render_template('crear_usuario.html', mensaje=mensaje)
-
-        existente = Usuario.query.filter_by(email=email).first()
+        # Verificar si ya existe
+        existente = Usuario.query.filter_by(email=correo).first()
         if existente:
-            mensaje = "⚠️ Ya existe un usuario registrado con ese correo."
-            return render_template('crear_usuario.html', mensaje=mensaje)
+            flash("⚠️ Ya existe un usuario con ese correo.", "warning")
+            return redirect(url_for('nom.crear_usuario'))
 
-        nuevo_usuario = Usuario(nombre=nombre, email=email, rol=rol)
-        nuevo_usuario.set_password(password)
+        # ✅ Crear usuario correctamente
+        nuevo = Usuario(nombre=nombre, email=correo, rol=rol)
+        nuevo.set_password(password)  # usa el método del modelo para generar el hash
 
-        try:
-            db.session.add(nuevo_usuario)
-            db.session.commit()
-            mensaje = "✅ Usuario creado con éxito."
-        except Exception as e:
-            db.session.rollback()
-            mensaje = f"❌ Error al crear el usuario: {str(e)}"
+        db.session.add(nuevo)
+        db.session.commit()
 
-    return render_template('crear_usuario.html', mensaje=mensaje)
+        flash(f"✅ Usuario '{nombre}' creado correctamente como {rol}.", "success")
+        return redirect(url_for('admin_bp.admin_usuarios_por_rol', rol=rol))
 
+    # Para GET
+    return render_template('crear_usuario.html', rol_predefinido='admin')
 
 # -------------------------------
 # 🔹 Importar usuarios desde Excel o CSV
@@ -417,10 +407,20 @@ def alumnos_ciclo():
 
     ciclo = CicloEscolar.query.filter_by(activo=True).first()
     alumnos = Alumno.query.filter_by(ciclo_id=ciclo.id).all() if ciclo else []
-    bloques = Bloque.query.filter_by(ciclo_id=ciclo.id).all() if ciclo else []
+
+    # 🔹 Ordena los bloques numéricamente si se llaman "Bloque 1", "Bloque 2", etc.
+    bloques = []
+    if ciclo:
+        bloques = (
+            Bloque.query
+            .filter_by(ciclo_id=ciclo.id)
+            .order_by(
+                db.cast(db.func.substr(Bloque.nombre, 8), db.Integer).asc()
+            )
+            .all()
+        )
 
     return render_template('admin_alumnos.html', alumnos=alumnos, ciclo=ciclo, bloques=bloques)
-
 
 # -------------------------------
 # 🔹 Importar alumnos al ciclo activo (normalizado y sin duplicados)
@@ -597,23 +597,11 @@ def _allowed_file_alumnos(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXT_ALUMNOS
 
 
-@admin_bp.route('/alumnos', methods=['GET'])
+@admin_bp.route('/administradores', methods=['GET', 'POST'])
 @login_required
-def admin_alumnos():
-    """Vista principal de alumnos del ciclo activo"""
-    if current_user.rol != 'admin':
-        flash("🚫 Solo los administradores pueden acceder.", "danger")
-        return redirect(url_for('nom.principal'))
-
-    ciclo = CicloEscolar.query.filter_by(activo=True).first()
-    if not ciclo:
-        flash("⚠️ No hay un ciclo activo. Activa un ciclo primero.", "warning")
-        return redirect(url_for('admin_bp.gestionar_ciclos'))
-
-    bloques = Bloque.query.filter_by(ciclo_id=ciclo.id).order_by(Bloque.id.asc()).all()
-    alumnos = Alumno.query.filter_by(ciclo_id=ciclo.id).order_by(Alumno.grado, Alumno.grupo, Alumno.nombre).all()
-    return render_template('admin_alumnos.html', ciclo=ciclo, bloques=bloques, alumnos=alumnos)
-
+@admin_required
+def admin_administradores():
+    return render_template('admin_administradores.html')
 
 @admin_bp.route('/alumnos/importar_bloque', methods=['POST'])
 @login_required
@@ -1360,17 +1348,15 @@ def actualizar_maestro(id):
     flash("✅ Maestro actualizado correctamente.", "success")
     return redirect(url_for('nom.panel_usuarios'))
 
-@admin_bp.route('/maestros/eliminar/<int:id>', methods=['DELETE'])
+@admin_bp.route('/maestros/eliminar/<int:id>', methods=['POST'])
 @login_required
+@admin_required
 def eliminar_maestro(id):
-    if current_user.rol != 'admin':
-        return jsonify({"message": "No autorizado"}), 403
-
     maestro = Maestro.query.get_or_404(id)
     db.session.delete(maestro)
     db.session.commit()
-
-    return jsonify({"message": "✅ Maestro eliminado correctamente"})
+    flash(f"🗑️ Maestro {maestro.nombre} eliminado correctamente.", "success")
+    return redirect(url_for('admin_bp.maestros_ciclo'))
 
 
 # --- DASHBOARD JSON ---
@@ -1840,19 +1826,163 @@ def mis_grupos():
     return render_template('mis_grupos.html', grupos=grupos, ciclo=ciclo_activo)
 
 
-# =======================================
-# 🧩 Seleccionar bloque antes de nominar
-# =======================================
 @nom.route('/seleccionar_bloque')
 @login_required
 def seleccionar_bloque():
-    """Vista previa donde el maestro elige el bloque para nominar alumnos."""
-    if current_user.rol != 'profesor':
-        flash("🚫 Solo los profesores pueden acceder a esta sección.", "danger")
-        return redirect(url_for('nom.principal'))
-
-    # Obtener todos los bloques del ciclo activo
     ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
-    bloques = Bloque.query.filter_by(ciclo_id=ciclo_activo.id).order_by(Bloque.id.asc()).all()
+
+    # 🔹 Ordenar por número si el nombre contiene un número (Bloque 1, Bloque 2, etc.)
+    bloques = (
+        Bloque.query
+        .filter_by(ciclo_id=ciclo_activo.id)
+        .order_by(db.cast(db.func.substr(Bloque.nombre, 8), db.Integer))  # Ordena por el número después de "Bloque "
+        .all()
+    )
 
     return render_template('seleccionar_bloque.html', bloques=bloques, ciclo=ciclo_activo)
+
+# -------------------------------
+# 🔹 Seleccionar grado dentro del bloque
+# -------------------------------
+@nom.route('/bloque/<int:bloque_id>/grados')
+@login_required
+def seleccionar_grado(bloque_id):
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    bloque = Bloque.query.get_or_404(bloque_id)
+
+    # 🔍 Obtener los grados únicos dentro del bloque
+    grados = (
+        db.session.query(Alumno.grado)
+        .filter_by(bloque_id=bloque.id, ciclo_id=ciclo_activo.id)
+        .distinct()
+        .order_by(Alumno.grado)
+        .all()
+    )
+    grados = [g[0] for g in grados]  # Convierte [(1,), (2,), (3,)] → [1,2,3]
+
+    return render_template('seleccionar_grado.html', bloque=bloque, grados=grados, ciclo=ciclo_activo)
+
+
+# -------------------------------
+# 🔹 Panel de gestión de usuarios
+# -------------------------------
+
+
+@admin_bp.route('/admin/maestros')
+@login_required
+@admin_required
+def admin_maestros():
+    return redirect(url_for('admin_bp.alumnos_maestros'))  # si ya existe el template o ruta
+    # o bien:
+    # return render_template('admin_maestros.html')
+
+@admin_bp.route('/usuarios/<rol>')
+@login_required
+@admin_required
+def admin_usuarios_por_rol(rol):
+    """Muestra usuarios filtrados por rol (admin, profesor, estudiante)"""
+    roles_validos = ['admin', 'profesor', 'estudiante']
+    if rol not in roles_validos:
+        flash("Rol no válido.", "danger")
+        return redirect(url_for('nom.principal'))
+
+    # Filtrar usuarios según el rol
+    usuarios = Usuario.query.filter_by(rol=rol).all()
+    return render_template('admin_usuarios.html', usuarios=usuarios, rol_actual=rol)
+
+# =========================================================
+# 🗑️ ELIMINAR USUARIO (ADMIN, PROFESOR O ESTUDIANTE)
+# =========================================================
+@admin_bp.route('/usuarios/eliminar/<int:id>', methods=['POST'])
+@login_required
+@admin_required
+def eliminar_usuario(id):
+    usuario = Usuario.query.get_or_404(id)
+
+    # Prevenir que se elimine el admin principal
+    if usuario.email == "admin@cela.edu.mx":
+        flash("⚠️ No puedes eliminar el administrador principal.", "warning")
+        return redirect(request.referrer or url_for('admin_bp.admin_usuarios_por_rol', rol=usuario.rol))
+
+    db.session.delete(usuario)
+    db.session.commit()
+    flash(f"✅ Usuario '{usuario.nombre}' eliminado correctamente.", "success")
+    return redirect(request.referrer or url_for('admin_bp.admin_usuarios_por_rol', rol=usuario.rol))
+
+# ============================================================
+# 🔹 GESTIÓN DE MAESTROS
+# ============================================================
+@admin_bp.route('/maestros', methods=['GET'])
+@login_required
+@admin_required
+def gestionar_maestros():
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo_activo:
+        flash("⚠️ No hay ciclo escolar activo.", "warning")
+        return redirect(url_for('admin_bp.gestionar_ciclos'))
+    
+    maestros = Maestro.query.filter_by(ciclo_id=ciclo_activo.id).all()
+    return render_template('admin_maestros.html', maestros=maestros)
+
+# ------------------------------------------------------------
+# 🟢 Crear maestro (ruta para botón "Crear manualmente")
+# ------------------------------------------------------------
+@admin_bp.route('/maestros/nuevo', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def nuevo_maestro():
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo_activo:
+        flash("⚠️ No hay un ciclo activo para registrar maestros.", "warning")
+        return redirect(url_for('admin_bp.maestros_ciclo'))
+
+    if request.method == 'POST':
+        nombre = request.form.get('nombre')
+        correo = request.form.get('correo')
+
+        if Maestro.query.filter_by(correo=correo, ciclo_id=ciclo_activo.id).first():
+            flash("🚫 Ya existe un maestro con ese correo en este ciclo.", "danger")
+            return redirect(url_for('admin_bp.nuevo_maestro'))
+
+        nuevo = Maestro(nombre=nombre, correo=correo, ciclo_id=ciclo_activo.id)
+        db.session.add(nuevo)
+        db.session.commit()
+        flash(f"✅ Maestro {nombre} registrado correctamente.", "success")
+        return redirect(url_for('admin_bp.maestros_ciclo'))
+
+    return render_template('crear_maestro.html')
+
+@admin_bp.route('/alumnos/crear', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def crear_alumno_manual():
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    bloques = Bloque.query.filter_by(ciclo_id=ciclo.id).all() if ciclo else []
+
+    if request.method == 'POST':
+        nombre = request.form.get('nombre')
+        grado = request.form.get('grado')
+        grupo = request.form.get('grupo')
+        nivel = request.form.get('nivel')
+        bloque_id = request.form.get('bloque_id')
+
+        if not all([nombre, grado, grupo, nivel, bloque_id]):
+            flash("⚠️ Todos los campos son obligatorios.", "warning")
+            return redirect(url_for('admin_bp.crear_alumno_manual'))
+
+        nuevo = Alumno(
+            nombre=nombre,
+            grado=grado,
+            grupo=grupo,
+            nivel=nivel,
+            bloque_id=bloque_id,
+            ciclo_id=ciclo.id
+        )
+        db.session.add(nuevo)
+        db.session.commit()
+        flash(f"✅ Alumno {nombre} registrado correctamente.", "success")
+        return redirect(url_for('admin_bp.maestros_ciclo'))
+
+    return render_template('crear_alumno.html', ciclo=ciclo, bloques=bloques)
+
+
