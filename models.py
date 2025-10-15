@@ -40,7 +40,8 @@ class Maestro(db.Model):
     nombre = db.Column(db.String(100), nullable=False)
     correo = db.Column(db.String(120), unique=True, nullable=False)
     ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'), nullable=False)
-
+    
+    
     def __repr__(self):
         return f"<Maestro {self.nombre}>"
 
@@ -73,6 +74,7 @@ class Alumno(db.Model):
     grado = db.Column(db.String(20), nullable=False)
     grupo = db.Column(db.String(5), nullable=False)
     nivel = db.Column(db.String(50), nullable=False)
+    email_tutor = db.Column(db.String(120))
 
     ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'), nullable=False)
     bloque_id = db.Column(db.Integer, db.ForeignKey('bloques.id'), nullable=True)
@@ -132,7 +134,9 @@ class Nominacion(db.Model):
     valor = db.relationship('Valor', backref='nominaciones_valor', lazy=True)
     ciclo = db.relationship('CicloEscolar', backref='nominaciones_registradas', lazy=True)
     tipo = db.Column(db.String(20), default='alumno')  # 'alumno' o 'personal'
-
+    evento_id = db.Column(db.Integer, db.ForeignKey('evento_asamblea.id'), nullable=True)  # 🔗 Nueva relación
+    evento = db.relationship('EventoAsamblea', backref='nominaciones', lazy=True)
+    
     def __repr__(self):
         if self.alumno_id:
             return f"<Nominacion Alumno {self.alumno_id} - Valor {self.valor_id}>"
@@ -166,3 +170,59 @@ class Usuario(UserMixin, db.Model):
 
     def __repr__(self):
         return f"<Usuario {self.nombre} ({self.rol})>"
+
+
+# ===============================
+# 🗓️ MODELO: EventoAsamblea
+# ===============================
+
+class EventoAsamblea(db.Model):
+    __tablename__ = "evento_asamblea"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ciclo_id = db.Column(db.Integer, db.ForeignKey("ciclos_escolares.id"), nullable=False)
+    bloque_id = db.Column(db.Integer, db.ForeignKey("bloques.id"), nullable=False)
+    plantilla_id = db.Column(db.Integer, db.ForeignKey("plantilla_invitacion.id"), nullable=True)
+
+    mes_ordinal = db.Column(db.Integer, nullable=False)
+    nombre_mes = db.Column(db.String(50), nullable=False)
+    fecha_evento = db.Column(db.Date, nullable=False)
+    fecha_cierre_nominaciones = db.Column(db.DateTime, nullable=False)
+
+    lugar = db.Column(db.String(150), default="Instituto Moderno Americano")
+    hora = db.Column(db.String(20), default="09:00 a.m.")
+    activo = db.Column(db.Boolean, default=True)
+
+    ciclo = db.relationship("CicloEscolar", backref="eventos_asamblea")
+    bloque = db.relationship("Bloque", backref="eventos_asamblea")
+    plantilla = db.relationship("PlantillaInvitacion", backref="eventos_asamblea")
+
+    def __repr__(self):
+        return f"<EventoAsamblea Bloque {self.bloque_id} Mes {self.nombre_mes}>"
+    # ✅ Propiedad para verificar si el evento está abierto
+    @property
+    def esta_abierto(self):
+        """Devuelve True si el evento sigue activo y la fecha actual es menor a la de cierre."""
+        ahora = datetime.utcnow()
+        return self.activo and ahora < self.fecha_cierre_nominaciones
+
+
+# ===============================
+# 🖼️ MODELO: Plantilla de invitación
+# ===============================
+class PlantillaInvitacion(db.Model):
+    __tablename__ = "plantilla_invitacion"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ciclo_id = db.Column(db.Integer, db.ForeignKey("ciclos_escolares.id"), nullable=False)
+    nombre = db.Column(db.String(100), nullable=False)
+    archivo = db.Column(db.String(255), nullable=False)
+    descripcion = db.Column(db.String(200))
+    predeterminada = db.Column(db.Boolean, default=False)
+    activa = db.Column(db.Boolean, default=True)
+
+    ciclo = db.relationship("CicloEscolar", backref="plantillas_invitacion")
+
+    def __repr__(self):
+        return f"<PlantillaInvitacion {self.nombre}>"
+

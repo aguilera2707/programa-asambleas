@@ -1,0 +1,98 @@
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+    <meta charset="UTF-8" />
+    <title>Panel de nominaciones del maestro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_matriz.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    </head>
+    <body>
+
+    <h1 class="titulo-matriz">👨‍🏫 Panel de nominaciones</h1>
+
+    <div id="infoPanel" class="info-panel">
+    <p><strong>🏫 Ciclo:</strong> <span id="ciclo"></span> |
+        <strong>Bloque:</strong> <span id="bloque"></span> |
+        <strong>Grado:</strong> <span id="grado"></span><sup>°</sup><span id="grupo"></span></p>
+    <p id="eventoInfo"></p>
+    </div>
+
+    <div class="contenedor-tabla">
+        <table id="tablaMaestro" class="tabla-matriz">
+        <thead></thead>
+        <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+    async function cargarPanel() {
+    const res = await fetch("/panel_nominaciones_data");
+    const data = await res.json();
+
+    // --- Mostrar encabezado informativo ---
+    document.getElementById("ciclo").textContent = data.ciclo || "—";
+    document.getElementById("bloque").textContent = data.bloque || "—";
+    document.getElementById("grado").textContent = data.grado || "—";
+    document.getElementById("grupo").textContent = data.grupo || "—";
+
+    const eventoInfo = document.getElementById("eventoInfo");
+    if (data.evento_activo) {
+    eventoInfo.innerHTML = `🗓️ <strong>Evento activo:</strong> ${data.evento_activo} (Cierra: ${data.cierre_evento})`;
+    } else {
+    eventoInfo.innerHTML = `<span style="color:#800000;">⚠️ No hay evento activo en este momento</span>`;
+    }
+
+    if (data.error) {
+        Swal.fire("Error", data.error, "error");
+        return;
+    }
+
+    const thead = document.querySelector("#tablaMaestro thead");
+    const tbody = document.querySelector("#tablaMaestro tbody");
+    thead.innerHTML = "";
+    tbody.innerHTML = "";
+
+    // --- Encabezado
+    let header = `<tr><th>Alumno</th>`;
+    data.meses.forEach(m => header += `<th>${m.nombre}</th>`);
+    header += `<th>Aviso</th></tr>`;
+    thead.innerHTML = header;
+
+    // --- Filas
+    data.alumnos.forEach(a => {
+        let fila = `<tr class="${a.sin_nominacion ? 'sin-nominacion' : ''}">
+        <td class="nombre-alumno" data-id="${a.id}">${a.nombre} (${a.grado}${a.grupo})</td>`;
+
+        data.meses.forEach(m => {
+        const valores = a.valores_por_mes[m.mes_ordinal] || [];
+        if (valores.length === 0) {
+            fila += `<td><span class="dot gris"></span></td>`;
+        } else {
+            let puntos = valores.map(v => `
+            <div class="tooltip">
+                <span class="dot verde"></span>
+                <span class="tooltiptext">${v.valor} – ${v.maestro} (${v.fecha})</span>
+            </div>
+            `).join(" ");
+            fila += `<td>${puntos}</td>`;
+        }
+        });
+
+        fila += `<td>${a.sin_nominacion ? "⚠️ Sin nominación" : ""}</td></tr>`;
+        tbody.innerHTML += fila;
+    });
+
+    // --- Clic en alumno → abrir nominación
+    document.querySelectorAll(".nombre-alumno").forEach(td => {
+        td.addEventListener("click", () => {
+        const alumnoId = td.dataset.id;
+        window.location.href = `/nominacion_alumno/${alumnoId}`;
+        });
+    });
+    }
+
+    cargarPanel();
+    </script>
+    </body>
+    </html>

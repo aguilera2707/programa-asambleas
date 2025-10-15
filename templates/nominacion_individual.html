@@ -1,0 +1,81 @@
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+    <meta charset="UTF-8">
+    <title>Nominar alumno</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/nominacion_individual.css') }}">
+    </head>
+    <body>
+
+    <div class="contenedor-formulario">
+        <h2>Nominar a {{ alumno.nombre }} ({{ alumno.grado }}{{ alumno.grupo }})</h2>
+
+        <h4>Valores ya asignados:</h4>
+        {% if valores_asignados %}
+        <ul>
+            {% for n in valores_asignados %}
+            <li>✅ {{ n.valor.nombre }} — {{ n.maestro.nombre }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>Sin valores previos.</p>
+        {% endif %}
+
+        <form method="POST">
+        <label>Selecciona un nuevo valor:</label>
+        <select name="valor_id" required>
+            <option value="">-- Selecciona --</option>
+            {% for v in valores_disponibles %}
+            <option value="{{ v.id }}">{{ v.nombre }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Comentario (opcional):</label>
+        <textarea name="comentario" rows="3" placeholder="Motivo o felicitación..."></textarea>
+
+        <button type="submit" class="btn-filtrar">Registrar nominación</button>
+        <a href="{{ url_for('nom.panel_nominaciones') }}" class="btn-volver">⬅ Volver al panel</a>
+        </form>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+    document.addEventListener("DOMContentLoaded", () => {
+    const form = document.querySelector("form");
+
+    form.addEventListener("submit", function(e) {
+        e.preventDefault();
+
+        const selectValor = form.querySelector("select[name='valor_id']");
+        const valorSeleccionado = selectValor.options[selectValor.selectedIndex].text;
+        const alumno = "{{ alumno.nombre }}";
+
+        if (!selectValor.value) {
+        Swal.fire({
+            icon: "warning",
+            title: "Valor no seleccionado",
+            text: "Debes elegir un valor antes de nominar.",
+            confirmButtonColor: "#800000"
+        });
+        return;
+        }
+
+        Swal.fire({
+        title: "Confirmar nominación",
+        html: `¿Deseas nominar a <b>${alumno}</b> por el valor <b>${valorSeleccionado}</b>?`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Sí, confirmar",
+        cancelButtonText: "Cancelar",
+        confirmButtonColor: "#800000",
+        cancelButtonColor: "#aaa"
+        }).then((result) => {
+        if (result.isConfirmed) {
+            form.submit();
+        }
+        });
+    });
+    });
+    </script>
+
+    </body>
+    </html>

@@ -1,0 +1,35 @@
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+    <meta charset="UTF-8">
+    <title>Seleccionar bloque</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/seleccionar_bloque.css') }}">
+    </head>
+    <body>
+
+    <header class="admin-header">
+        <div class="admin-header-left">
+        <h1>🎖️ Nominar Alumno</h1>
+        </div>
+        <div class="admin-user-info">
+        <span>{{ current_user.nombre }}</span>
+        <a href="{{ url_for('nom.logout') }}" class="btn-logout">Cerrar sesión</a>
+        </div>
+    </header>
+
+    <main class="contenedor-bloques">
+        <h2>Selecciona el bloque donde deseas registrar nominaciones</h2>
+
+        <div class="bloques-grid">
+        {% for bloque in bloques %}
+            <a href="{{ url_for('nom.nominar_alumno', bloque_id=bloque.id) }}" class="card-bloque">
+            <span class="emoji">🏫</span>
+            <h3>{{ bloque.nombre }}</h3>
+            <p>{{ bloque.descripcion or 'Bloque académico' }}</p>
+            </a>
+        {% endfor %}
+        </div>
+    </main>
+
+    </body>
+    </html>

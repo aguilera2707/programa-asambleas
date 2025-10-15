@@ -1,0 +1,139 @@
+    /* ==========================
+    MATRIZ MENSUAL - ESTILOS
+    ========================== */
+
+    body {
+    background: #f8f8f8;
+    font-family: 'Poppins', sans-serif;
+    }
+
+    .titulo-matriz {
+    color: #800000;
+    text-align: center;
+    margin: 25px 0;
+    font-weight: 600;
+    }
+
+    .filtros-matriz {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 20px;
+    }
+
+    .filtros-matriz select {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #bbb;
+    background: white;
+    font-weight: 500;
+    }
+
+    .btn-filtrar {
+    background-color: #800000;
+    color: white;
+    border: none;
+    padding: 7px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    }
+
+    .btn-filtrar:hover {
+    background-color: #a00000;
+    }
+
+    .contenedor-tabla {
+    width: 95%;
+    margin: auto;
+    overflow-x: auto;
+    }
+
+    .tabla-matriz {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .tabla-matriz th, .tabla-matriz td {
+    border: 1px solid #ddd;
+    text-align: center;
+    padding: 8px;
+    }
+
+    .tabla-matriz th {
+    background: #800000;
+    color: white;
+    font-weight: 600;
+    }
+
+    .dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    display: inline-block;
+    margin: 0 3px;
+    }
+
+    .dot.verde {
+    background: #4CAF50;
+    }
+
+    .dot.gris {
+    background: #ccc;
+    }
+
+    .sin-nominacion {
+    background: #ffebee;
+    color: #b71c1c;
+    font-weight: 600;
+    }
+
+    .tooltip {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+    }
+
+    .tooltip .tooltiptext {
+    visibility: hidden;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    width: max-content;
+    max-width: 250px;
+    font-size: 12px;
+    }
+
+    .tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+    }
+
+        .info-panel {
+    text-align: center;
+    background: #fff3f3;
+    border: 1px solid #e4bfbf;
+    border-radius: 10px;
+    padding: 10px;
+    margin: 10px auto 20px;
+    width: 85%;
+    box-shadow: 0 0 4px rgba(0,0,0,0.05);
+    color: #600;
+    font-weight: 500;
+    }
+
+    .info-panel p {
+    margin: 3px 0;
+    }

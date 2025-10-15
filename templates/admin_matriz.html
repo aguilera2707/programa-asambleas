@@ -1,0 +1,101 @@
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+    <meta charset="UTF-8" />
+    <title>Matriz mensual de nominaciones</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_matriz.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    </head>
+    <body>
+
+    <h1 class="titulo-matriz">📊 Matriz mensual de nominaciones</h1>
+
+    <div class="filtros-matriz">
+        <select id="bloque"></select>
+        <select id="grado"></select>
+        <select id="grupo"></select>
+        <button id="btnFiltrar" class="btn-filtrar">Mostrar</button>
+    </div>
+
+    <div class="contenedor-tabla">
+        <table id="tablaMatriz" class="tabla-matriz">
+        <thead></thead>
+        <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+    async function cargarFiltros() {
+        const bloqueSel = document.getElementById("bloque");
+        const gradoSel = document.getElementById("grado");
+        const grupoSel = document.getElementById("grupo");
+
+        // Obtener bloques (requiere endpoint JSON /admin/bloques_json)
+        const resBloques = await fetch("/admin/bloques_json");
+        const dataBloques = await resBloques.json();
+        bloqueSel.innerHTML = "<option value=''>Todos los bloques</option>" +
+        dataBloques.map(b => `<option value="${b.id}">${b.nombre}</option>`).join("");
+
+        gradoSel.innerHTML = "<option value=''>Todos los grados</option>" +
+        Array.from({length:6}, (_,i)=>`<option>${i+1}</option>`).join("");
+
+        grupoSel.innerHTML = "<option value=''>Todos los grupos</option>" +
+        ["A","B","C","D"].map(g => `<option>${g}</option>`).join("");
+    }
+
+    async function cargarMatriz() {
+        const bloque = document.getElementById("bloque").value;
+        const grado = document.getElementById("grado").value;
+        const grupo = document.getElementById("grupo").value;
+
+        const url = `/admin/matriz_data?bloque_id=${bloque || ""}&grado=${grado || ""}&grupo=${grupo || ""}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.error) {
+        Swal.fire("Error", data.error, "error");
+        return;
+        }
+
+        const thead = document.querySelector("#tablaMatriz thead");
+        const tbody = document.querySelector("#tablaMatriz tbody");
+        thead.innerHTML = "";
+        tbody.innerHTML = "";
+
+        // Encabezados
+        let header = `<tr><th>Alumno</th>`;
+        data.meses.forEach(m => header += `<th>${m.nombre}<br><small>${m.cierre.split(" ")[0]}</small></th>`);
+        header += `<th>Aviso</th></tr>`;
+        thead.innerHTML = header;
+
+        // Filas
+        data.alumnos.forEach(a => {
+        let fila = `<tr class="${a.sin_nominacion ? 'sin-nominacion' : ''}">
+            <td>${a.nombre} (${a.grado}${a.grupo})</td>`;
+        data.meses.forEach(m => {
+            const valores = a.valores_por_mes[m.mes_ordinal] || [];
+            if (valores.length === 0) {
+            fila += `<td><span class="dot gris"></span></td>`;
+            } else {
+            let puntos = valores.map(v => `
+                <div class="tooltip">
+                <span class="dot verde"></span>
+                <span class="tooltiptext">${v.valor} (${v.maestro}, ${v.fecha})</span>
+                </div>
+            `).join("");
+            fila += `<td>${puntos}</td>`;
+            }
+        });
+        fila += `<td>${a.sin_nominacion ? "⚠️ Sin nominación" : ""}</td></tr>`;
+        tbody.innerHTML += fila;
+        });
+    }
+
+    document.getElementById("btnFiltrar").addEventListener("click", cargarMatriz);
+
+    cargarFiltros();
+    </script>
+
+    </body>
+    </html>

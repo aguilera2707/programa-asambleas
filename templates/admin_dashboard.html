@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard del Administrador</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_dashboard.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="admin-container">
+        <header class="admin-header">
+            <h1>📊 Dashboard del Administrador</h1>
+            <div class="admin-user-info">
+                <span>{{ current_user.nombre }}</span>
+                <a href="{{ url_for('nom.logout') }}" class="btn btn-secondary">Cerrar sesión</a>
+            </div>
+        </header>
+
+        <main class="admin-main">
+            <section class="kpis">
+                <div class="card"><h3>Maestros</h3><div id="k_maestros">–</div></div>
+                <div class="card"><h3>Alumnos</h3><div id="k_alumnos">–</div></div>
+                <div class="card"><h3>Nominaciones</h3><div id="k_nominaciones">–</div></div>
+            </section>
+
+        <section class="charts">
+        <div class="chart-box"><canvas id="chart_tipo"></canvas></div>
+        <div class="chart-box"><canvas id="chart_valor"></canvas></div>
+        <div class="chart-box"><canvas id="chart_dia"></canvas></div>
+        </section>
+
+        </main>
+    </div>
+
+    <script>
+    async function cargarDashboard() {
+        try {
+            const res = await fetch("/admin/dashboard/data/resumen");
+            const data = await res.json();
+
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            document.getElementById('k_maestros').textContent = data.totales.maestros;
+            document.getElementById('k_alumnos').textContent = data.totales.alumnos;
+            document.getElementById('k_nominaciones').textContent = data.totales.nominaciones;
+
+            // Chart tipo
+            const tipoLabels = Object.keys(data.por_tipo || {});
+            const tipoValues = Object.values(data.por_tipo || {});
+            new Chart(document.getElementById('chart_tipo'), {
+                type: 'doughnut',
+                data: { labels: tipoLabels, datasets: [{ data: tipoValues }] },
+                options: { plugins: { title: { display: true, text: 'Nominaciones por tipo' } } }
+            });
+
+            // Chart valor
+            const valorLabels = data.por_valor.map(d => d.valor);
+            const valorValues = data.por_valor.map(d => d.n);
+            new Chart(document.getElementById('chart_valor'), {
+                type: 'bar',
+                data: { labels: valorLabels, datasets: [{ data: valorValues }] },
+                options: { plugins: { title: { display: true, text: 'Top valores nominados' } } }
+            });
+
+            // Chart día
+            const diaLabels = data.por_dia.map(d => d.fecha);
+            const diaValues = data.por_dia.map(d => d.n);
+            new Chart(document.getElementById('chart_dia'), {
+                type: 'line',
+                data: { labels: diaLabels, datasets: [{ data: diaValues, fill: false }] },
+                options: { plugins: { title: { display: true, text: 'Nominaciones por día' } } }
+            });
+
+        } catch (err) {
+            console.error("Error cargando dashboard:", err);
+        }
+    }
+    document.addEventListener('DOMContentLoaded', cargarDashboard);
+    </script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+    /* ==========================================
+    NOMINACIÓN INDIVIDUAL (panel del maestro)
+    ========================================== */
+
+    body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #fafafa;
+    color: #333;
+    margin: 0;
+    padding: 0;
+    }
+
+    .contenedor-formulario {
+    width: 90%;
+    max-width: 700px;
+    background: #fff;
+    margin: 40px auto;
+    padding: 30px 40px;
+    border-radius: 14px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.08);
+    border-top: 6px solid #800000;
+    }
+
+    .contenedor-formulario h2 {
+    text-align: center;
+    color: #800000;
+    font-weight: 600;
+    margin-bottom: 15px;
+    }
+
+    .contenedor-formulario h4 {
+    color: #333;
+    margin-top: 15px;
+    border-bottom: 2px solid #80000033;
+    padding-bottom: 5px;
+    }
+
+    ul {
+    background: #fff9f9;
+    border: 1px solid #f3c7c7;
+    border-radius: 8px;
+    padding: 10px 15px;
+    margin: 10px 0 20px;
+    list-style: none;
+    }
+
+    ul li {
+    margin: 4px 0;
+    color: #600;
+    font-weight: 500;
+    }
+
+    form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    }
+
+    label {
+    font-weight: 600;
+    color: #333;
+    }
+
+    select,
+    textarea {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 15px;
+    transition: border 0.2s;
+    font-family: 'Poppins', sans-serif;
+    }
+
+    select:focus,
+    textarea:focus {
+    border-color: #800000;
+    outline: none;
+    }
+
+    .btn-filtrar {
+    background-color: #800000;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    }
+
+    .btn-filtrar:hover {
+    background-color: #a00000;
+    }
+
+    .btn-volver {
+    text-decoration: none;
+    text-align: center;
+    display: inline-block;
+    padding: 10px 15px;
+    border-radius: 8px;
+    background-color: #f1f1f1;
+    border: 1px solid #ccc;
+    color: #444;
+    font-weight: 500;
+    transition: background 0.2s;
+    }
+
+    .btn-volver:hover {
+    background-color: #e0e0e0;
+    }
+
+    textarea {
+    resize: vertical;
+    min-height: 80px;
+    }
+
+    @media (max-width: 600px) {
+    .contenedor-formulario {
+        width: 95%;
+        padding: 20px;
+    }
+    }
