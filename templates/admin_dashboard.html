@@ -11,10 +11,11 @@
 <body>
     <div class="admin-container">
         <header class="admin-header">
-            <h1>📊 Dashboard del Administrador</h1>
-            <div class="admin-user-info">
+                        <div class="admin-user-info">
             <a href="{{ url_for('nom.panel_admin') }}" class="btn btn-secondary">↩ Volver al panel</a>
         </div>
+            <h1>📊 Dashboard del Administrador</h1>
+
             <div class="admin-user-info">
                 <span>{{ current_user.nombre }}</span>
                 <a href="{{ url_for('nom.logout') }}" class="btn btn-secondary">Cerrar sesión</a>

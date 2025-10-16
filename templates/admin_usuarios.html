@@ -1,22 +1,31 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <title>Gestión de usuarios</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/usuarios.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_usuarios.css') }}">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
-    <header class="admin-header">
-        <h1>👥 Gestión de {{ rol_actual|capitalize }}s</h1>
-        <div class="admin-user-info">
-            <span>{{ current_user.nombre }}</span>
-            <a href="{{ url_for('nom.panel_admin') }}" class="btn btn-secondary">↩ Volver al panel</a>
-        </div>
-    </header>
+<header class="admin-header">
+    <div class="header-left">
+        <h1>👥 Gestión de Admins</h1> <!-- cambia el emoji y texto según la vista -->
+    </div>
+
+    <div class="header-right">
+        <span>{{ current_user.nombre }}</span>
+        <a href="{{ url_for('nom.panel_admin') }}" class="btn-volver">↩ Volver al panel</a>
+    </div>
+</header>
 
     <main class="admin-main">
+
+        <!-- 🔹 Contenedor para mensajes flash -->
+        <div id="flash-container"></div>
+
         <div class="acciones-superior">
             <a href="{{ url_for('nom.crear_usuario') }}" class="btn btn-danger">➕ Crear manualmente</a>
         </div>
@@ -32,17 +41,13 @@
             </thead>
             <tbody>
                 {% for u in usuarios %}
-                <tr>
+                <tr data-id="{{ u.id }}">
                     <td>{{ u.id }}</td>
                     <td>{{ u.nombre }}</td>
                     <td>{{ u.email }}</td>
                     <td>
                         <a href="{{ url_for('nom.editar_usuario_vista', id=u.id) }}" class="btn-accion edit">✏️</a>
-                        <form action="{{ url_for('admin_bp.eliminar_usuario', id=u.id) }}" method="POST" style="display:inline;">
-                            <button type="submit" class="btn-accion delete" onclick="return confirm('¿Seguro que deseas eliminar este usuario?')">
-                                🗑️
-                            </button>
-                        </form>
+                        <button type="button" class="btn-accion delete" data-id="{{ u.id }}">🗑️</button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -52,13 +57,50 @@
 
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+
     <script>
         $(document).ready(function () {
-            $('#usuarios').DataTable({
+            const tabla = $('#usuarios').DataTable({
                 language: { url: "//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json" },
                 pageLength: 10
             });
+
+            // 🔹 Eliminar usuario vía fetch
+            $(document).on('click', '.delete', async function () {
+                const id = this.dataset.id;
+                if (!confirm('¿Seguro que deseas eliminar este usuario?')) return;
+
+                try {
+                    const respuesta = await fetch(`/admin/usuarios/eliminar/${id}`, {
+                        method: 'POST'
+                    });
+                    const data = await respuesta.json();
+
+                    if (respuesta.ok && data.success) {
+                        // Animación visual de fade-out antes de eliminar la fila
+                        const fila = $(this).closest('tr');
+                        fila.css('background', '#ffe5e5');
+                        fila.fadeOut(400, function () {
+                            tabla.row(fila).remove().draw();
+                        });
+                        mostrarFlash(data.message, 'success');
+                    } else {
+                        mostrarFlash(data.message || 'Error al eliminar el usuario.', 'danger');
+                    }
+                } catch (error) {
+                    mostrarFlash('Error en la solicitud: ' + error.message, 'danger');
+                }
+            });
+
+            // 🔹 Mostrar mensaje flash dinámico
+            function mostrarFlash(mensaje, tipo = 'success') {
+                const contenedor = document.getElementById('flash-container');
+                if (!contenedor) return;
+                contenedor.innerHTML = `<div class="flash flash-${tipo}">${mensaje}</div>`;
+                setTimeout(() => contenedor.innerHTML = '', 3500);
+            }
         });
     </script>
+
 </body>
 </html>

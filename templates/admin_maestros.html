@@ -1,79 +1,91 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Maestros del ciclo</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_maestros.css') }}">
+    <meta charset="UTF-8">
+    <title>Gestión de Maestros</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_maestros.css') }}">
 </head>
+
 <body>
-<div class="container">
-    <div class="top-bar">
-        <a href="{{ url_for('nom.panel_admin') }}" class="btn-volver">⮌ Volver al panel</a>
-        
-    </div>
-            <h1>Maestros del ciclo {{ ciclo.nombre if ciclo else '—' }}</h1>
-    <!-- Botón de creación manual -->
-    <div style="text-align:right; margin-bottom:15px;">
-        <a href="{{ url_for('admin_bp.nuevo_maestro') }}" class="btn-create">➕ Crear manualmente</a>
-    </div>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        <div class="toast-container">
-        {% for category, message in messages %}
-            <div class="toast toast-{{ category }}">{{ message }}</div>
-        {% endfor %}
+    <!-- 🔹 Barra superior institucional -->
+    <header class="admin-header">
+        <h1>👨‍🏫 Maestros del ciclo {{ ciclo.nombre if ciclo else '—' }}</h1>
+        <div class="admin-user-info">
+            <span>{{ current_user.nombre }}</span>
+            <a href="{{ url_for('nom.panel_admin') }}" class="btn btn-secondary">↩ Volver al panel</a>
         </div>
-    {% endif %}
-    {% endwith %}
+    </header>
 
-    {% if ciclo %}
-    <form action="{{ url_for('admin_bp.importar_maestros_ciclo') }}" method="POST" enctype="multipart/form-data">
-        <input type="file" name="file" accept=".xlsx,.csv" required>
-        <button type="submit">Importar maestros</button>
-    </form>
+    <main class="admin-main">
+        <!-- Botones superiores -->
+        <div class="acciones-superior">
+            <form action="{{ url_for('admin_bp.importar_maestros_ciclo') }}" method="POST" enctype="multipart/form-data" class="form-importar">
+                <input type="file" name="file" accept=".xlsx,.csv" required>
+                <button type="submit" class="btn btn-danger">📤 Importar maestros</button>
+                <a href="{{ url_for('admin_bp.descargar_plantilla_maestros') }}" class="btn-excel">📗 Descargar plantilla</a>
+            </form>
+            <a href="{{ url_for('admin_bp.nuevo_maestro') }}" class="btn btn-danger">➕ Crear manualmente</a>
+        </div>
 
-    <h2>Listado de maestros</h2>
-    <table>
-        <thead>
-        <tr>
-            <th>Nombre</th>
-            <th>Correo</th>
-            <th>Ciclo</th>
-            <th style="text-align:center;">Acciones</th>
-        </tr>
-        </thead>
-        <tbody>
-        {% for m in maestros %}
-        <tr>
-            <td>{{ m.nombre }}</td>
-            <td>{{ m.correo }}</td>
-            <td>{{ ciclo.nombre }}</td>
-            <td style="text-align:center;">
-                <a href="{{ url_for('admin_bp.editar_maestro_vista', id=m.id) }}" class="btn-edit">✏️</a>
-                <form action="{{ url_for('admin_bp.eliminar_maestro', id=m.id) }}" method="POST" style="display:inline;">
-                    <button type="submit" class="btn-delete" onclick="return confirm('¿Eliminar al maestro {{ m.nombre }}?');">🗑️</button>
-                </form>
-            </td>
-        </tr>
+        <!-- Mensajes flash -->
+        <div id="flash-container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- Tabla de maestros -->
+        {% if ciclo %}
+        <h2 class="titulo-seccion">Listado de maestros</h2>
+        <table class="tabla-maestros">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Correo</th>
+                    <th>Ciclo</th>
+                    <th style="text-align:center;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in maestros %}
+                <tr>
+                    <td>{{ m.nombre }}</td>
+                    <td>{{ m.correo }}</td>
+                    <td>{{ ciclo.nombre }}</td>
+                    <td class="acciones">
+                        <a href="{{ url_for('admin_bp.editar_maestro_vista', id=m.id) }}" class="btn-accion edit" title="Editar maestro">✏️</a>
+                        <form action="{{ url_for('admin_bp.eliminar_maestro', id=m.id) }}" method="POST" style="display:inline;">
+                            {% if m.activo %}
+                                <button type="submit" class="btn-accion delete" title="Desactivar maestro">🚫</button>
+                            {% else %}
+                                <button type="submit" class="btn-accion activate" title="Activar maestro">✅</button>
+                            {% endif %}
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="sin-datos">No hay maestros registrados aún.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
         {% else %}
-        <tr><td colspan="4">No hay maestros registrados aún.</td></tr>
-        {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p style="text-align:center; color:#a00;">⚠️ No hay un ciclo activo. Activa un ciclo antes de importar maestros.</p>
-    {% endif %}
-</div>
+            <p class="aviso">⚠️ No hay un ciclo activo. Activa un ciclo antes de importar maestros.</p>
+        {% endif %}
+    </main>
 
-<script>
-setTimeout(() => {
-    document.querySelectorAll('.toast').forEach(el => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(-10px)';
-        setTimeout(() => el.remove(), 600);
-    });
-}, 3000);
-</script>
+    <script>
+        // Animación para los mensajes flash
+        setTimeout(() => {
+            document.querySelectorAll('.flash').forEach(el => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(-10px)';
+                setTimeout(() => el.remove(), 600);
+            });
+        }, 3000);
+    </script>
 </body>
 </html>

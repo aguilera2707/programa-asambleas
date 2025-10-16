@@ -1,40 +1,58 @@
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
+<!DOCTYPE html>
+<html lang="es">
+<head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crear nuevo usuario</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/crear_usuario.css') }}">
-    </head>
+</head>
 
-    <body>
-    <div class="crear-usuario-container">
-        <a href="{{ url_for('admin_bp.admin_usuarios_por_rol', rol='admin') }}" class="btn btn-volver">↩ Volver atrás</a>
-        <h2>Crear nuevo usuario</h2>
+<body>
+
+<header class="admin-header">
+    <div class="header-left">
+        <h1>👤 Crear Usuario</h1>
+    </div>
+
+    <div class="header-right">
+        <span>{{ current_user.nombre }}</span>
+        <a href="{{ url_for('admin_bp.admin_usuarios_por_rol', rol='admin') }}" class="btn-volver">↩ Volver a Gestión de Admins</a>
+    </div>
+</header>
+
+<!-- 🔹 CONTENIDO PRINCIPAL -->
+<main class="crear-usuario-container">
+    <div class="formulario-box">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% endwith %}
 
         <form action="{{ url_for('nom.crear_usuario') }}" method="POST" class="form">
-        <label for="nombre">Nombre completo:</label>
-        <input type="text" id="nombre" name="nombre" placeholder="Ej. Juan Pérez" required>
+            <label for="nombre">Nombre completo:</label>
+            <input type="text" id="nombre" name="nombre" placeholder="Ej. Juan Pérez" required>
 
-        <label for="correo">Correo electrónico:</label>
-        <input type="email" id="correo" name="correo" placeholder="ejemplo@correo.com" required>
+            <label for="correo">Correo electrónico:</label>
+            <input type="email" id="correo" name="correo" placeholder="ejemplo@correo.com" required>
 
-        <label for="password">Contraseña:</label>
-        <input type="password" id="password" name="password" placeholder="Mínimo 8 caracteres" required>
+            <label for="password">Contraseña:</label>
+            <input type="password" id="password" name="password" placeholder="Mínimo 8 caracteres" required>
 
-        <!-- Rol fijo -->
-        <input type="hidden" name="rol" value="admin">
-        <p><strong>Rol asignado:</strong> Administrador</p>
+            <input type="hidden" name="rol" value="admin">
+            <p><strong>Rol asignado:</strong> Administrador</p>
 
-        <div class="acciones">
-            <button type="submit" class="btn btn-primary">Crear usuario</button>
-            <a href="{{ url_for('admin_bp.admin_usuarios_por_rol', rol='admin') }}" class="btn btn-secondary">Cancelar</a>
-        </div>
+            <div class="acciones">
+                <button type="submit" class="btn btn-primary">Crear usuario</button>
+                <a href="{{ url_for('admin_bp.admin_usuarios_por_rol', rol='admin') }}" class="btn btn-secondary">Cancelar</a>
+            </div>
         </form>
-
-        {% if mensaje %}
-        <p class="mensaje">{{ mensaje }}</p>
-        {% endif %}
     </div>
-    </body>
-    </html>
+</main>
+
+</body>
+</html>

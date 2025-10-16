@@ -113,13 +113,13 @@ def crear_usuario():
 
         # ✅ Crear usuario correctamente
         nuevo = Usuario(nombre=nombre, email=correo, rol=rol)
-        nuevo.set_password(password)  # usa el método del modelo para generar el hash
-
+        nuevo.set_password(password)
         db.session.add(nuevo)
         db.session.commit()
 
         flash(f"✅ Usuario '{nombre}' creado correctamente como {rol}.", "success")
-        return redirect(url_for('admin_bp.admin_usuarios_por_rol', rol=rol))
+        # 🔹 En lugar de redirigir a otra página, recargamos la misma
+        return redirect(url_for('nom.crear_usuario'))
 
     # Para GET
     return render_template('crear_usuario.html', rol_predefinido='admin')
@@ -248,20 +248,6 @@ def lista_usuarios(rol):
     return jsonify(data)
 
 
-@nom.route('/admin/usuarios/eliminar/<int:id>', methods=['DELETE'])
-@login_required
-def eliminar_usuario(id):
-    if current_user.rol != 'admin':
-        return jsonify({"message": "No autorizado"}), 403
-
-    usuario = Usuario.query.get(id)
-    if not usuario:
-        return jsonify({"message": "Usuario no encontrado"}), 404
-
-    db.session.delete(usuario)
-    db.session.commit()
-    return jsonify({"message": f"Usuario {usuario.nombre} eliminado correctamente."}), 200
-
 
 # -------------------------------
 # 🔹 Ruta de prueba de conexión a Neon
@@ -312,6 +298,9 @@ def activar_ciclo(ciclo_id):
 # -------------------------------
 # 🔹 Importar maestros al ciclo activo
 # -------------------------------
+# -------------------------------
+# 🔹 Importar maestros al ciclo activo
+# -------------------------------
 @admin_bp.route('/maestros/importar', methods=['POST'])
 @login_required
 def importar_maestros_ciclo():
@@ -329,36 +318,43 @@ def importar_maestros_ciclo():
     file.save(filepath)
 
     try:
-        # Detectar formato
+        # Detectar formato (Excel o CSV)
         df = pd.read_excel(filepath) if filename.endswith('.xlsx') else pd.read_csv(filepath)
 
-        columnas_requeridas = {'nombre', 'email'}
-        if not columnas_requeridas.issubset(set(df.columns.str.lower())):
-            flash("❌ La plantilla debe contener las columnas: nombre, correo.", "danger")
+        # ✅ Normalizar columnas: minúsculas y sin espacios
+        df.columns = df.columns.str.strip().str.lower()
+
+        # ✅ Validar columnas requeridas
+        columnas_requeridas = {'nombre', 'email', 'contraseña'}
+        if not columnas_requeridas.issubset(set(df.columns)):
+            flash("❌ La plantilla debe contener las columnas: nombre, email y contraseña.", "danger")
             return redirect(url_for('admin_bp.maestros_ciclo'))
 
-        # Obtener ciclo activo
         ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
         if not ciclo_activo:
             flash("⚠️ No hay ningún ciclo activo. Activa un ciclo primero.", "warning")
             return redirect(url_for('admin_bp.gestionar_ciclos'))
 
         importados, existentes = 0, 0
+
+        # ✅ Iterar sobre cada fila (asegurando strings)
         for _, row in df.iterrows():
-            nombre = str(row['nombre']).strip()
-            correo = str(row['email']).strip().lower()
+            nombre = str(row.get('nombre', '')).strip()
+            correo = str(row.get('email', '')).strip().lower()
+            password = str(row.get('contraseña', '')).strip()
 
             if not nombre or not correo:
                 continue
 
-            # Si ya existe usuario con ese correo, lo reusamos
             usuario = Usuario.query.filter_by(email=correo).first()
             if not usuario:
                 usuario = Usuario(nombre=nombre, email=correo, rol='profesor')
-                usuario.set_password('123456')  # contraseña temporal
+                usuario.set_password(password if password else '123456')
                 db.session.add(usuario)
+            else:
+                if password:
+                    usuario.set_password(password)
 
-            # Verificar si ya está en la tabla maestros
             existe_maestro = Maestro.query.filter_by(correo=correo, ciclo_id=ciclo_activo.id).first()
             if existe_maestro:
                 existentes += 1
@@ -380,6 +376,7 @@ def importar_maestros_ciclo():
             os.remove(filepath)
 
     return redirect(url_for('admin_bp.maestros_ciclo'))
+
 
 # -------------------------------
 # 🔹 Listado de maestros del ciclo activo
@@ -981,43 +978,7 @@ def nominar_alumno():
         evento=evento_abierto
     )
 
-@nom.route('/nominaciones/maestro', methods=['GET', 'POST'])
-@login_required
-def nominar_maestro():
-    maestro = Maestro.query.filter_by(correo=current_user.email).first()
-    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
-
-    if request.method == 'POST':
-        valor_id = request.form.get('valor_id')
-        maestros_ids = request.form.getlist('maestros')
-        comentario = request.form.get('comentario', '').strip()
-
-        if not valor_id or not maestros_ids:
-            flash("⚠️ Selecciona al menos un maestro y un valor.", "warning")
-            return redirect(url_for('nom.nominar_maestro'))
-
-        for m_id in maestros_ids:
-            nueva_nom = Nominacion(
-                alumno_id=None,
-                maestro_id=maestro.id,  # nominador
-                valor_id=valor_id,
-                ciclo_id=ciclo_activo.id,
-                comentario=f"Nominación a maestro ID {m_id}: {comentario}"
-            )
-            db.session.add(nueva_nom)
-
-        db.session.commit()
-        flash(f"✅ Nominación registrada correctamente ({len(maestros_ids)} maestros).", "success")
-        return redirect(url_for('nom.nominar_maestro'))
-
-    maestros = Maestro.query.filter(
-        Maestro.ciclo_id == ciclo_activo.id,
-        Maestro.id != maestro.id
-    ).all()
-    valores = Valor.query.filter_by(ciclo_id=ciclo_activo.id, activo=True).all()
-    return render_template('nominacion_personal.html', maestros=maestros, valores=valores, ciclo=ciclo_activo)
-
-
+# Maestro nomina a otro maestro (sin bloque, solo requiere evento activo)
 # Maestro nomina a otro maestro (sin bloque, solo requiere evento activo)
 @nom.route('/nominaciones/personal', methods=['GET', 'POST'])
 @login_required
@@ -1034,9 +995,9 @@ def nominar_personal():
         return redirect(url_for('nom.principal'))
 
     # 3️⃣ Obtener maestro actual
-    maestro = Maestro.query.filter_by(correo=current_user.email, ciclo_id=ciclo_activo.id).first()
+    maestro = Maestro.query.filter_by(correo=current_user.email, ciclo_id=ciclo_activo.id, activo=True).first()
     if not maestro:
-        flash("⚠️ No se encontró tu registro como maestro en el ciclo activo.", "warning")
+        flash("⚠️ No se encontró tu registro como maestro activo en el ciclo actual.", "warning")
         return redirect(url_for('nom.principal'))
 
     # 4️⃣ Obtener evento activo del ciclo (sin bloque)
@@ -1092,11 +1053,15 @@ def nominar_personal():
     # 6️⃣ Datos para el formulario
     maestros = Maestro.query.filter(
         Maestro.ciclo_id == ciclo_activo.id,
-        Maestro.id != maestro.id
+        Maestro.id != maestro.id,
+        Maestro.activo == True
     ).order_by(Maestro.nombre.asc()).all()
 
     valores = Valor.query.filter_by(ciclo_id=ciclo_activo.id, activo=True).all()
-    nominaciones = Nominacion.query.filter_by(ciclo_id=ciclo_activo.id, maestro_id=maestro.id).order_by(Nominacion.fecha.desc()).all()
+    nominaciones = Nominacion.query.filter_by(
+        ciclo_id=ciclo_activo.id,
+        maestro_id=maestro.id
+    ).order_by(Nominacion.fecha.desc()).all()
 
     return render_template(
         'nominacion_personal.html',
@@ -1106,6 +1071,7 @@ def nominar_personal():
         ciclo=ciclo_activo,
         evento=evento_abierto
     )
+
 
 
 @nom.route('/admin/nominaciones/export', methods=['GET'])
@@ -1365,14 +1331,22 @@ def actualizar_maestro(id):
 
 @admin_bp.route('/maestros/eliminar/<int:id>', methods=['POST'])
 @login_required
-@admin_required
 def eliminar_maestro(id):
-    maestro = Maestro.query.get_or_404(id)
-    db.session.delete(maestro)
-    db.session.commit()
-    flash(f"🗑️ Maestro {maestro.nombre} eliminado correctamente.", "success")
-    return redirect(url_for('admin_bp.maestros_ciclo'))
+    """Desactiva o reactiva un maestro sin eliminarlo."""
+    if current_user.rol != 'admin':
+        flash("🚫 Solo los administradores pueden realizar esta acción.", "danger")
+        return redirect(url_for('nom.principal'))
 
+    maestro = Maestro.query.get_or_404(id)
+
+    # Alternar estado
+    maestro.activo = not maestro.activo
+    db.session.commit()
+
+    estado = "activado" if maestro.activo else "desactivado"
+    flash(f"✅ El maestro '{maestro.nombre}' ha sido {estado}.", "success")
+
+    return redirect(url_for('admin_bp.maestros_ciclo'))
 
 # --- DASHBOARD JSON ---
 # -------------------------------
@@ -1941,15 +1915,21 @@ def admin_usuarios_por_rol(rol):
 def eliminar_usuario(id):
     usuario = Usuario.query.get_or_404(id)
 
-    # Prevenir que se elimine el admin principal
-    if usuario.email == "admin@cela.edu.mx":
-        flash("⚠️ No puedes eliminar el administrador principal.", "warning")
-        return redirect(request.referrer or url_for('admin_bp.admin_usuarios_por_rol', rol=usuario.rol))
+    # 🚫 Evita eliminar el admin principal (puedes añadir más correos si quieres protegerlos)
+    if usuario.email.lower() in ["admin@cela.edu.mx", "admin@colegio.edu.mx"]:
+        return jsonify({
+            "success": False,
+            "message": "⚠️ No puedes eliminar el administrador principal."
+        }), 400
 
     db.session.delete(usuario)
     db.session.commit()
-    flash(f"✅ Usuario '{usuario.nombre}' eliminado correctamente.", "success")
-    return redirect(request.referrer or url_for('admin_bp.admin_usuarios_por_rol', rol=usuario.rol))
+
+    return jsonify({
+        "success": True,
+        "message": f"🗑️ Usuario '{usuario.nombre}' eliminado correctamente."
+    }), 200
+
 
 # ============================================================
 # 🔹 GESTIÓN DE MAESTROS
@@ -1963,7 +1943,7 @@ def gestionar_maestros():
         flash("⚠️ No hay ciclo escolar activo.", "warning")
         return redirect(url_for('admin_bp.gestionar_ciclos'))
     
-    maestros = Maestro.query.filter_by(ciclo_id=ciclo_activo.id).all()
+    maestros = Maestro.query.filter_by(ciclo_id=ciclo_activo.id, activo=True).all()
     return render_template('admin_maestros.html', maestros=maestros)
 
 # ------------------------------------------------------------
@@ -2248,3 +2228,28 @@ def admin_bloques_vista():
         data.append({"bloque": b, "grados": grados_info})
 
     return render_template('admin_bloques_vista.html', ciclo=ciclo, data=data)
+
+import io
+import pandas as pd
+from flask import send_file, jsonify
+
+@admin_bp.route('/maestros/plantilla', methods=['GET'])
+@login_required
+@admin_required
+def descargar_plantilla_maestros():
+    # Define columnas esperadas
+    columnas = ['Nombre', 'Email', "contraseña"]
+    df = pd.DataFrame(columns=columnas)
+
+    # Crear archivo Excel en memoria
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Plantilla')
+    output.seek(0)
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name='Plantilla_Maestros.xlsx',
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )

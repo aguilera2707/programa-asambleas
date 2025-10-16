@@ -1,127 +1,209 @@
-    body {
-    font-family: 'Poppins', sans-serif;
+/* 🔹 Tipografía y base */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: #f7f7f7;
     margin: 0;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    }
+    color: #222;
+}
+@import url('header.css');
 
-    .crear-usuario-container {
-    background-color: #fff;
-    padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    width: 400px;
-    text-align: left;
-    }
-
-    .crear-usuario-container h2 {
-    text-align: center;
-    color: #900000;
-    margin-bottom: 25px;
-    }
-
-    .form label {
-    display: block;
-    margin-top: 10px;
-    font-weight: 600;
-    color: #333;
-    }
-
-    .form input,
-    .form select {
-    width: 100%;
-    padding: 10px;
-    margin-top: 6px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    box-sizing: border-box;
-    }
-
-    .form input:focus,
-    .form select:focus {
-    border-color: #900000;
-    outline: none;
-    box-shadow: 0 0 4px rgba(144,0,0,0.3);
-    }
-
-    /* Botones */
-    .acciones {
+/* === ENCABEZADO ESTILO UNIFICADO === */
+.admin-header {
+    background: #7b0000; /* Rojo institucional */
+    color: #fff;
     display: flex;
     justify-content: space-between;
-    margin-top: 20px;
-    }
+    align-items: center;
+    padding: 14px 32px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    height: 70px;
+}
 
-    .btn {
-    padding: 10px 18px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.admin-header h1 {
+    margin: 0;
+    font-size: 1.9em;
+    font-weight: 700;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.header-right span {
+    font-weight: 600;
+    color: #fff;
+}
+
+/* Botón volver */
+.btn-volver {
+    background: #fff;
+    color: #7b0000;
+    padding: 8px 14px;
+    border-radius: 6px;
     text-decoration: none;
     font-weight: 600;
+    transition: background 0.3s;
+}
+
+.btn-volver:hover {
+    background: #ffcccc;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .admin-header {
+        flex-direction: column;
+        align-items: flex-start;
+        height: auto;
+        padding: 16px 20px;
+        gap: 10px;
+    }
+
+    .header-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .btn-volver {
+        font-size: 0.9rem;
+        padding: 7px 12px;
+    }
+}
+
+/* 🔹 Contenido principal */
+.crear-usuario-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 60px;
+    padding-bottom: 80px;
+}
+
+/* 🔹 Caja del formulario */
+.formulario-box {
+    background-color: #fff;
+    padding: 60px 70px;
+    border-radius: 14px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+    width: 100%;
+    max-width: 620px; /* 📏 Más ancho que antes */
+}
+
+/* 🔹 Campos del formulario */
+label {
+    display: block;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 6px;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+    width: 100%;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+input:focus {
+    border-color: #7a0000;
+    outline: none;
+}
+
+/* 🔹 Botones */
+.acciones {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 25px;
+}
+
+.btn {
+    padding: 12px 22px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
     transition: 0.3s;
-    font-size: 0.95rem;
-    }
+    font-size: 1rem;
+}
 
-    .btn-primary {
-    background-color: #900000;
+.btn-primary {
+    background-color: #7a0000;
     color: #fff;
-    }
+}
 
-    .btn-primary:hover {
-    background-color: #b70000;
-    }
+.btn-primary:hover {
+    background-color: #5c0000;
+}
 
-    .btn-secondary {
+.btn-secondary {
     background-color: #555;
     color: #fff;
-    }
+}
 
-    .btn-secondary:hover {
+.btn-secondary:hover {
     background-color: #333;
-    }
+}
 
-    .mensaje {
-    margin-top: 15px;
+/* 🔹 Flash messages */
+.flash-container {
+    margin-bottom: 20px;
+}
+
+.flash {
+    padding: 10px;
+    border-radius: 6px;
+    font-weight: 500;
+    margin-bottom: 10px;
+    animation: fadeIn 0.5s ease;
     text-align: center;
-    font-weight: 600;
-    }
+}
 
-    .mensaje:contains("✅") {
-    color: #155724;
-    }
+.flash-success {
+    background-color: #e8ffe8;
+    border: 1px solid #4caf50;
+    color: #2e7d32;
+}
 
-    .mensaje:contains("⚠️"),
-    .mensaje:contains("❌") {
-    color: #721c24;
-    }
+.flash-warning {
+    background-color: #fff8e1;
+    border: 1px solid #ffc107;
+    color: #795548;
+}
 
-    /* Responsive */
-    @media (max-width: 480px) {
-    .crear-usuario-container {
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 🔹 Responsive */
+@media (max-width: 768px) {
+    .formulario-box {
         width: 90%;
-        padding: 25px;
-    }
-    }
-    /* Botón de volver */
-    .btn-volver {
-    display: inline-block;
-    background-color: #ffc400; /* dorado */
-    color: #000;
-    font-weight: 600;
-    text-decoration: none;
-    padding: 8px 14px;
-    border-radius: 8px;
-    margin-bottom: 15px;
-    transition: 0.3s;
-    border: 2px solid #b38b2e;
+        padding: 40px 25px;
     }
 
-    .btn-volver:hover {
-    background-color: #b38b2e;
-    color: #fff;
+    .admin-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
     }
+
+    .acciones {
+        flex-direction: column;
+        gap: 12px;
+    }
+}
