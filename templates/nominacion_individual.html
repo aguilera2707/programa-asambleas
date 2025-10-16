@@ -34,7 +34,7 @@
         <textarea name="comentario" rows="3" placeholder="Motivo o felicitación..."></textarea>
 
         <button type="submit" class="btn-filtrar">Registrar nominación</button>
-        <a href="{{ url_for('nom.panel_nominaciones') }}" class="btn-volver">⬅ Volver al panel</a>
+        <a href="{{ url_for('nom.matriz_grupo_maestro', bloque_id=alumno.bloque_id, grado=alumno.grado, grupo=alumno.grupo) }}" class="btn-volver">← Volver al grupo</a>
         </form>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Mis nominaciones</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mis_nominaciones.css') }}">
+</head>
+<body>
+
+<header class="topbar">
+    <h2>📊 Mis nominaciones</h2>
+    <div class="usuario">
+        <span>{{ current_user.nombre }}</span>
+        <a href="{{ url_for('nom.logout') }}" class="btn-cerrar">Cerrar sesión</a>
+    </div>
+</header>
+
+<main class="contenedor">
+    <a href="{{ url_for('nom.panel_profesor') }}" class="btn-volver">← Volver al panel del maestro</a>
+
+    <section class="info">
+        <p>
+            📘 <strong>Ciclo:</strong> {{ ciclo.nombre }} |
+            🧩 <strong>Maestro:</strong> {{ maestro.nombre }}
+        </p>
+    </section>
+
+    {% if nominaciones %}
+    <table class="tabla-nominaciones">
+        <thead>
+            <tr>
+                <th>Tipo</th>
+                <th>Destinatario</th>
+                <th>Valor</th>
+                <th>Comentario</th>
+                <th>Fecha</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for n in nominaciones %}
+            <tr>
+                <td>{{ 'Alumno' if n.tipo == 'alumno' else 'Personal' }}</td>
+                <td>
+                    {% if n.tipo == 'alumno' %}
+                        {{ n.alumno.nombre if n.alumno else '—' }}
+                    {% else %}
+                        {{ n.maestro_nominado.nombre if n.maestro_nominado else '—' }}
+                    {% endif %}
+                </td>
+                <td>{{ n.valor.nombre if n.valor else '—' }}</td>
+                <td>{{ n.comentario or '—' }}</td>
+                <td>{{ n.fecha.strftime('%d/%m/%Y') if n.fecha else '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="sin-datos">⚠️ Aún no has registrado ninguna nominación en este ciclo.</p>
+    {% endif %}
+</main>
+
+</body>
+</html>

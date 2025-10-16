@@ -890,7 +890,7 @@ def nominar_alumno():
         flash("⚠️ No se encontró tu registro como maestro en el ciclo activo.", "warning")
         return redirect(url_for('nom.principal'))
 
-    # 4️⃣ Obtener evento de asamblea activo del ciclo (sin importar bloque)
+    # 4️⃣ Obtener evento activo del BLOQUE del maestro
     evento_abierto = (
         EventoAsamblea.query
         .filter_by(ciclo_id=ciclo_activo.id, activo=True)
@@ -898,9 +898,24 @@ def nominar_alumno():
         .first()
     )
 
-    if not evento_abierto or not evento_abierto.esta_abierto:
-        flash("🚫 No hay un evento de asamblea abierto para nominaciones en este momento.", "warning")
+    # 🔍 Validar que exista un evento activo y que esté en tiempo
+    if not evento_abierto:
+        flash("⚠️ No hay un evento activo configurado para tu bloque.", "warning")
         return redirect(url_for('nom.principal'))
+
+    # 👉 Si el evento está marcado como activo pero su fecha de cierre ya pasó, se debe bloquear también
+    if not evento_abierto.esta_abierto:
+        # Desactivamos el evento automáticamente (opcional, pero útil)
+        evento_abierto.activo = False
+        db.session.commit()
+
+        flash(
+            f"🚫 El evento {evento_abierto.nombre_mes} ya cerró las nominaciones "
+            f"(cierre: {evento_abierto.fecha_cierre_nominaciones.strftime('%d/%m/%Y %H:%M')}).",
+            "danger"
+        )
+        return redirect(url_for('nom.principal'))
+
 
     # 5️⃣ Procesar envío del formulario
     if request.method == 'POST':
@@ -1440,7 +1455,12 @@ def calendario_eventos():
         flash("⚠️ No hay un ciclo escolar activo.", "warning")
         return redirect(url_for('admin_bp.gestionar_ciclos'))
 
-    bloques = Bloque.query.filter_by(ciclo_id=ciclo_activo.id).all()
+    bloques = (
+    Bloque.query
+    .filter_by(ciclo_id=ciclo_activo.id)
+    .order_by(cast(func.substr(Bloque.nombre, 8), Integer).asc())
+    .all()
+    )
     plantillas = PlantillaInvitacion.query.filter_by(ciclo_id=ciclo_activo.id, activa=True).all()
 
     if request.method == 'POST':
@@ -1734,17 +1754,34 @@ def nominar_alumno_individual(alumno_id):
     # Valores activos del ciclo
     valores = Valor.query.filter_by(ciclo_id=ciclo_activo.id, activo=True).all()
 
-    # Valores ya asignados al alumno
-    nominaciones_previas = Nominacion.query.filter_by(alumno_id=alumno.id, ciclo_id=ciclo_activo.id).all()
-    valores_asignados = [n.valor_id for n in nominaciones_previas]
-
-    # Filtrar los valores que aún puede recibir
-    valores_disponibles = [v for v in valores if v.id not in valores_asignados]
-
-    # Evento activo
+    # Detectar el evento actual (mes abierto)
     evento_abierto = (
         EventoAsamblea.query
-        .filter_by(ciclo_id=ciclo_activo.id, activo=True)
+        .filter_by(ciclo_id=ciclo_activo.id, bloque_id=alumno.bloque_id, activo=True)
+        .order_by(EventoAsamblea.fecha_evento.asc())
+        .first()
+    )
+
+    # Si hay evento activo, filtrar nominaciones solo de ese evento (mismo mes)
+    if evento_abierto:
+        nominaciones_previas = (
+            Nominacion.query
+            .filter_by(alumno_id=alumno.id, ciclo_id=ciclo_activo.id, evento_id=evento_abierto.id)
+            .all()
+        )
+    else:
+        nominaciones_previas = []
+
+    # Obtener valores ya usados en el mes actual
+    valores_asignados = [n.valor_id for n in nominaciones_previas]
+
+    # Filtrar valores que aún puede recibir este mes
+    valores_disponibles = [v for v in valores if v.id not in valores_asignados]
+
+    # Evento activo del bloque del alumno
+    evento_abierto = (
+        EventoAsamblea.query
+        .filter_by(ciclo_id=ciclo_activo.id, bloque_id=alumno.bloque_id, activo=True)
         .order_by(EventoAsamblea.fecha_evento.asc())
         .first()
     )
@@ -1771,7 +1808,12 @@ def nominar_alumno_individual(alumno_id):
         db.session.commit()
 
         flash(f"✅ Nominación registrada para {alumno.nombre}.", "success")
-        return redirect(url_for('nom.panel_nominaciones'))
+        return redirect(url_for(
+            'nom.matriz_grupo_maestro',
+            bloque_id=alumno.bloque_id,
+            grado=alumno.grado,
+            grupo=alumno.grupo
+        ))
 
     return render_template(
         'nominacion_individual.html',
@@ -1986,3 +2028,223 @@ def crear_alumno_manual():
     return render_template('crear_alumno.html', ciclo=ciclo, bloques=bloques)
 
 
+# Muestra los grupos disponibles dentro de un grado
+@nom.route('/bloque/<int:bloque_id>/grado/<grado>')
+@login_required
+def grupos_por_grado(bloque_id, grado):
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo_activo:
+        flash("⚠️ No hay ciclo activo.", "warning")
+        return redirect(url_for('nom.principal'))
+
+    grupos = (
+        db.session.query(Alumno.grupo)
+        .filter_by(ciclo_id=ciclo_activo.id, bloque_id=bloque_id, grado=grado)
+        .distinct()
+        .order_by(Alumno.grupo.asc())
+        .all()
+    )
+    grupos = [g[0] for g in grupos]
+    bloque = Bloque.query.get_or_404(bloque_id)
+    return render_template('grupos_por_grado.html', bloque=bloque, grado=grado, grupos=grupos)
+
+# Vista temporal para mostrar alumnos de ese grupo
+@nom.route('/bloque/<int:bloque_id>/grado/<grado>/grupo/<grupo>')
+@login_required
+def lista_alumnos_grupo(bloque_id, grado, grupo):
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    alumnos = (
+        Alumno.query
+        .filter_by(ciclo_id=ciclo_activo.id, bloque_id=bloque_id, grado=grado, grupo=grupo)
+        .order_by(Alumno.nombre.asc())
+        .all()
+    )
+    bloque = Bloque.query.get_or_404(bloque_id)
+    return render_template('lista_alumnos.html', alumnos=alumnos, bloque=bloque, grado=grado, grupo=grupo)
+
+# ===========================
+# 🔹 MATRIZ DE NOMINACIÓN POR GRUPO (MAESTRO)
+# ===========================
+# 🔹 MATRIZ DE NOMINACIÓN POR GRUPO (MAESTRO)
+# ===========================
+from datetime import datetime
+
+@nom.route('/bloque/<int:bloque_id>/grado/<grado>/grupo/<grupo>/nominaciones')
+@login_required
+def matriz_grupo_maestro(bloque_id, grado, grupo):
+    if current_user.rol != 'profesor':
+        flash("🚫 Solo los profesores pueden acceder a esta vista.", "danger")
+        return redirect(url_for('nom.principal'))
+
+    hoy = datetime.now().date()
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    bloque = Bloque.query.get_or_404(bloque_id)
+
+    # 🔹 Buscar evento vigente (activo y dentro de fechas válidas)
+    evento_abierto = (
+        EventoAsamblea.query
+        .filter(
+            EventoAsamblea.ciclo_id == ciclo.id,
+            EventoAsamblea.bloque_id == bloque.id,
+            EventoAsamblea.activo == True,
+            EventoAsamblea.fecha_evento >= hoy  # aún no ha pasado
+        )
+        .order_by(EventoAsamblea.fecha_evento.asc())
+        .first()
+    )
+
+    # Si no hay futuros, usar el último pasado (el más reciente)
+    if not evento_abierto:
+        evento_abierto = (
+            EventoAsamblea.query
+            .filter_by(ciclo_id=ciclo.id, bloque_id=bloque.id)
+            .order_by(EventoAsamblea.fecha_evento.desc())
+            .first()
+        )
+
+    mes_actual = evento_abierto.mes_ordinal if evento_abierto else None
+
+    # 🔹 Cargar todos los eventos del ciclo del bloque
+    eventos = (
+        EventoAsamblea.query
+        .filter_by(ciclo_id=ciclo.id, bloque_id=bloque.id)
+        .order_by(EventoAsamblea.mes_ordinal.asc())
+        .all()
+    )
+
+    # 🔹 Agrupar por mes
+    eventos_por_mes = {}
+    for e in eventos:
+        if e.mes_ordinal not in eventos_por_mes:
+            eventos_por_mes[e.mes_ordinal] = e
+
+    # 🔹 Cargar alumnos del grupo
+    alumnos = (
+        Alumno.query
+        .filter_by(ciclo_id=ciclo.id, bloque_id=bloque.id, grado=grado, grupo=grupo)
+        .order_by(Alumno.nombre.asc())
+        .all()
+    )
+
+    data = []
+    for a in alumnos:
+        nominaciones = (
+            Nominacion.query
+            .filter_by(alumno_id=a.id, ciclo_id=ciclo.id, tipo='alumno')
+            .join(EventoAsamblea, Nominacion.evento_id == EventoAsamblea.id)
+            .add_entity(EventoAsamblea)
+            .all()
+        )
+
+        valores_por_mes = {str(e.mes_ordinal): [] for e in eventos_por_mes.values()}
+
+        for n, evento in nominaciones:
+            if evento and evento.mes_ordinal:
+                valores_por_mes[str(evento.mes_ordinal)].append({
+                    "valor": n.valor.nombre if n.valor else "",
+                    "maestro": n.maestro.nombre if n.maestro else "",
+                    "fecha": n.fecha.strftime("%Y-%m-%d") if n.fecha else ""
+                })
+
+        tiene_nominaciones = any(len(v) > 0 for v in valores_por_mes.values())
+        sin_nominacion_total = not tiene_nominaciones
+
+        data.append({
+            "alumno": a,
+            "valores": valores_por_mes,
+            "sin_nominacion_total": sin_nominacion_total
+        })
+
+    return render_template(
+        "matriz_grupo_maestro.html",
+        ciclo=ciclo,
+        bloque=bloque,
+        grado=grado,
+        grupo=grupo,
+        eventos=list(eventos_por_mes.values()),
+        alumnos=data,
+        mes_actual=mes_actual,
+        evento_abierto=evento_abierto
+    )
+
+
+@nom.route('/mis_nominaciones')
+@login_required
+def mis_nominaciones():
+    """Muestra las nominaciones realizadas por el maestro actual"""
+    if current_user.rol != 'profesor':
+        flash("🚫 Solo los profesores pueden acceder a esta vista.", "danger")
+        return redirect(url_for('nom.principal'))
+
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo_activo:
+        flash("⚠️ No hay ciclo escolar activo.", "warning")
+        return redirect(url_for('nom.panel_profesor'))
+
+    # 🧑‍🏫 Buscar al maestro logueado
+    maestro = Maestro.query.filter_by(correo=current_user.email, ciclo_id=ciclo_activo.id).first()
+    if not maestro:
+        flash("⚠️ No se encontró tu registro como maestro en el ciclo activo.", "warning")
+        return redirect(url_for('nom.panel_profesor'))
+
+    # 🔍 Buscar nominaciones hechas por este maestro
+    nominaciones = (
+        Nominacion.query
+        .filter_by(maestro_id=maestro.id, ciclo_id=ciclo_activo.id)
+        .order_by(Nominacion.fecha.desc())
+        .all()
+    )
+
+    return render_template(
+        'mis_nominaciones.html',
+        maestro=maestro,
+        nominaciones=nominaciones,
+        ciclo=ciclo_activo
+    )
+
+
+
+from sqlalchemy import cast, Integer, func
+# ===========================
+# 🔹 Nueva vista visual de bloques
+# ===========================
+@nom.route('/admin/bloques_vista', methods=['GET'])
+@login_required
+def admin_bloques_vista():
+    if current_user.rol != 'admin':
+        flash("🚫 Solo los administradores pueden ver esta sección.", "danger")
+        return redirect(url_for('nom.principal'))
+
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        flash("⚠️ No hay ciclo escolar activo.", "warning")
+        return redirect(url_for('nom.principal'))
+
+    bloques = (
+    Bloque.query
+    .filter_by(ciclo_id=ciclo.id)
+    .order_by(cast(func.substr(Bloque.nombre, 8), Integer).asc())
+    .all()
+    )
+
+    data = []
+    for b in bloques:
+        grados_raw = db.session.query(Alumno.grado).filter(
+            Alumno.ciclo_id == ciclo.id,
+            Alumno.bloque_id == b.id
+        ).distinct().all()
+        grados = [g[0] for g in grados_raw]
+
+        grados_info = []
+        for g in grados:
+            grupos_raw = db.session.query(Alumno.grupo).filter(
+                Alumno.ciclo_id == ciclo.id,
+                Alumno.bloque_id == b.id,
+                Alumno.grado == g
+            ).distinct().all()
+            grupos = [x[0] for x in grupos_raw]
+            grados_info.append({"grado": g, "grupos": grupos})
+
+        data.append({"bloque": b, "grados": grados_info})
+
+    return render_template('admin_bloques_vista.html', ciclo=ciclo, data=data)

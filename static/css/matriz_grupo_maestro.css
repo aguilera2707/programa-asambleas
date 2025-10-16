@@ -1,0 +1,214 @@
+/* ===============================
+   ESTILOS MATRIZ DE NOMINACIONES
+   =============================== */
+
+body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    margin: 0;
+    background-color: #fff;
+    color: #222;
+}
+
+/* ====== ENCABEZADO ====== */
+.topbar {
+    background-color: #8B0000;
+    color: white;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.topbar h2 {
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+.usuario {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-cerrar {
+    background-color: #fff;
+    color: #8B0000;
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.btn-cerrar:hover {
+    background-color: #ffdcdc;
+}
+
+/* ====== CONTENIDO ====== */
+.contenedor-matriz {
+    padding: 20px;
+    text-align: center;
+}
+
+.subtitulo {
+    font-size: 1.1rem;
+    color: #8B0000;
+    margin-bottom: 15px;
+}
+
+/* ====== TABLA ====== */
+.tabla-matriz {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    text-align: center;
+    position: relative;
+}
+
+.tabla-matriz th {
+    background-color: #8B0000;
+    color: #fff;
+    padding: 8px;
+    font-size: 0.9rem;
+}
+
+.tabla-matriz td {
+    padding: 10px;
+    border: 1px solid #ccc;
+    position: relative;
+}
+
+.tabla-matriz tr:nth-child(even) {
+    background-color: #f8f8f8;
+}
+
+/* ====== ESTADO SIN NOMINACIÓN ====== */
+.sin-nominacion {
+    background-color: #ffecec !important;
+}
+
+.sin-datos {
+    text-align: center;
+    font-style: italic;
+    padding: 20px;
+    color: #777;
+}
+
+/* ====== BOLITAS ====== */
+.punto, .dot {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    margin: 0 3px;
+    vertical-align: middle;
+    position: relative;
+    cursor: pointer;
+}
+
+.punto.verde, .dot.verde {
+    background-color: #3cb371; /* verde medio */
+}
+
+.punto.gris, .dot.gris {
+    background-color: #ccc;
+}
+
+/* ====== TOOLTIP ====== */
+.punto[title]:hover::after,
+.dot[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    top: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    z-index: 10;
+}
+
+/* ====== BOTÓN NOMINAR ====== */
+.btn-nominar {
+    background-color: #8B0000;
+    color: #fff;
+    text-decoration: none;
+    padding: 6px 12px;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-nominar:hover {
+    background-color: #a00000;
+}
+
+/* Estado bloqueado */
+.btn-nominar[disabled],
+.btn-nominar:disabled {
+    background-color: #d6a5a5;
+    color: #fff;
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
+/* ====== DESTACAR MES ACTUAL ====== */
+th.mes-actual {
+    background-color: #B8860B !important; /* dorado */
+    color: #fff !important;
+    font-weight: bold;
+}
+
+/* ====== RESPONSIVE ====== */
+@media (max-width: 768px) {
+    .tabla-matriz th, .tabla-matriz td {
+        font-size: 0.8rem;
+        padding: 6px;
+    }
+
+    .btn-nominar {
+        padding: 4px 8px;
+        font-size: 0.8rem;
+    }
+
+    .topbar h2 {
+        font-size: 1rem;
+    }
+}
+
+.info-panel {
+    background: #fff0f0;
+    border: 1px solid #d99;
+    margin: 15px auto;
+    padding: 10px 20px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 1000px;
+    text-align: center;
+}
+
+.info-panel p {
+    margin: 5px 0;
+    font-size: 15px;
+}
+
+.btn-volver {
+    display: inline-block;
+    background: #eee;
+    color: #333;
+    padding: 6px 12px;
+    margin-top: 10px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-volver:hover {
+    background: #ddd;
+}

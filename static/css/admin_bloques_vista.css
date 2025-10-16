@@ -1,0 +1,81 @@
+body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    margin: 0;
+    background-color: #fafafa;
+    color: #222;
+}
+
+.topbar {
+    background-color: #8B0000;
+    color: white;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.topbar h2 {
+    margin: 0;
+    font-size: 1.4rem;
+}
+
+.btn-cerrar {
+    background-color: white;
+    color: #8B0000;
+    padding: 6px 10px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.btn-cerrar:hover {
+    background-color: #ffdcdc;
+}
+
+.contenedor {
+    padding: 20px 40px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: flex-start;
+}
+
+.tarjeta-bloque {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    padding: 20px;
+    flex: 1 1 280px;
+    max-width: 320px;
+    border-top: 6px solid #8B0000;
+    transition: 0.2s;
+}
+
+.tarjeta-bloque:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.titulo-bloque {
+    color: #8B0000;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.bloque-grado {
+    background: #f8f8f8;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+}
+
+.bloque-grado h4 {
+    margin: 0 0 4px;
+    color: #444;
+}
+
+.vacio, .sin-datos {
+    color: #777;
+    font-style: italic;
+    text-align: center;
+}

@@ -40,7 +40,7 @@ class Maestro(db.Model):
     nombre = db.Column(db.String(100), nullable=False)
     correo = db.Column(db.String(120), unique=True, nullable=False)
     ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'), nullable=False)
-    
+    activo = db.Column(db.Boolean, default=True)  # 🔹 Nuevo campo
     
     def __repr__(self):
         return f"<Maestro {self.nombre}>"
@@ -184,7 +184,7 @@ class EventoAsamblea(db.Model):
     ciclo_id = db.Column(db.Integer, db.ForeignKey("ciclos_escolares.id"), nullable=False)
     bloque_id = db.Column(db.Integer, db.ForeignKey("bloques.id"), nullable=False)
     plantilla_id = db.Column(db.Integer, db.ForeignKey("plantilla_invitacion.id"), nullable=True)
-
+    estado = db.Column(db.String(20), default="Abierto")  # Puede ser 'Abierto' o 'Cerrado'
     mes_ordinal = db.Column(db.Integer, nullable=False)
     nombre_mes = db.Column(db.String(50), nullable=False)
     fecha_evento = db.Column(db.Date, nullable=False)

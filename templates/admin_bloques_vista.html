@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Bloques académicos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_bloques_vista.css') }}">
+</head>
+<body>
+
+<header class="topbar">
+    <div class="admin-user-info">
+            <a href="{{ url_for('nom.panel_admin') }}" class="btn btn-secondary">↩ Volver al panel</a>
+        </div>
+    <h2>📚 Bloques académicos — {{ ciclo.nombre }}</h2>
+    <div class="usuario">
+        <span>{{ current_user.nombre }}</span>
+        <a href="{{ url_for('nom.logout') }}" class="btn-cerrar">Cerrar sesión</a>
+    </div>
+</header>
+
+<main class="contenedor">
+    {% if data %}
+        {% for item in data %}
+        <section class="tarjeta-bloque">
+            <h3 class="titulo-bloque">🏫 {{ item.bloque.nombre }}</h3>
+
+            {% if item.grados %}
+                {% for g in item.grados %}
+                <div class="bloque-grado">
+                    <h4>📘 {{ g.grado }}° Grado</h4>
+                    <p><strong>Grupos:</strong> {{ g.grupos | join(', ') }}</p>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="vacio">No hay grados registrados en este bloque.</p>
+            {% endif %}
+        </section>
+        {% endfor %}
+    {% else %}
+        <p class="sin-datos">No hay bloques registrados para este ciclo.</p>
+    {% endif %}
+</main>
+
+</body>
+</html>

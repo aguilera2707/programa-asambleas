@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Matriz del grupo {{ grado }}°{{ grupo }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/matriz_grupo_maestro.css') }}">
+</head>
+<body>
+
+<header class="topbar">
+    <h2>👩‍🏫 Nominaciones de {{ grado }}°{{ grupo }} - {{ bloque.nombre }}</h2>
+    <div class="usuario">
+        <span>{{ current_user.nombre }}</span>
+        <a href="{{ url_for('nom.logout') }}" class="btn-cerrar">Cerrar sesión</a>
+    </div>
+</header>
+<a href="{{ url_for('nom.grupos_por_grado', bloque_id=bloque.id, grado=grado) }}" class="btn-volver">
+    ← Volver a la selección de grupo
+</a>
+<!-- 🔹 Panel informativo superior -->
+<section class="info-panel">
+    <p>
+        🏫 <strong>Ciclo:</strong> {{ ciclo.nombre if ciclo else '—' }} |
+        📚 <strong>Bloque:</strong> {{ bloque.nombre }} |
+        🎓 <strong>Grado:</strong> {{ grado }}°{{ grupo }}
+    </p>
+    {% if evento_abierto %}
+    <p>
+        📅 <strong>Evento activo:</strong> {{ evento_abierto.nombre_mes }}
+        (Cierra: {{ evento_abierto.fecha_cierre_nominaciones.strftime('%d/%m/%Y %H:%M') }})
+    </p>
+    {% else %}
+    <p class="sin-evento">⚠️ No hay evento activo para este bloque.</p>
+    {% endif %}
+
+    
+</section>
+
+<main class="contenedor-matriz">
+    <h3 class="subtitulo">Selecciona un alumno para registrar su nominación</h3>
+
+    <table class="tabla-matriz">
+        <thead>
+            <tr>
+                <th>Alumno</th>
+                {% for evento in eventos %}
+                    <th>{{ evento.nombre_mes }}<br><small>{{ evento.fecha_evento.strftime('%Y-%m-%d') }}</small></th>
+                {% endfor %}
+                <th>Aviso</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in alumnos %}
+            <tr>
+                <td>
+                    <a href="{{ url_for('nom.nominar_alumno_individual', alumno_id=item.alumno.id) }}" class="nombre-alumno">
+                        {{ item.alumno.nombre }} ({{ item.alumno.grado }}{{ item.alumno.grupo }})
+                    </a>
+                </td>
+
+                {% for evento in eventos %}
+                <td>
+                    {% if item.valores[evento.mes_ordinal|string] %}
+                        {% for v in item.valores[evento.mes_ordinal|string] %}
+                            <span class="punto verde" title="{{ v.valor }} — {{ v.maestro }} ({{ v.fecha }})"></span>
+                        {% endfor %}
+                    {% else %}
+                        <span class="punto gris"></span>
+                    {% endif %}
+                </td>
+                {% endfor %}
+
+                <td class="aviso">
+                    {% if item.sin_nominacion_total %}
+                        ⚠️ Sin nominación
+                    {% endif %}
+                </td>
+                <td>
+                    {% if mes_actual %}
+                        {% if evento_abierto and evento_abierto.mes_ordinal == mes_actual %}
+                            <a href="{{ url_for('nom.nominar_alumno_individual', alumno_id=item.alumno.id) }}" class="btn-nominar">
+                                Nominar
+                            </a>
+                        {% else %}
+                            <button class="btn-nominar" disabled style="opacity:0.6;">Bloqueado</button>
+                        {% endif %}
+                    {% else %}
+                        <button class="btn-nominar" disabled style="opacity:0.6;">Bloqueado</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="{{ eventos|length + 3 }}" class="sin-datos">No hay alumnos en este grupo.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</main>
+
+</body>
+</html>

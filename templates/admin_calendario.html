@@ -20,6 +20,9 @@
 </head>
 <body>
     <div class="calendar-container">
+        <div class="admin-user-info">
+            <a href="{{ url_for('nom.panel_admin') }}" class="btn btn-secondary">↩ Volver al panel</a>
+        </div>
         <h1>📅 Calendario de Asambleas – {{ ciclo.nombre }}</h1>
 
         <form method="POST">

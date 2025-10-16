@@ -137,3 +137,24 @@
     .info-panel p {
     margin: 3px 0;
     }
+
+        .btn-nominar {
+    background-color: #8b0000;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: background-color 0.3s;
+    }
+
+    .btn-nominar:hover {
+    background-color: #a50000;
+    }
+
+    .sin-datos {
+    text-align: center;
+    color: #555;
+    padding: 15px;
+    background-color: #f9f9f9;
+    }

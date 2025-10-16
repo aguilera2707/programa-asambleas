@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/seleccionar_bloque.css') }}">
 </head>
 <body>
-
+<a href="{{ url_for('nom.seleccionar_bloque') }}" class="btn-volver">← Volver a la selección de bloque</a>
 <header class="admin-header">
     <div class="admin-header-left">
         <h1>🎓 Grados de {{ bloque.nombre }}</h1>
@@ -22,7 +22,7 @@
 
     <div class="bloques-grid">
         {% for grado in grados %}
-        <a href="{{ url_for('nom.nominar_alumno', bloque_id=bloque.id, grado=grado) }}" class="card-bloque">
+        <a href="{{ url_for('nom.grupos_por_grado', bloque_id=bloque.id, grado=grado) }}" class="card-bloque">
             <span class="emoji">📚</span>
             <h3>{{ grado }}</h3>
             <p>Grado académico</p>

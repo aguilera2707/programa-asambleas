@@ -20,6 +20,10 @@
 
     <!-- 🔸 Contenido principal -->
     <main class="contenedor-grupos">
+            <!-- 🔙 Botón para regresar al panel principal del profesor -->
+    <a href="{{ url_for('nom.panel_profesor') }}" class="btn-volver">
+        ← Volver al panel del maestro
+    </a>
         <h2>Ciclo escolar: {{ ciclo.nombre }}</h2>
 
         {% for grupo, alumnos in grupos.items() %}

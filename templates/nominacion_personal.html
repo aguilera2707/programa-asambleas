@@ -10,7 +10,10 @@
     <header>
         <h2>🍎 Nominaciones de personal del ciclo {{ ciclo.nombre }}</h2>
     </header>
-
+    <!-- 🔙 Botón para regresar al panel principal del profesor -->
+    <a href="{{ url_for('nom.panel_profesor') }}" class="btn-volver">
+        ← Volver al panel del maestro
+    </a>
     <main>
         <form method="POST" class="form-nominacion">
             <label for="maestros">Selecciona maestro(s):</label>

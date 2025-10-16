@@ -1,0 +1,123 @@
+/* === General === */
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #fafafa;
+    margin: 0;
+    padding: 0;
+}
+
+/* === Encabezado === */
+.topbar {
+    background-color: #7b0000;
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 28px;
+    border-radius: 0 0 15px 15px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+}
+
+.topbar h2 {
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+.usuario {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.btn-cerrar {
+    background-color: #fff;
+    color: #7b0000;
+    text-decoration: none;
+    font-weight: bold;
+    padding: 7px 14px;
+    border-radius: 8px;
+    transition: all 0.3s;
+}
+.btn-cerrar:hover {
+    background-color: #f3f3f3;
+}
+
+/* === Subtítulo === */
+.subtitulo {
+    text-align: center;
+    color: #7b0000;
+    font-size: 1.3rem;
+    margin: 30px 0 15px 0;
+}
+
+/* === Contenedor principal === */
+.contenedor-tarjetas {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 25px;
+    padding: 20px;
+}
+
+/* === Tarjetas === */
+.tarjeta {
+    background-color: #fff;
+    width: 200px;
+    text-align: center;
+    border-radius: 14px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+    padding: 30px 10px;
+    text-decoration: none;
+    color: #7b0000;
+    font-weight: 500;
+    transition: all 0.25s ease-in-out;
+    border-top: 5px solid #7b0000;
+}
+
+.tarjeta:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+}
+
+.tarjeta img {
+    width: 55px;
+    height: 55px;
+    margin-bottom: 10px;
+}
+
+.tarjeta h3 {
+    font-size: 1.4rem;
+    margin: 8px 0;
+}
+
+.tarjeta p {
+    font-size: 0.9rem;
+    color: #333;
+}
+
+/* === Texto si no hay grupos === */
+.sin-datos {
+    text-align: center;
+    color: #666;
+    font-size: 1rem;
+    margin-top: 30px;
+}
+
+/* === Responsive === */
+@media (max-width: 768px) {
+    .contenedor-tarjetas {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .tarjeta {
+        width: 80%;
+        max-width: 280px;
+    }
+}
+/* === Ícono grande en las tarjetas === */
+.emoji {
+    display: block;
+    font-size: 55px;       /* Tamaño grande del ícono */
+    margin-bottom: 10px;
+}

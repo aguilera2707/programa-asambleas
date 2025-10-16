@@ -5,11 +5,16 @@
     <title>Dashboard del Administrador</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_dashboard.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    
 </head>
 <body>
     <div class="admin-container">
         <header class="admin-header">
             <h1>📊 Dashboard del Administrador</h1>
+            <div class="admin-user-info">
+            <a href="{{ url_for('nom.panel_admin') }}" class="btn btn-secondary">↩ Volver al panel</a>
+        </div>
             <div class="admin-user-info">
                 <span>{{ current_user.nombre }}</span>
                 <a href="{{ url_for('nom.logout') }}" class="btn btn-secondary">Cerrar sesión</a>

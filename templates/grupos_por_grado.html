@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Grupos de {{ grado }}° - {{ bloque.nombre }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/grupos_por_grado.css') }}">
+</head>
+<body>
+
+    <header class="topbar">
+        <h2>Grupos de {{ grado }}° de {{ bloque.nombre }}</h2>
+        <div class="usuario">
+            <span>{{ current_user.nombre }}</span>
+            <a href="{{ url_for('nom.logout') }}" class="btn-cerrar">Cerrar sesión</a>
+        </div>
+    </header>
+    <a href="{{ url_for('nom.seleccionar_grado', bloque_id=bloque.id) }}" class="btn-volver">
+    ← Volver a la selección de grado
+    </a>
+    <h3 class="subtitulo">Selecciona el grupo dentro de este grado</h3>
+
+    <div class="contenedor-tarjetas">
+        {% for grupo in grupos %}
+        <a href="{{ url_for('nom.matriz_grupo_maestro', bloque_id=bloque.id, grado=grado, grupo=grupo) }}" class="tarjeta">
+
+            <span class="emoji">🎓</span>
+            <h3>{{ grupo }}</h3>
+            <p>Grupo académico</p>
+        </a>
+        {% else %}
+        <p class="sin-datos">No hay grupos registrados para este grado.</p>
+        {% endfor %}
+    </div>
+
+</body>
+</html>
