@@ -309,3 +309,67 @@
         margin: 0 0.5rem 1.5rem 0.5rem;
     }
     }
+
+    /* ------------------------------------------------
+    🔔 FLASH MESSAGES — estilo unificado institucional
+    ---------------------------------------------------*/
+    #flash-container {
+    position: fixed;
+    top: 75px;
+    right: 25px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    }
+
+    .flash {
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    opacity: 1;
+    transition: opacity 0.6s ease, transform 0.6s ease;
+    animation: slideIn 0.4s ease;
+    }
+
+    /* Éxito */
+    .flash-success {
+    background-color: #e8ffe8;
+    border-left: 6px solid #4caf50;
+    color: #2e7d32;
+    }
+
+    /* Advertencia */
+    .flash-warning {
+    background-color: #fff8e1;
+    border-left: 6px solid #ffc107;
+    color: #795548;
+    }
+
+    /* Error */
+    .flash-danger, .flash-error {
+    background-color: #ffebee;
+    border-left: 6px solid #b71c1c;
+    color: #b71c1c;
+    }
+
+    /* Información */
+    .flash-info {
+    background-color: #e3f2fd;
+    border-left: 6px solid #1565c0;
+    color: #0d47a1;
+    }
+
+    /* Animaciones */
+    @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 🔁 Desvanecimiento automático */
+    .flash.hide {
+    opacity: 0;
+    transform: translateY(-10px);
+    }

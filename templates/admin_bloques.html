@@ -2,30 +2,45 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Bloques del Ciclo</title>
+    <title>Gestión de Bloques</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_bloques.css') }}">
 </head>
+
 <body>
-    <div class="container">
-        <h1>Bloques del ciclo {{ ciclo.nombre }}</h1>
+<header class="admin-header">
+    <div class="header-left">
+        <h1>📚 Gestión de Bloques</h1>
+    </div>
+    <div class="header-right">
+        <span>{{ current_user.nombre }}</span>
+        <a href="{{ url_for('nom.panel_admin') }}" class="btn-volver">↩ Volver al panel</a>
+    </div>
+</header>
 
-        <!-- 🔔 Mensajes flash -->
+<main class="admin-main">
+    <h2>Bloques del ciclo {{ ciclo.nombre if ciclo else '—' }}</h2>
+
+    <!-- 🔔 Mensajes flash -->
+    <div id="flash-container">
         {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="flash-container">
+            {% if messages %}
                 {% for category, message in messages %}
-                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
                 {% endfor %}
-            </div>
-        {% endif %}
+            {% endif %}
         {% endwith %}
+    </div>
 
-        <form method="POST" action="{{ url_for('admin_bp.bloques_ciclo') }}">
-            <input type="text" name="nombre" placeholder="Nombre del nuevo bloque" required>
-            <button type="submit">Agregar bloque</button>
-        </form>
+    {% if ciclo %}
+    <!-- 🔹 Formulario para agregar bloque -->
+    <form method="POST" action="{{ url_for('admin_bp.bloques_ciclo') }}" class="form-crear">
+        <input type="text" name="nombre" placeholder="Nombre del nuevo bloque" required>
+        <button type="submit" class="btn btn-primary">➕ Agregar bloque</button>
+    </form>
 
-        <h2>Bloques registrados</h2>
+    <!-- 🔹 Tabla de bloques -->
+    <section class="tabla-bloques">
+        <h3>Listado de bloques</h3>
         <table>
             <thead>
                 <tr>
@@ -39,37 +54,70 @@
                 {% for bloque in bloques %}
                 <tr>
                     <td>
-                        <form method="POST" action="{{ url_for('admin_bp.actualizar_orden_bloque', id=bloque.id) }}">
-                            <input type="number" name="orden" value="{{ bloque.orden or 0 }}" min="0" style="width:60px;text-align:center;">
-                            <button type="submit" style="background:none;border:none;color:#800000;cursor:pointer;">💾</button>
+                        <form method="POST" action="{{ url_for('admin_bp.actualizar_orden_bloque', id=bloque.id) }}" class="orden-form">
+                            <input type="number" name="orden" value="{{ bloque.orden or 0 }}" min="0" class="input-orden">
+                            <button type="submit" class="btn-icon guardar" title="Guardar orden">💾</button>
                         </form>
                     </td>
                     <td>{{ bloque.nombre }}</td>
                     <td>{{ conteos[bloque.id] }}</td>
                     <td>
                         {% if conteos[bloque.id] == 0 %}
-                        <form method="POST" action="{{ url_for('admin_bp.eliminar_bloque', id=bloque.id) }}">
-                            <button class="btn-eliminar" type="submit" onclick="return confirm('¿Eliminar este bloque?')">🗑️</button>
+                        <form method="POST" action="{{ url_for('admin_bp.eliminar_bloque', id=bloque.id) }}" class="eliminar-form">
+                            <button class="btn-icon eliminar" type="submit" onclick="return confirm('¿Eliminar este bloque?')">🗑️</button>
                         </form>
                         {% else %}
-                        <span class="bloque-lleno">Bloque con alumnos</span>
+                        <span class="bloque-activo">Bloque con alumnos</span>
                         {% endif %}
                     </td>
                 </tr>
+                {% else %}
+                <tr><td colspan="4" class="sin-bloques">No hay bloques registrados aún.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
-    </div>
+    </section>
 
-    <script>
-        // 💨 Animación de desvanecimiento automático de mensajes flash
-        setTimeout(() => {
-            document.querySelectorAll('.flash-message').forEach(el => {
-                el.style.opacity = '0';
-                el.style.transform = 'translateY(-10px)';
-                setTimeout(() => el.remove(), 600);
-            });
-        }, 3000);
-    </script>
+    <!-- 🔹 Vista de grados y grupos -->
+    <section class="bloques-vista">
+        <h3>Vista general por grados y grupos</h3>
+        {% if data %}
+            {% for item in data %}
+            <div class="tarjeta-bloque">
+                <h4>🏫 {{ item.bloque.nombre }}</h4>
+
+                {% if item.grados %}
+                    {% for g in item.grados %}
+                    <div class="bloque-grado">
+                        <p><strong>Grado:</strong> {{ g.grado }}</p>
+                        <p><strong>Grupos:</strong> {{ g.grupos | join(', ') }}</p>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="sin-datos">No hay grados registrados en este bloque.</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="sin-datos">No hay bloques registrados para este ciclo.</p>
+        {% endif %}
+    </section>
+
+    {% else %}
+    <p class="advertencia">⚠️ No hay un ciclo activo. Activa un ciclo antes de registrar bloques.</p>
+    {% endif %}
+</main>
+
+<script>
+    // 💨 Desvanecer mensajes flash automáticamente
+    setTimeout(() => {
+        document.querySelectorAll('.flash').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(-10px)';
+            setTimeout(() => el.remove(), 600);
+        });
+    }, 3000);
+</script>
+
 </body>
 </html>

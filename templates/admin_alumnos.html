@@ -6,84 +6,103 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_alumnos.css') }}">
 </head>
 <body>
-<div class="container">
 
-    <!-- 🔙 Botón para regresar -->
-    <div class="top-bar">
-        <a href="{{ url_for('nom.panel_admin') }}" class="btn-volver">⮌ Volver al panel</a>
-        
+<!-- 🔹 Header institucional -->
+<header class="admin-header">
+    <div class="header-left">
+        <h1>🎓 Alumnos del ciclo {{ ciclo.nombre if ciclo else '—' }}</h1>
     </div>
-    <h1>Alumnos del ciclo {{ ciclo.nombre if ciclo else '—' }}</h1>
-    <!-- 🔔 Mensajes flash -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        <div class="toast-container">
-        {% for category, message in messages %}
-            <div class="toast toast-{{ category }}">{{ message }}</div>
-        {% endfor %}
-        </div>
-    {% endif %}
-    {% endwith %}
 
-    {% if ciclo %}
-    <!-- 🔹 Acciones superiores -->
-    <div class="acciones-bar">
-        <form action="{{ url_for('admin_bp.importar_alumnos_por_bloque') }}" method="POST" enctype="multipart/form-data" class="form-import">
-            <select name="bloque_id" required>
-                <option value="">— Selecciona bloque —</option>
-                {% for b in bloques %}
-                    <option value="{{ b.id }}">{{ b.nombre }}</option>
+    <div class="header-right">
+        <span>{{ current_user.nombre }}</span>
+        <a href="{{ url_for('nom.panel_admin') }}" class="btn-volver">↩ Volver al panel</a>
+    </div>
+</header>
+
+<main class="contenedor-principal">
+    <section class="panel-alumnos">
+
+        <!-- 🧾 Mensajes flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
                 {% endfor %}
-            </select>
+            </div>
+        {% endif %}
+        {% endwith %}
 
-            <input type="file" name="file" accept=".xlsx,.csv" required>
-            <button type="submit" class="btn-importar">📥 Importar alumnos</button>
-            <a href="{{ url_for('admin_bp.plantilla_alumnos_bloque') }}" class="btn-descargar">📄 Descargar plantilla</a>
-        </form>
+        {% if ciclo %}
+        <!-- 🔹 Barra de acciones mejorada -->
+        <div class="acciones-bar">
+            <form action="{{ url_for('admin_bp.importar_alumnos_por_bloque') }}" method="POST" enctype="multipart/form-data" class="form-import">
 
-        <a href="{{ url_for('admin_bp.crear_alumno_manual') }}" class="btn-create">+ Crear manualmente</a>
-    </div>
+                <div class="input-group">
+                    <label for="bloque_id">Bloque:</label>
+                    <select name="bloque_id" id="bloque_id" required>
+                        <option value="">Selecciona bloque</option>
+                        {% for b in bloques %}
+                            <option value="{{ b.id }}">{{ b.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-    <!-- 🔹 Tabla de alumnos -->
-    <h2>Listado de alumnos</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Nombre</th>
-                <th>Grado</th>
-                <th>Grupo</th>
-                <th>Nivel</th>
-                <th>Bloque</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for a in alumnos %}
-            <tr data-id="{{ a.id }}">
-                <td contenteditable="true">{{ a.nombre }}</td>
-                <td contenteditable="true">{{ a.grado }}</td>
-                <td contenteditable="true">{{ a.grupo }}</td>
-                <td contenteditable="true">{{ a.nivel }}</td>
-                <td>{{ a.bloque.nombre if a.bloque else '—' }}</td>
-                <td>
-                    <button class="btn-guardar">💾</button>
-                    <button class="btn-eliminar">🗑️</button>
-                </td>
-            </tr>
-            {% else %}
-            <tr><td colspan="6">No hay alumnos registrados aún.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p class="warning">⚠️ No hay un ciclo activo. Activa un ciclo antes de importar alumnos.</p>
-    {% endif %}
-</div>
+                <div class="input-group">
+                    <label for="file">Archivo:</label>
+                    <input type="file" id="file" name="file" accept=".xlsx,.csv" required>
+                </div>
 
+                <button type="submit" class="btn btn-primary">📥 Importar alumnos</button>
+                <a href="{{ url_for('admin_bp.plantilla_alumnos_bloque') }}" class="btn btn-excel">📗 Descargar plantilla</a>
+                <a href="{{ url_for('admin_bp.crear_alumno_manual') }}" class="btn btn-danger">➕ Crear manualmente</a>
+            </form>
+        </div>
+
+
+        <!-- 🔹 Tabla -->
+        <h2 class="subtitulo">Listado de alumnos</h2>
+
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Grado</th>
+                    <th>Grupo</th>
+                    <th>Nivel</th>
+                    <th>Bloque</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in alumnos %}
+                <tr data-id="{{ a.id }}">
+                    <td contenteditable="true">{{ a.nombre }}</td>
+                    <td contenteditable="true">{{ a.grado }}</td>
+                    <td contenteditable="true">{{ a.grupo }}</td>
+                    <td contenteditable="true">{{ a.nivel }}</td>
+                    <td>{{ a.bloque.nombre if a.bloque else '—' }}</td>
+                    <td class="acciones">
+                        <button class="btn-accion guardar" title="Guardar cambios">💾</button>
+                        <button class="btn-accion eliminar" title="Eliminar alumno">🗑️</button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="sin-datos">No hay alumnos registrados aún.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="aviso">⚠️ No hay un ciclo activo. Activa un ciclo antes de importar alumnos.</p>
+        {% endif %}
+    </section>
+</main>
+
+<!-- 🔹 Scripts -->
 <script>
     // 💨 Desvanecer mensajes automáticamente
     setTimeout(() => {
-        document.querySelectorAll('.toast').forEach(el => {
+        document.querySelectorAll('.flash').forEach(el => {
             el.style.opacity = '0';
             el.style.transform = 'translateY(-10px)';
             setTimeout(() => el.remove(), 600);
@@ -91,7 +110,7 @@
     }, 3000);
 
     // 💾 Guardar cambios
-    document.querySelectorAll(".btn-guardar").forEach(btn => {
+    document.querySelectorAll(".guardar").forEach(btn => {
         btn.addEventListener("click", e => {
             const row = e.target.closest("tr");
             const id = row.dataset.id;
@@ -112,7 +131,7 @@
     });
 
     // 🗑️ Eliminar alumno
-    document.querySelectorAll(".btn-eliminar").forEach(btn => {
+    document.querySelectorAll(".eliminar").forEach(btn => {
         btn.addEventListener("click", e => {
             const row = e.target.closest("tr");
             const id = row.dataset.id;
@@ -126,6 +145,5 @@
         });
     });
 </script>
-
 </body>
 </html>

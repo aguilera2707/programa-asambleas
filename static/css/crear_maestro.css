@@ -1,72 +1,207 @@
-.crear-container {
-    max-width: 500px;
-    margin: 60px auto;
-    background: #fff;
-    padding: 30px;
-    border-radius: 15px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-    text-align: center;
+/* =========================================================
+   🏫 Estilo unificado - Crear Maestro (Sistema Asambleas)
+   Basado en el modelo visual institucional
+========================================================= */
+
+/* 🔹 Tipografía y base */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f7f7f7;
+    margin: 0;
+    color: #222;
+}
+@import url('header.css');
+
+/* === ENCABEZADO ESTILO UNIFICADO === */
+.admin-header {
+    background: #7b0000; /* Rojo institucional */
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 32px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    height: 70px;
 }
 
-h2 {
-    color: #900;
-    margin-bottom: 20px;
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-label {
-    display: block;
-    text-align: left;
-    font-weight: bold;
-    color: #333;
-    margin-top: 15px;
+.admin-header h1 {
+    margin: 0;
+    font-size: 1.9em;
+    font-weight: 700;
 }
 
-input {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    margin-top: 5px;
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 1rem;
+    font-weight: 500;
 }
 
+.header-right span {
+    font-weight: 600;
+    color: #fff;
+}
+
+/* Botón volver */
 .btn-volver {
-    display: inline-block;
-    background: #fbc02d;
+    background: #fff;
+    color: #7b0000;
     padding: 8px 14px;
     border-radius: 6px;
     text-decoration: none;
-    color: #222;
-    font-weight: bold;
-    margin-bottom: 15px;
+    font-weight: 600;
+    transition: background 0.3s;
 }
 
-.acciones {
-    margin-top: 25px;
+.btn-volver:hover {
+    background: #ffcccc;
+}
+
+/* 🔹 Contenedor principal */
+.crear-usuario-container {
     display: flex;
-    justify-content: space-around;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 60px;
+    padding-bottom: 80px;
 }
 
-.btn-crear {
-    background-color: #900;
-    color: #fff;
+/* 🔹 Caja del formulario */
+.formulario-box {
+    background-color: #fff;
+    padding: 60px 70px;
+    border-radius: 14px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+    width: 100%;
+    max-width: 620px;
+}
+
+/* 🔹 Título */
+.formulario-box h2 {
+    text-align: center;
+    color: #7b0000;
+    font-weight: 700;
+    margin-bottom: 25px;
+}
+
+/* 🔹 Campos del formulario */
+label {
+    display: block;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 6px;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+    width: 100%;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+input:focus {
+    border-color: #7a0000;
+    outline: none;
+}
+
+/* 🔹 Botones */
+.acciones {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 25px;
+}
+
+.btn {
+    padding: 12px 22px;
     border: none;
-    padding: 10px 20px;
     border-radius: 6px;
+    font-weight: 600;
     cursor: pointer;
+    transition: 0.3s;
+    font-size: 1rem;
 }
 
-.btn-crear:hover {
-    background-color: #b71c1c;
+.btn-primary {
+    background-color: #7a0000;
+    color: #fff;
 }
 
-.btn-cancelar {
-    background-color: #777;
-    color: white;
-    padding: 10px 20px;
+.btn-primary:hover {
+    background-color: #5c0000;
+}
+
+.btn-secondary {
+    background-color: #555;
+    color: #fff;
+}
+
+.btn-secondary:hover {
+    background-color: #333;
+}
+
+/* 🔹 Flash messages */
+.flash-container {
+    margin-bottom: 20px;
+}
+
+.flash {
+    padding: 10px;
     border-radius: 6px;
-    text-decoration: none;
+    font-weight: 500;
+    margin-bottom: 10px;
+    animation: fadeIn 0.5s ease;
+    text-align: center;
 }
 
-.btn-cancelar:hover {
-    background-color: #999;
+.flash-success {
+    background-color: #e8ffe8;
+    border: 1px solid #4caf50;
+    color: #2e7d32;
+}
+
+.flash-warning {
+    background-color: #fff8e1;
+    border: 1px solid #ffc107;
+    color: #795548;
+}
+
+.flash-danger {
+    background-color: #ffebee;
+    border: 1px solid #f44336;
+    color: #b71c1c;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 🔹 Responsive */
+@media (max-width: 768px) {
+    .formulario-box {
+        width: 90%;
+        padding: 40px 25px;
+    }
+
+    .admin-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .acciones {
+        flex-direction: column;
+        gap: 12px;
+    }
 }
