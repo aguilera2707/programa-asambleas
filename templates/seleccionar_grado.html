@@ -2,36 +2,41 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Seleccionar grado</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/seleccionar_bloque.css') }}">
+    <title>Seleccionar Grado</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/seleccionar_grado.css') }}">
 </head>
 <body>
-<a href="{{ url_for('nom.seleccionar_bloque') }}" class="btn-volver">← Volver a la selección de bloque</a>
-<header class="admin-header">
-    <div class="admin-header-left">
-        <h1>🎓 Grados de {{ bloque.nombre }}</h1>
-    </div>
-    <div class="admin-user-info">
-        <span>{{ current_user.nombre }}</span>
-        <a href="{{ url_for('nom.logout') }}" class="btn-logout">Cerrar sesión</a>
-    </div>
-</header>
 
-<main class="contenedor-bloques">
-    <h2>Selecciona el grado dentro de este bloque</h2>
+    <!-- 🔹 Header institucional -->
+    <header class="admin-header">
+        <div class="header-left">
+            <h1>🎓 Grados de {{ bloque.nombre }}</h1>
+        </div>
+        <div class="header-right">
+            
+            <span>{{ current_user.nombre }}</span>
+            <a href="{{ url_for('nom.seleccionar_bloque') }}" class="btn-volver-top">
+                ← Volver a la selección de bloque
+            </a>
+        </div>
+    </header>
 
-    <div class="bloques-grid">
-        {% for grado in grados %}
-        <a href="{{ url_for('nom.grupos_por_grado', bloque_id=bloque.id, grado=grado) }}" class="card-bloque">
-            <span class="emoji">📚</span>
-            <h3>{{ grado }}</h3>
-            <p>Grado académico</p>
-        </a>
-        {% else %}
-        <p>No hay grados registrados en este bloque.</p>
-        {% endfor %}
-    </div>
-</main>
+    <!-- 🔹 Contenido principal -->
+    <main class="contenedor-bloques">
+        <h2>Selecciona el grado dentro de este bloque</h2>
+
+        <section class="bloques-grid">
+            {% for grado in grados %}
+                <a href="{{ url_for('nom.grupos_por_grado', bloque_id=bloque.id, grado=grado) }}" class="card-bloque">
+                    <div class="icono">📘</div>
+                    <h3>{{ grado }}</h3>
+                    <p>Grado académico</p>
+                </a>
+            {% else %}
+                <p class="sin-datos">No hay grados registrados en este bloque.</p>
+            {% endfor %}
+        </section>
+    </main>
 
 </body>
 </html>

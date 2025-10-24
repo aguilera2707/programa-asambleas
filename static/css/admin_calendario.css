@@ -1,0 +1,178 @@
+@import url('header.css');
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f7f7f7;
+    color: #222;
+    margin: 0;
+}
+
+/* 📦 Contenedor principal */
+.admin-main {
+    max-width: 1200px;
+    margin: 50px auto;
+    background: #fff;
+    padding: 40px 50px;
+    border-radius: 14px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.1);
+}
+
+/* 📝 Formulario */
+.formulario-calendario form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 25px;
+}
+
+.formulario-calendario input,
+.formulario-calendario select {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 0.95rem;
+}
+
+.btn {
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.3s;
+}
+
+.btn-primary {
+    background: #7b0000;
+    color: #fff;
+    grid-column: span 2;
+    padding: 10px 18px;
+}
+.btn-primary:hover {
+    background: #5a0000;
+}
+
+/* 🧾 Tabla */
+.tabla-calendario table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.tabla-calendario th {
+    background-color: #7b0000;
+    color: #fff;
+    padding: 10px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.tabla-calendario td {
+    border-bottom: 1px solid #eee;
+    padding: 10px;
+    text-align: center;
+    font-size: 0.95rem;
+    color: #333;
+}
+
+.tabla-calendario tr:hover {
+    background-color: #fafafa;
+}
+
+/* Estado visual */
+.estado {
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+.estado.abierto {
+    background-color: #e8ffe8;
+    color: #007f00;
+}
+.estado.cerrado {
+    background-color: #ffe6e6;
+    color: #a00000;
+}
+
+/* Enlaces de acción */
+.btn-toggle,
+.btn-eliminar {
+    text-decoration: none;
+    font-weight: 600;
+    transition: 0.3s;
+}
+.btn-toggle {
+    color: #0044cc;
+}
+.btn-toggle:hover {
+    color: #002080;
+    text-decoration: underline;
+}
+.btn-eliminar {
+    color: #b00000;
+}
+.btn-eliminar:hover {
+    text-decoration: underline;
+}
+.separador {
+    color: #999;
+}
+
+/* Flash messages */
+.flash {
+    padding: 10px;
+    margin-bottom: 12px;
+    border-radius: 6px;
+    text-align: center;
+    font-weight: 500;
+    animation: fadeIn 0.5s ease;
+}
+.flash-success {
+    background-color: #e8ffe8;
+    border: 1px solid #4caf50;
+    color: #2e7d32;
+}
+.flash-warning {
+    background-color: #fff8e1;
+    border: 1px solid #ffc107;
+    color: #795548;
+}
+.flash-danger {
+    background-color: #ffebee;
+    border: 1px solid #f44336;
+    color: #b71c1c;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 🧠 Sin datos */
+.sin-datos {
+    text-align: center;
+    color: #555;
+    font-style: italic;
+    margin-top: 15px;
+}
+
+/* 📱 Responsive */
+@media (max-width: 768px) {
+    .admin-main {
+        padding: 25px;
+    }
+
+    .formulario-calendario form {
+        grid-template-columns: 1fr;
+    }
+
+    .btn-primary {
+        grid-column: 1;
+    }
+
+    table {
+        font-size: 0.9rem;
+    }
+}

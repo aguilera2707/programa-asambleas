@@ -7,30 +7,37 @@
 </head>
 <body>
 
-    <header class="topbar">
-        <h2>Grupos de {{ grado }}° de {{ bloque.nombre }}</h2>
-        <div class="usuario">
+    <!-- 🔹 Header institucional -->
+    <header class="admin-header">
+        <div class="header-left">
+            <h1>🎓 Grupos de {{ grado }}° de {{ bloque.nombre }}</h1>
+        </div>
+        <div class="header-right">
+
             <span>{{ current_user.nombre }}</span>
-            <a href="{{ url_for('nom.logout') }}" class="btn-cerrar">Cerrar sesión</a>
+
+            <a href="{{ url_for('nom.seleccionar_grado', bloque_id=bloque.id) }}" class="btn-volver-top">
+                ← Volver a la selección de grado
+            </a>
         </div>
     </header>
-    <a href="{{ url_for('nom.seleccionar_grado', bloque_id=bloque.id) }}" class="btn-volver">
-    ← Volver a la selección de grado
-    </a>
-    <h3 class="subtitulo">Selecciona el grupo dentro de este grado</h3>
 
-    <div class="contenedor-tarjetas">
-        {% for grupo in grupos %}
-        <a href="{{ url_for('nom.matriz_grupo_maestro', bloque_id=bloque.id, grado=grado, grupo=grupo) }}" class="tarjeta">
+    <!-- 🔹 Contenido principal -->
+    <main class="contenedor-bloques">
+        <h2>Selecciona el grupo dentro de este grado</h2>
 
-            <span class="emoji">🎓</span>
-            <h3>{{ grupo }}</h3>
-            <p>Grupo académico</p>
-        </a>
-        {% else %}
-        <p class="sin-datos">No hay grupos registrados para este grado.</p>
-        {% endfor %}
-    </div>
+        <section class="bloques-grid">
+            {% for grupo in grupos %}
+                <a href="{{ url_for('nom.matriz_grupo_maestro', bloque_id=bloque.id, grado=grado, grupo=grupo) }}" class="card-bloque">
+                    <div class="icono">🎓</div>
+                    <h3>{{ grupo }}</h3>
+                    <p>Grupo académico</p>
+                </a>
+            {% else %}
+                <p class="sin-datos">No hay grupos registrados para este grado.</p>
+            {% endfor %}
+        </section>
+    </main>
 
 </body>
 </html>

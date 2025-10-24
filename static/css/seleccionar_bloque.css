@@ -1,107 +1,166 @@
-    body {
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+/* ======== CONFIGURACIÓN GENERAL ======== */
+body {
     font-family: 'Poppins', sans-serif;
-    background-color: #fafafa;
+    background-color: #f8f8f8;
     margin: 0;
     padding: 0;
     color: #333;
-    }
+}
 
-    /* Header */
-    .admin-header {
-    background-color: #800000;
-    color: white;
+/* ======== HEADER ======== */
+.admin-header {
+    background-color: #7b0000;
+    color: #fff;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 40px;
-    border-radius: 10px;
-    margin: 20px auto;
-    max-width: 1100px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    }
+    padding: 30px 40px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
 
-    .admin-header h1 {
+.header-left h1 {
     margin: 0;
-    font-weight: 600;
-    font-size: 22px;
-    }
+    font-size: 1.6rem;
+    font-weight: 700;
+}
 
-    .admin-user-info {
+.header-right {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 14px;
     font-weight: 500;
-    }
+    
+}
 
-    .btn-logout {
-    background-color: white;
-    color: #800000;
-    padding: 7px 16px;
+.btn-volver {
+    background: #fff;
+    color: #7b0000;
+    padding: 8px 16px;
     border-radius: 8px;
     font-weight: 600;
     text-decoration: none;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
-    transition: all 0.2s ease;
-    }
-
-    .btn-logout:hover {
-    background-color: #f5f5f5;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+}
+.btn-logout:hover {
+    background-color: #ffeaea;
     transform: translateY(-2px);
-    }
+}
 
-    /* Contenedor principal */
-    .contenedor-bloques {
+/* ======== CONTENIDO PRINCIPAL ======== */
+.contenedor-bloques {
     text-align: center;
-    max-width: 900px;
-    margin: 50px auto;
-    }
+    max-width: 1100px;
+    margin: 60px auto;
+    padding: 0 20px;
+}
 
-    .contenedor-bloques h2 {
-    color: #800000;
-    font-weight: 600;
-    margin-bottom: 40px;
-    }
+.btn-volver {
+    display: inline-block;
+    margin-bottom: 20px;
+    color: #7b0000;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s;
+}
+.btn-volver:hover {
+    color: #b30000;
+}
 
-    /* Tarjetas de bloque */
-    .bloques-grid {
+.contenedor-bloques h2 {
+    color: #7b0000;
+    font-weight: 700;
+    font-size: 1.4rem;
+    margin-bottom: 50px;
+}
+
+/* ======== TARJETAS DE BLOQUES ======== */
+.bloques-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 25px;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 35px;
     justify-content: center;
-    }
+}
 
-    .card-bloque {
+.card-bloque {
+    background-color: #fff;
+    border-radius: 16px;
+    padding: 35px 25px;
+    text-decoration: none;
+    color: #333;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-color: white;
-    text-decoration: none;
-    color: #333;
-    border-radius: 16px;
-    padding: 30px 20px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-top: 6px solid #7b0000;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
     transition: all 0.25s ease;
-    border-top: 6px solid #800000;
+}
+.card-bloque:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
+
+.icono {
+    font-size: 48px;
+    margin-bottom: 12px;
+}
+
+.card-bloque h3 {
+    color: #7b0000;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 8px 0;
+}
+
+.card-bloque p {
+    font-size: 0.95rem;
+    color: #555;
+}
+
+/* ======== RESPONSIVO ======== */
+@media (max-width: 768px) {
+    .admin-header {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+        padding: 20px;
     }
 
-    .card-bloque:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+    .contenedor-bloques h2 {
+        font-size: 1.2rem;
+        margin-bottom: 30px;
     }
 
-    .card-bloque .emoji {
-    font-size: 40px;
-    margin-bottom: 10px;
+    .bloques-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
     }
+}
 
-    .card-bloque h3 {
-    color: #800000;
+@media (max-width: 500px) {
+    .bloques-grid {
+        grid-template-columns: 1fr;
+    }
+}
+/* botón de volver (el de arriba a la derecha) */
+.btn-volver-top {
+    display: inline-flex;          /* <- centra el contenido del botón */
+    align-items: center;           /* <- centra vertical */
+    justify-content: center;
+    height: 40px;                  /* misma altura siempre */
+    padding: 0 16px;               /* ajusta horizontal sin deformar alto */
+    background: #fff;
+    color: #7b0000;
+    border-radius: 8px;
     font-weight: 600;
-    margin-bottom: 6px;
-    }
-
-    .card-bloque p {
-    font-size: 14px;
-    color: #666;
-    }
+    text-decoration: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,.15);
+    line-height: 1;                /* evita que el texto empuje el alto */
+}
+.btn-volver-top:hover {
+    background: #ffeaea;
+    transform: translateY(-1px);
+}

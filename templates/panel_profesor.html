@@ -1,49 +1,59 @@
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
+<!DOCTYPE html>
+<html lang="es">
+<head>
     <meta charset="UTF-8">
     <title>Panel del Maestro</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_profesor.css') }}">
-    </head>
-    <body>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+</head>
 
-    <!-- 🔹 Encabezado institucional del maestro -->
-    <header class="admin-header">
-    <div class="admin-header-left">
-        <h1>Panel del Maestro</h1>
+<body>
+
+<header class="admin-header">
+    <div class="header-left">
+        <h1>👩‍🏫 Panel del Maestro</h1>
     </div>
-    <div class="admin-user-info">
+    <div class="header-right">
         <span>{{ current_user.nombre }}</span>
-        <a href="{{ url_for('nom.logout') }}" class="btn-logout">Cerrar sesión</a>
+        <a href="{{ url_for('nom.logout') }}" class="btn-salir">Cerrar sesión</a>
     </div>
-    </header>
+</header>
 
-    <main class="contenedor-cards">
-        <a href="{{ url_for('nom.mis_grupos') }}" class="card-profesor">
-        <span class="emoji">📚</span>
-        <h3>Mis grupos</h3>
-        <p>Visualiza los alumnos por grado y grupo.</p>
-        </a>
+<main class="panel-maestro">
+    <div class="contenedor-cards">
 
-        <a href="{{ url_for('nom.seleccionar_bloque') }}" class="card-profesor">
-        <span class="emoji">🎖️</span>
-        <h3>Nominar Alumno</h3>
-        <p>Selecciona el bloque y registra tus nominaciones.</p>
-        </a>
+        <!-- Fila superior -->
+        <div class="fila">
+            <a href="{{ url_for('nom.seleccionar_bloque') }}" class="card-profesor">
+                <div class="icono">🎖️</div>
+                <h2>Nominar Alumno</h2>
+                <p>Selecciona el bloque y registra tus nominaciones.</p>
+            </a>
 
-        <a href="{{ url_for('nom.nominar_personal') }}" class="card-profesor">
-        <span class="emoji">🏫</span>
-        <h3>Nominar Personal</h3>
-        <p>Reconoce el trabajo de tus compañeros.</p>
-        </a>
+            <a href="{{ url_for('nom.nominar_personal') }}" class="card-profesor">
+                <div class="icono">🏫</div>
+                <h2>Nominar Personal</h2>
+                <p>Reconoce el trabajo de tus compañeros.</p>
+            </a>
+        </div>
 
-        <a href="{{ url_for('nom.mis_nominaciones') }}" class="card-profesor">
-        <span class="emoji">📊</span>
-        <h3>Mis nominaciones</h3>
-        <p>Consulta tus nominaciones registradas.</p>
-        </a>
-    </main>
+        <!-- Fila inferior -->
+        <div class="fila">
+            <a href="{{ url_for('nom.mis_grupos') }}" class="card-profesor">
+                <div class="icono">🎓</div>
+                <h2>Alumnos</h2>
+                <p>Visualiza los alumnos por grado y grupo.</p>
+            </a>
 
-    </body>
-    </html>
+            <a href="{{ url_for('nom.mis_nominaciones') }}" class="card-profesor">
+                <div class="icono">📊</div>
+                <h2>Mis nominaciones</h2>
+                <p>Consulta tus nominaciones registradas.</p>
+            </a>
+        </div>
+
+    </div>
+</main>
+
+</body>
+</html>

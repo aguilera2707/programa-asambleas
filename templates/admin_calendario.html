@@ -3,33 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <title>Calendario de Asambleas</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_admin.css') }}">
-    <style>
-        .calendar-container { max-width: 1200px; margin: 40px auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.1);}
-        h1 { color: #7b0000; margin-bottom: 10px; }
-        form { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 15px; margin-bottom: 25px; }
-        input, select { padding: 8px; border-radius: 8px; border: 1px solid #ccc; width: 100%; }
-        button { background: #7b0000; color: white; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; grid-column: span 2; }
-        button:hover { background: #a00000; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.95em; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
-        th { background: #f0f0f0; color: #7b0000; }
-        .btn-eliminar { color: #a00; cursor: pointer; }
-        .btn-eliminar:hover { text-decoration: underline; }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_calendario.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
 </head>
-<body>
-    <div class="calendar-container">
-        <div class="admin-user-info">
-            <a href="{{ url_for('nom.panel_admin') }}" class="btn btn-secondary">↩ Volver al panel</a>
-        </div>
-        <h1>📅 Calendario de Asambleas – {{ ciclo.nombre }}</h1>
 
+<body>
+
+<header class="admin-header">
+    <div class="header-left">
+        <h1>📅 Calendario de Asambleas – {{ ciclo.nombre }}</h1>
+    </div>
+    <div class="header-right">
+        <span>{{ current_user.nombre }}</span>
+        <a href="{{ url_for('nom.panel_admin') }}" class="btn-volver">↩ Volver al panel</a>
+    </div>
+</header>
+
+<main class="admin-main">
+    <!-- 🔔 Mensajes flash -->
+    <div id="flash-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- 📋 Formulario de creación de eventos -->
+    <section class="formulario-calendario">
         <form method="POST">
             <select name="bloque_id" required>
                 <option value="">Seleccione bloque</option>
                 {% for b in bloques %}
-                <option value="{{ b.id }}">{{ b.nombre }}</option>
+                    <option value="{{ b.id }}">{{ b.nombre }}</option>
                 {% endfor %}
             </select>
 
@@ -41,55 +49,74 @@
             <select name="plantilla_id">
                 <option value="">Plantilla predeterminada</option>
                 {% for p in plantillas %}
-                <option value="{{ p.id }}">{{ p.nombre }}</option>
+                    <option value="{{ p.id }}">{{ p.nombre }}</option>
                 {% endfor %}
             </select>
 
-            <button type="submit">Agregar evento</button>
+            <button type="submit" class="btn btn-primary">➕ Agregar evento</button>
         </form>
+    </section>
 
+    <!-- 🗓️ Tabla de eventos -->
+    <section class="tabla-calendario">
         {% if eventos %}
         <table>
-            <tr>
-                <th>Mes</th>
-                <th>Bloque</th>
-                <th>Fecha del evento</th>
-                <th>Cierre de nominaciones</th>
-                <th>Plantilla</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-            </tr>
-            {% for e in eventos %}
-            {% set hoy = datetime.utcnow() %}
-            {% if e.fecha_cierre_nominaciones > hoy %}
-                {% set estado = "🟢 Abierto" %}
-            {% else %}
-                {% set estado = "🔴 Cerrado" %}
-            {% endif %}
-            <tr id="fila-{{ e.id }}">
-                <td>{{ e.mes_ordinal }} – {{ e.nombre_mes }}</td>
-                <td>{{ e.bloque.nombre }}</td>
-                <td>{{ e.fecha_evento.strftime('%d/%m/%Y') }}</td>
-                <td>{{ e.fecha_cierre_nominaciones.strftime('%d/%m/%Y %H:%M') }}</td>
-                <td>{{ e.plantilla.nombre if e.plantilla else 'Predeterminada' }}</td>
-                <td>{{ estado }}</td>
-                <td>
-                    <a href="#" class="btn-toggle" data-id="{{ e.id }}">
-                        {{ "Desactivar" if e.activo else "Activar" }}
-                    </a>
-                    &nbsp;|&nbsp;
-                    <a href="#" class="btn-eliminar" data-id="{{ e.id }}">Eliminar</a>
-                </td>
-            </tr>
-            {% endfor %}
+            <thead>
+                <tr>
+                    <th>Mes</th>
+                    <th>Bloque</th>
+                    <th>Fecha del evento</th>
+                    <th>Cierre de nominaciones</th>
+                    <th>Plantilla</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in eventos %}
+                {% set hoy = datetime.utcnow() %}
+                {% if e.fecha_cierre_nominaciones > hoy %}
+                    {% set estado = "Abierto" %}
+                    {% set color = "abierto" %}
+                {% else %}
+                    {% set estado = "Cerrado" %}
+                    {% set color = "cerrado" %}
+                {% endif %}
+                <tr id="fila-{{ e.id }}">
+                    <td>{{ e.mes_ordinal }} – {{ e.nombre_mes }}</td>
+                    <td>{{ e.bloque.nombre }}</td>
+                    <td>{{ e.fecha_evento.strftime('%d/%m/%Y') }}</td>
+                    <td>{{ e.fecha_cierre_nominaciones.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td>{{ e.plantilla.nombre if e.plantilla else 'Predeterminada' }}</td>
+                    <td><span class="estado {{ color }}">{{ estado }}</span></td>
+                    <td>
+                        <a href="#" class="btn-toggle" data-id="{{ e.id }}">
+                            {{ "Desactivar" if e.activo else "Activar" }}
+                        </a>
+                        <span class="separador">|</span>
+                        <a href="#" class="btn-eliminar" data-id="{{ e.id }}">Eliminar</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
         {% else %}
-        <p>No hay eventos registrados para este ciclo.</p>
+        <p class="sin-datos">No hay eventos registrados para este ciclo.</p>
         {% endif %}
-    </div>
+    </section>
+</main>
 
-    
-    <script>
+<script>
+// 💨 Ocultar mensajes flash automáticamente
+setTimeout(() => {
+    document.querySelectorAll('.flash').forEach(el => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-10px)';
+        setTimeout(() => el.remove(), 600);
+    });
+}, 3000);
+
+// 🗑️ Eliminar evento
 document.querySelectorAll('.btn-eliminar').forEach(btn => {
     btn.addEventListener('click', async e => {
         e.preventDefault();
@@ -100,13 +127,13 @@ document.querySelectorAll('.btn-eliminar').forEach(btn => {
         const data = await res.json();
         if (data.success) {
             document.getElementById(`fila-${id}`).remove();
-            alert('Evento eliminado correctamente.');
         } else {
             alert('Error: ' + (data.error || 'No se pudo eliminar'));
         }
     });
 });
 
+// 🔁 Activar/desactivar evento
 document.querySelectorAll('.btn-toggle').forEach(btn => {
     btn.addEventListener('click', async e => {
         e.preventDefault();
@@ -123,6 +150,7 @@ document.querySelectorAll('.btn-toggle').forEach(btn => {
         }
     });
 });
-    </script>
+</script>
+
 </body>
 </html>

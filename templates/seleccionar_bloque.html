@@ -1,39 +1,38 @@
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
+<!DOCTYPE html>
+<html lang="es">
+<head>
     <meta charset="UTF-8">
-    <title>Seleccionar bloque</title>
+    <title>Seleccionar Bloque</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/seleccionar_bloque.css') }}">
-    </head>
-    <body>
+</head>
 
+<body>
+    <!-- 🔹 Header institucional -->
     <header class="admin-header">
-        <div class="admin-header-left">
-        <h1>🎖️ Nominar Alumno</h1>
+        <div class="header-left">
+            <h1>🎖️ Nominar Alumno</h1>
         </div>
-        <div class="admin-user-info">
-        <span>{{ current_user.nombre }}</span>
-        <a href="{{ url_for('nom.logout') }}" class="btn-logout">Cerrar sesión</a>
+        <div class="header-right">
+            <span>{{ current_user.nombre }}</span>
+            <a href="{{ url_for('nom.panel_profesor') }}" class="btn-volver-top">← Volver al panel del maestro</a>
         </div>
     </header>
 
+    <!-- 🔹 Contenido principal -->
     <main class="contenedor-bloques">
-        <!-- 🔙 Botón para regresar al panel principal del profesor -->
-        <a href="{{ url_for('nom.panel_profesor') }}" class="btn-volver">
-            ← Volver al panel del maestro
-        </a>
+        
+
         <h2>Selecciona el bloque donde deseas registrar nominaciones</h2>
 
-        <div class="bloques-grid">
-        {% for bloque in bloques %}
-            <a href="{{ url_for('nom.seleccionar_grado', bloque_id=bloque.id) }}" class="card-bloque">
-            <span class="emoji">🏫</span>
-            <h3>{{ bloque.nombre }}</h3>
-            <p>{{ bloque.descripcion or 'Bloque académico' }}</p>
-            </a>
-        {% endfor %}
-        </div>
+        <section class="bloques-grid">
+            {% for bloque in bloques %}
+                <a href="{{ url_for('nom.seleccionar_grado', bloque_id=bloque.id) }}" class="card-bloque">
+                    <div class="icono">🏫</div>
+                    <h3>{{ bloque.nombre }}</h3>
+                    <p>{{ bloque.descripcion or 'Bloque académico' }}</p>
+                </a>
+            {% endfor %}
+        </section>
     </main>
-
-    </body>
-    </html>
+</body>
+</html>
