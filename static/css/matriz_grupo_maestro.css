@@ -1,89 +1,119 @@
-/* ===============================
-   ESTILOS MATRIZ DE NOMINACIONES
-   =============================== */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
 
+/* ======== BASE ======== */
 body {
-    font-family: "Segoe UI", Arial, sans-serif;
+    font-family: 'Poppins', sans-serif;
+    background-color: #f8f8f8;
     margin: 0;
-    background-color: #fff;
+    padding: 0;
     color: #222;
 }
 
-/* ====== ENCABEZADO ====== */
-.topbar {
-    background-color: #8B0000;
-    color: white;
-    padding: 12px 20px;
+/* ======== HEADER ======== */
+.admin-header {
+    background-color: #7b0000;
+    color: #fff;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 30px 40px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
 }
 
-.topbar h2 {
+.header-left h1 {
     margin: 0;
-    font-size: 1.3rem;
+    font-size: 1.5rem;
+    font-weight: 700;
 }
 
-.usuario {
+.header-right {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 15px;
+    font-weight: 500;
 }
 
-.btn-cerrar {
+/* ======== BOTÓN SUPERIOR DE VOLVER ======== */
+.btn-volver-top {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background-color: #fff;
-    color: #8B0000;
-    padding: 4px 10px;
-    border-radius: 5px;
-    font-weight: bold;
+    color: #7b0000;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
     text-decoration: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+}
+.btn-volver-top:hover {
+    background-color: #ffeaea;
+    transform: translateY(-2px);
 }
 
-.btn-cerrar:hover {
-    background-color: #ffdcdc;
+/* ======== PANEL INFORMATIVO ======== */
+.info-panel {
+    background: #fff0f0;
+    border: 1px solid #d99;
+    margin: 25px auto;
+    padding: 15px 25px;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 1100px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 
-/* ====== CONTENIDO ====== */
+.info-panel p {
+    margin: 6px 0;
+    font-size: 1.15rem;
+}
+
+.sin-evento {
+    color: #a00000;
+    font-weight: 600;
+}
+
+/* ======== CONTENIDO PRINCIPAL ======== */
 .contenedor-matriz {
     padding: 20px;
     text-align: center;
 }
 
 .subtitulo {
-    font-size: 1.1rem;
-    color: #8B0000;
+    font-size: 1.2rem;
+    color: #7b0000;
+    font-weight: 600;
     margin-bottom: 15px;
 }
 
-/* ====== TABLA ====== */
+/* ======== TABLA ======== */
 .tabla-matriz {
-    width: 100%;
+    width: 95%;
+    margin: 0 auto;
     border-collapse: collapse;
-    margin-top: 10px;
-    text-align: center;
-    position: relative;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    background-color: #fff;
+    border-radius: 12px;
+    overflow: hidden;
 }
 
 .tabla-matriz th {
-    background-color: #8B0000;
+    background-color: #7b0000;
     color: #fff;
-    padding: 8px;
-    font-size: 0.9rem;
+    padding: 10px;
+    font-size: 0.95rem;
 }
 
 .tabla-matriz td {
     padding: 10px;
-    border: 1px solid #ccc;
-    position: relative;
+    border-bottom: 1px solid #eee;
+    text-align: center;
 }
 
 .tabla-matriz tr:nth-child(even) {
-    background-color: #f8f8f8;
-}
-
-/* ====== ESTADO SIN NOMINACIÓN ====== */
-.sin-nominacion {
-    background-color: #ffecec !important;
+    background-color: #fafafa;
 }
 
 .sin-datos {
@@ -93,35 +123,30 @@ body {
     color: #777;
 }
 
-/* ====== BOLITAS ====== */
-.punto, .dot {
+/* ======== INDICADORES DE NOMINACIÓN ======== */
+.punto {
     display: inline-block;
     width: 14px;
     height: 14px;
     border-radius: 50%;
     margin: 0 3px;
     vertical-align: middle;
-    position: relative;
     cursor: pointer;
 }
-
-.punto.verde, .dot.verde {
-    background-color: #3cb371; /* verde medio */
+.punto.verde {
+    background-color: #3cb371;
 }
-
-.punto.gris, .dot.gris {
+.punto.gris {
     background-color: #ccc;
 }
 
-/* ====== TOOLTIP ====== */
-.punto[title]:hover::after,
-.dot[title]:hover::after {
+.punto[title]:hover::after {
     content: attr(title);
     position: absolute;
     top: -25px;
     left: 50%;
     transform: translateX(-50%);
-    background-color: rgba(0, 0, 0, 0.85);
+    background-color: rgba(0,0,0,0.85);
     color: #fff;
     padding: 4px 8px;
     border-radius: 6px;
@@ -130,85 +155,92 @@ body {
     z-index: 10;
 }
 
-/* ====== BOTÓN NOMINAR ====== */
+/* ======== BOTÓN NOMINAR ======== */
 .btn-nominar {
-    background-color: #8B0000;
+    background-color: #7b0000;
     color: #fff;
     text-decoration: none;
-    padding: 6px 12px;
-    border-radius: 5px;
+    padding: 7px 14px;
+    border-radius: 6px;
     font-size: 0.9rem;
-    font-weight: bold;
+    font-weight: 600;
     border: none;
     cursor: pointer;
-    transition: all 0.2s ease-in-out;
+    transition: 0.25s ease;
 }
-
 .btn-nominar:hover {
     background-color: #a00000;
 }
-
-/* Estado bloqueado */
-.btn-nominar[disabled],
-.btn-nominar:disabled {
+.btn-nominar[disabled] {
     background-color: #d6a5a5;
-    color: #fff;
     cursor: not-allowed;
-    opacity: 0.8;
 }
 
-/* ====== DESTACAR MES ACTUAL ====== */
-th.mes-actual {
-    background-color: #B8860B !important; /* dorado */
-    color: #fff !important;
-    font-weight: bold;
-}
+/* ======== RESPONSIVO ======== */
+@media (max-width: 900px) {
+    .admin-header {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+        padding: 20px;
+    }
 
-/* ====== RESPONSIVE ====== */
-@media (max-width: 768px) {
-    .tabla-matriz th, .tabla-matriz td {
-        font-size: 0.8rem;
-        padding: 6px;
+    .tabla-matriz {
+        width: 100%;
+        font-size: 0.85rem;
     }
 
     .btn-nominar {
-        padding: 4px 8px;
+        padding: 5px 10px;
         font-size: 0.8rem;
-    }
-
-    .topbar h2 {
-        font-size: 1rem;
     }
 }
 
-.info-panel {
-    background: #fff0f0;
-    border: 1px solid #d99;
-    margin: 15px auto;
-    padding: 10px 20px;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 1000px;
+/* ======== TABLA ======== */
+.tabla-matriz {
+    width: 95%;
+    margin: 0 auto;
+    border-collapse: collapse; /* Mantiene las líneas limpias */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    background-color: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* Encabezados */
+.tabla-matriz th {
+    background-color: #7b0000;
+    color: #fff;
+    padding: 10px;
+    font-size: 0.95rem;
+    border-right: 2px solid #f1f1f1; /* línea divisoria vertical */
+}
+.tabla-matriz th:last-child {
+    border-right: none;
+}
+
+/* Celdas */
+.tabla-matriz td {
+    padding: 10px;
+    border-bottom: 1px solid #e0e0e0; /* línea horizontal */
+    border-right: 1px solid #ddd; /* línea vertical entre columnas */
     text-align: center;
 }
 
-.info-panel p {
-    margin: 5px 0;
-    font-size: 15px;
+/* Quita la última línea a la derecha */
+.tabla-matriz td:last-child {
+    border-right: none;
 }
 
-.btn-volver {
-    display: inline-block;
-    background: #eee;
-    color: #333;
-    padding: 6px 12px;
-    margin-top: 10px;
-    border-radius: 6px;
-    text-decoration: none;
-    font-weight: 600;
-    transition: all 0.2s;
+/* Alternancia de color de filas */
+.tabla-matriz tr:nth-child(even) {
+    background-color: #fafafa;
 }
 
-.btn-volver:hover {
-    background: #ddd;
+/* Líneas exteriores más marcadas */
+.tabla-matriz tr:first-child th {
+    border-top: 3px solid #7b0000;
+}
+.tabla-matriz tr:last-child td {
+    border-bottom: 3px solid #7b0000;
 }

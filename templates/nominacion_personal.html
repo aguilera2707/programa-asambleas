@@ -2,19 +2,60 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Nominar Personal</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/nominacion_alumno.css') }}">
+    <title>Nominaciones de Personal</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/nominacion_personal.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
 
-    <header>
-        <h2>🍎 Nominaciones de personal del ciclo {{ ciclo.nombre }}</h2>
-    </header>
-    <!-- 🔙 Botón para regresar al panel principal del profesor -->
-    <a href="{{ url_for('nom.panel_profesor') }}" class="btn-volver">
-        ← Volver al panel del maestro
-    </a>
-    <main>
+<!-- 🔹 Encabezado institucional -->
+<header class="admin-header">
+    <div class="header-left">
+        <h1>🍎 Nominaciones de personal del ciclo {{ ciclo.nombre }}</h1>
+    </div>
+    <div class="header-right">
+        
+        <span>{{ current_user.nombre }}</span>
+
+        <a href="{{ url_for('nom.panel_profesor') }}" class="btn-volver">← Volver al panel del maestro</a>
+    </div>
+</header>
+
+<!-- 🔹 Mensajes flash -->
+<div id="flash-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+</div>
+
+<main class="contenedor-principal">
+
+    <!-- 🔹 Estado del evento vigente -->
+    {% if evento and evento.activo %}
+        <div class="alerta-evento activo">
+            <p>🗓️ <strong>Evento vigente:</strong> {{ evento.nombre_mes }}  
+            (Cierra el <strong>{{ evento.fecha_cierre_nominaciones.strftime('%d/%m/%Y %H:%M') }}</strong>)</p>
+        </div>
+    {% else %}
+        <div class="alerta-evento inactivo">
+            <p>⚠️ No hay ningún evento de asamblea activo actualmente.  
+            No puedes registrar nominaciones hasta que se habilite uno.</p>
+        </div>
+    {% endif %}
+
+    <!-- 🔹 Formulario principal -->
+    <section class="formulario-nominacion">
+        <h2>Registrar nueva nominación</h2>
+
+        {% if evento and evento.activo %}
+        <!-- Buscador -->
+        <label for="buscador">Buscar maestro:</label>
+        <input type="text" id="buscador" placeholder="Escribe un nombre para filtrar...">
+
         <form method="POST" class="form-nominacion">
             <label for="maestros">Selecciona maestro(s):</label>
             <select name="maestros" id="maestros" multiple required>
@@ -36,12 +77,19 @@
 
             <button type="submit" class="btn-registrar">Registrar nominación</button>
         </form>
+        {% else %}
+        <div class="bloqueo-form">
+            <p>🚫 No hay eventos vigentes para registrar nominaciones.</p>
+        </div>
+        {% endif %}
+    </section>
 
-        <hr>
+    <!-- 🔹 Tabla de nominaciones registradas -->
+    <section class="tabla-nominaciones">
+        <h2>🧾 Tus nominaciones registradas</h2>
 
-        <section class="tabla-nominaciones">
-            <h3>🧾 Tus nominaciones registradas</h3>
-            {% if nominaciones %}
+        {% if nominaciones %}
+        <div class="tabla-scroll">
             <table>
                 <thead>
                     <tr>
@@ -49,6 +97,7 @@
                         <th>Valor</th>
                         <th>Comentario</th>
                         <th>Fecha</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -59,16 +108,106 @@
                         <td>{{ n.valor.nombre }}</td>
                         <td>{{ n.comentario or '-' }}</td>
                         <td>{{ n.fecha.strftime('%d/%m/%Y') }}</td>
+                        <td class="acciones">
+                            <button class="btn-editar" 
+                                    data-id="{{ n.id }}" 
+                                    data-valor="{{ n.valor.id }}" 
+                                    data-comentario="{{ n.comentario or '' }}">✏️</button>
+                            <button class="btn-eliminar" data-id="{{ n.id }}">🗑️</button>
+                        </td>
                     </tr>
                     {% endif %}
                     {% endfor %}
                 </tbody>
             </table>
-            {% else %}
-            <p><em>No tienes nominaciones registradas aún.</em></p>
-            {% endif %}
-        </section>
-    </main>
+        </div>
+        {% else %}
+        <p class="sin-datos">No tienes nominaciones registradas aún.</p>
+        {% endif %}
+    </section>
+</main>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    // 🔍 Filtro de búsqueda de maestros
+    const buscador = document.getElementById("buscador");
+    const selectMaestros = document.getElementById("maestros");
+
+    if (buscador && selectMaestros) {
+        buscador.addEventListener("input", () => {
+            const filtro = buscador.value.toLowerCase();
+            for (let option of selectMaestros.options) {
+                const texto = option.text.toLowerCase();
+                option.style.display = texto.includes(filtro) ? "" : "none";
+            }
+        });
+    }
+
+    // 🗑️ Eliminar nominación
+    document.querySelectorAll(".btn-eliminar").forEach(btn => {
+        btn.addEventListener("click", e => {
+            e.preventDefault();
+            const id = btn.dataset.id;
+            Swal.fire({
+                title: "¿Eliminar nominación?",
+                text: "Esta acción no se puede deshacer.",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#800000",
+                cancelButtonColor: "#888",
+                confirmButtonText: "Sí, eliminar",
+                cancelButtonText: "Cancelar"
+            }).then(result => {
+                if (result.isConfirmed) {
+                    window.location.href = `/nominaciones/personal/eliminar/${id}`;
+                }
+            });
+        });
+    });
+
+    // ✏️ Editar nominación
+    document.querySelectorAll(".btn-editar").forEach(btn => {
+        btn.addEventListener("click", e => {
+            e.preventDefault();
+            const id = btn.dataset.id;
+            const valorActual = btn.dataset.valor;
+            const comentarioActual = btn.dataset.comentario;
+
+            const valores = {{ valores_json | tojson }};
+            const opciones = valores.map(v => 
+                `<option value="${v.id}" ${v.id == valorActual ? 'selected' : ''}>${v.nombre}</option>`
+            ).join('');
+
+            Swal.fire({
+                title: "Editar nominación",
+                html: `
+                    <label style='font-weight:600;'>Selecciona nuevo valor:</label>
+                    <select id='nuevo_valor' class='swal2-input'>${opciones}</select>
+                    <label style='font-weight:600;'>Comentario:</label>
+                    <input id='nuevo_comentario' class='swal2-input' placeholder='Comentario opcional...' value='${comentarioActual || ''}'>
+                `,
+                confirmButtonText: "Guardar cambios",
+                confirmButtonColor: "#800000",
+                showCancelButton: true,
+                cancelButtonText: "Cancelar",
+                preConfirm: () => {
+                    const valor_id = document.getElementById("nuevo_valor").value;
+                    const comentario = document.getElementById("nuevo_comentario").value;
+                    fetch(`/nominaciones/personal/editar/${id}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                        body: `valor_id=${valor_id}&comentario=${encodeURIComponent(comentario)}`
+                    }).then(() => {
+                        Swal.fire("✅ Guardado", "Nominación actualizada correctamente.", "success")
+                            .then(() => location.reload());
+                    });
+                }
+            });
+        });
+    });
+});
+</script>
 
 </body>
 </html>

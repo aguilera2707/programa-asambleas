@@ -1,55 +1,56 @@
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
+<!DOCTYPE html>
+<html lang="es">
+<head>
     <meta charset="UTF-8">
     <title>Mis Grupos</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mis_grupos.css') }}">
-    </head>
-    <body>
+</head>
+<body>
 
     <!-- 🔹 Encabezado superior -->
     <header class="admin-header">
         <div class="admin-header-left">
-        <h1>📚 Mis Grupos</h1>
+            <h1>📚 Mis Grupos</h1>
         </div>
         <div class="admin-user-info">
-        <span>{{ current_user.nombre }}</span>
-        <a href="{{ url_for('nom.logout') }}" class="btn-logout">Cerrar sesión</a>
+            <span>{{ current_user.nombre }}</span>
+            <a href="{{ url_for('nom.panel_profesor') }}" class="btn-volver">← Volver al panel del maestro</a>
         </div>
     </header>
 
-    <!-- 🔸 Contenido principal -->
+    <!-- 🔹 Contenedor principal -->
     <main class="contenedor-grupos">
-            <!-- 🔙 Botón para regresar al panel principal del profesor -->
-    <a href="{{ url_for('nom.panel_profesor') }}" class="btn-volver">
-        ← Volver al panel del maestro
-    </a>
+
+        <!-- Botón volver -->
+        
+
         <h2>Ciclo escolar: {{ ciclo.nombre }}</h2>
 
         {% for grupo, alumnos in grupos.items() %}
         <section class="grupo-section">
             <h3>{{ grupo }}</h3>
             <table>
-            <thead>
-                <tr>
-                <th>Nombre del alumno</th>
-                <th style="width:120px;">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for alumno in alumnos %}
-                <tr>
-                    <td>{{ alumno.nombre }}</td>
-                    <td>
-                    <a href="{{ url_for('nom.nominar_alumno') }}" class="btn-nominar">Nominar</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
+                <thead>
+                    <tr>
+                        <th>Nombre del alumno</th>
+                        <th style="width:120px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alumno in alumnos %}
+                    <tr>
+                        <td>{{ alumno.nombre }}</td>
+                        <td>
+                            <!-- ✅ Ruta corregida -->
+                            <a href="{{ url_for('nom.nominar_alumno_individual', alumno_id=alumno.id) }}" class="btn-nominar">Nominar</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
             </table>
         </section>
         {% endfor %}
     </main>
 
-    </body>
-    </html>
+</body>
+</html>

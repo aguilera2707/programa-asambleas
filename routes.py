@@ -1061,6 +1061,8 @@ def nominar_personal():
             return redirect(url_for('nom.nominar_personal'))
 
         nuevas = 0
+        duplicados = []
+
         for nominado_id in nominados:
             # Evitar duplicados en el mismo ciclo y valor
             existente = Nominacion.query.filter_by(
@@ -1069,7 +1071,12 @@ def nominar_personal():
                 valor_id=valor_id,
                 ciclo_id=ciclo_activo.id
             ).first()
+
             if existente:
+                # Guardar nombres duplicados para avisar después
+                nominado = Maestro.query.get(nominado_id)
+                if nominado:
+                    duplicados.append(nominado.nombre)
                 continue
 
             nueva_nom = Nominacion(
@@ -1085,7 +1092,22 @@ def nominar_personal():
             nuevas += 1
 
         db.session.commit()
-        flash(f"✅ Se registraron {nuevas} nominaciones de personal al evento {evento_abierto.nombre_mes}.", "success")
+
+        # ✅ Mostrar mensajes más informativos
+        if nuevas > 0 and not duplicados:
+            flash(f"✅ Se registraron {nuevas} nominaciones de personal al evento {evento_abierto.nombre_mes}.", "success")
+
+        elif nuevas > 0 and duplicados:
+            lista = ', '.join(duplicados)
+            flash(f"✅ Se registraron {nuevas} nominaciones nuevas. ⚠️ Ya habías nominado a: {lista}.", "warning")
+
+        elif nuevas == 0 and duplicados:
+            lista = ', '.join(duplicados)
+            flash(f"⚠️ No se registraron nuevas nominaciones porque ya nominaste a {lista} con este valor.", "warning")
+
+        else:
+            flash("⚠️ No se registraron nominaciones.", "warning")
+
         return redirect(url_for('nom.nominar_personal'))
 
     # 6️⃣ Datos para el formulario
@@ -1096,20 +1118,26 @@ def nominar_personal():
     ).order_by(Maestro.nombre.asc()).all()
 
     valores = Valor.query.filter_by(ciclo_id=ciclo_activo.id, activo=True).all()
-    nominaciones = Nominacion.query.filter_by(
-        ciclo_id=ciclo_activo.id,
-        maestro_id=maestro.id
-    ).order_by(Nominacion.fecha.desc()).all()
+
+    nominaciones = (
+        Nominacion.query
+        .filter_by(ciclo_id=ciclo_activo.id, maestro_id=maestro.id)
+        .order_by(Nominacion.fecha.desc())
+        .all()
+    )
+
+    # 🔸 Convertir valores a JSON para el script de edición
+    valores_json = [{"id": v.id, "nombre": v.nombre} for v in valores]
 
     return render_template(
         'nominacion_personal.html',
         maestros=maestros,
         valores=valores,
+        valores_json=valores_json,
         nominaciones=nominaciones,
         ciclo=ciclo_activo,
         evento=evento_abierto
     )
-
 
 
 @nom.route('/admin/nominaciones/export', methods=['GET'])
@@ -2367,3 +2395,51 @@ ALLOWED_EXT_ALUMNOS = {"xlsx", "csv"}
 def _allowed_file_alumnos(filename: str) -> bool:
     """Verifica si el archivo tiene una extensión válida (.xlsx o .csv)"""
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXT_ALUMNOS
+
+# -------------------------------
+# 🔹 Eliminar nominación de personal
+# -------------------------------
+@nom.route('/nominaciones/personal/eliminar/<int:id>', methods=['GET'])
+@login_required
+def eliminar_nominacion_personal(id):
+    nominacion = Nominacion.query.get_or_404(id)
+
+    # Validar que sea del maestro actual
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    maestro = Maestro.query.filter_by(correo=current_user.email, ciclo_id=ciclo_activo.id).first()
+
+    if not maestro or nominacion.maestro_id != maestro.id:
+        flash("🚫 No tienes permiso para eliminar esta nominación.", "danger")
+        return redirect(url_for('nom.nominar_personal'))
+
+    db.session.delete(nominacion)
+    db.session.commit()
+    flash("🗑️ Nominación eliminada correctamente.", "success")
+    return redirect(url_for('nom.nominar_personal'))
+
+# -------------------------------
+# 🔹 Editar nominación de personal
+# -------------------------------
+@nom.route('/nominaciones/personal/editar/<int:id>', methods=['POST'])
+@login_required
+def editar_nominacion_personal(id):
+    nominacion = Nominacion.query.get_or_404(id)
+
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    maestro = Maestro.query.filter_by(correo=current_user.email, ciclo_id=ciclo_activo.id).first()
+
+    if not maestro or nominacion.maestro_id != maestro.id:
+        flash("🚫 No puedes editar esta nominación.", "danger")
+        return redirect(url_for('nom.nominar_personal'))
+
+    nuevo_valor = request.form.get('valor_id')
+    nuevo_comentario = request.form.get('comentario', '').strip()
+
+    if nuevo_valor:
+        nominacion.valor_id = nuevo_valor
+    nominacion.comentario = nuevo_comentario if nuevo_comentario else None
+    nominacion.fecha = datetime.utcnow()
+
+    db.session.commit()
+    flash("✏️ Nominación actualizada correctamente.", "success")
+    return redirect(url_for('nom.nominar_personal'))

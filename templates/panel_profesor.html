@@ -19,6 +19,16 @@
     </div>
 </header>
 
+<div id="flash-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+</div>
+
 <main class="panel-maestro">
     <div class="contenedor-cards">
 

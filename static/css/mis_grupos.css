@@ -1,118 +1,167 @@
-    body {
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+body {
     font-family: 'Poppins', sans-serif;
     background-color: #fafafa;
     margin: 0;
-    padding: 0;
     color: #333;
-    }
+}
 
-    /* Header igual al de panel maestro */
-    .admin-header {
-    background-color: #800000;
+/* 🔹 Header */
+.admin-header {
+    background-color: #7b0000;
     color: white;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 40px;
-    border-radius: 10px;
-    margin: 20px auto;
-    max-width: 1100px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    }
+    padding: 30px 40px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
 
-    .admin-header h1 {
+.admin-header h1 {
     margin: 0;
-    font-weight: 600;
-    font-size: 22px;
-    }
+    font-size: 1.4rem;
+    font-weight: 700;
+}
 
-    .admin-user-info {
+.admin-user-info {
     display: flex;
     align-items: center;
     gap: 15px;
     font-weight: 500;
-    }
+}
 
-    .btn-logout {
-    background-color: white;
-    color: #800000;
-    padding: 7px 16px;
+.btn-logout {
+    background-color: #fff;
+    color: #7b0000;
+    padding: 8px 16px;
     border-radius: 8px;
     font-weight: 600;
     text-decoration: none;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
-    transition: all 0.2s ease;
-    }
+    transition: all 0.25s ease;
+}
 
-    .btn-logout:hover {
-    background-color: #f5f5f5;
+.btn-logout:hover {
+    background-color: #ffdddd;
     transform: translateY(-2px);
-    }
+}
 
-    /* Contenedor principal */
-    .contenedor-grupos {
+/* 🔹 Botón volver */
+.btn-volver {
+    display: inline-block;
+    background-color: #f1f1f1;
+    color: #333;
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-weight: 600;
+    transition: 0.3s;
+}
+
+.btn-volver:hover {
+    background-color: #ddd;
+}
+
+/* 🔹 Contenedor */
+.contenedor-grupos {
     max-width: 1100px;
     margin: 40px auto;
     padding: 0 20px;
-    }
+}
 
-    .contenedor-grupos h2 {
-    color: #800000;
+.contenedor-grupos h2 {
+    color: #7b0000;
     font-weight: 600;
     margin-bottom: 30px;
-    }
+}
 
-    /* Sección de cada grupo */
-    .grupo-section {
+/* 🔹 Secciones */
+.grupo-section {
     margin-bottom: 40px;
-    background-color: white;
+    background-color: #fff;
     border-radius: 12px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-    padding: 15px 25px;
-    }
+    padding: 20px 25px;
+    border-top: 5px solid #7b0000;
+}
 
-    .grupo-section h3 {
-    color: #800000;
+.grupo-section h3 {
+    color: #7b0000;
     font-weight: 600;
-    border-bottom: 2px solid #800000;
-    padding-bottom: 5px;
+    border-bottom: 2px solid #7b0000;
+    padding-bottom: 6px;
     margin-bottom: 15px;
-    }
+    font-size: 1.1rem;
+}
 
-    table {
+/* 🔹 Tabla */
+table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 10px;
-    }
+}
 
-    th, td {
+th, td {
     text-align: left;
     padding: 10px 8px;
-    }
+}
 
-    th {
-    background-color: #800000;
+th {
+    background-color: #7b0000;
     color: white;
     font-weight: 600;
     font-size: 15px;
+}
+
+tr:nth-child(even) {
+    background-color: #fafafa;
+}
+
+/* 🔹 Botón Nominar */
+.btn-nominar {
+    display: inline-block;
+    background-color: #7b0000;
+    color: white;
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.25s ease;
+    text-align: center;
+}
+
+.btn-nominar:hover {
+    background-color: #a00000;
+    transform: translateY(-2px);
+}
+
+/* 🔹 Responsive */
+@media (max-width: 768px) {
+    .contenedor-grupos {
+        width: 95%;
     }
 
-    tr:nth-child(even) {
-    background-color: #f9f9f9;
+    table, thead, tbody, th, td, tr {
+        display: block;
+    }
+
+    th {
+        background: #7b0000;
+        color: #fff;
+    }
+
+    td {
+        border: none;
+        border-bottom: 1px solid #eee;
+        text-align: left;
+        padding: 8px;
     }
 
     .btn-nominar {
-    display: inline-block;
-    background-color: #800000;
-    color: white;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 14px;
-    text-decoration: none;
-    transition: all 0.25s ease;
+        width: 100%;
+        display: block;
+        margin-top: 5px;
     }
-
-    .btn-nominar:hover {
-    background-color: #a00000;
-    transform: translateY(-1px);
-    }
+}
