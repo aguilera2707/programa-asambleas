@@ -2358,3 +2358,12 @@ def eliminar_bloque(id):
         flash(f"🗑️ Bloque '{bloque.nombre}' eliminado correctamente.", "success")
 
     return redirect(url_for('admin_bp.bloques_ciclo'))
+
+# -------------------------------
+# 🧩 Extensiones permitidas para importar alumnos
+# -------------------------------
+ALLOWED_EXT_ALUMNOS = {"xlsx", "csv"}
+
+def _allowed_file_alumnos(filename: str) -> bool:
+    """Verifica si el archivo tiene una extensión válida (.xlsx o .csv)"""
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXT_ALUMNOS

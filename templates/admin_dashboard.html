@@ -4,87 +4,163 @@
     <meta charset="UTF-8">
     <title>Dashboard del Administrador</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    
 </head>
 <body>
-    <div class="admin-container">
-        <header class="admin-header">
-                        <div class="admin-user-info">
-            <a href="{{ url_for('nom.panel_admin') }}" class="btn btn-secondary">↩ Volver al panel</a>
-        </div>
-            <h1>📊 Dashboard del Administrador</h1>
 
-            <div class="admin-user-info">
-                <span>{{ current_user.nombre }}</span>
-                <a href="{{ url_for('nom.logout') }}" class="btn btn-secondary">Cerrar sesión</a>
-            </div>
-        </header>
-
-        <main class="admin-main">
-            <section class="kpis">
-                <div class="card"><h3>Maestros</h3><div id="k_maestros">–</div></div>
-                <div class="card"><h3>Alumnos</h3><div id="k_alumnos">–</div></div>
-                <div class="card"><h3>Nominaciones</h3><div id="k_nominaciones">–</div></div>
-            </section>
-
-        <section class="charts">
-        <div class="chart-box"><canvas id="chart_tipo"></canvas></div>
-        <div class="chart-box"><canvas id="chart_valor"></canvas></div>
-        <div class="chart-box"><canvas id="chart_dia"></canvas></div>
-        </section>
-
-        </main>
+<header class="admin-header">
+    <div class="header-left">
+        <h1>📊 Dashboard del Administrador</h1>
     </div>
+    <div class="header-right">
+        <span>{{ current_user.nombre }}</span>
+        <a href="{{ url_for('nom.panel_admin') }}" class="btn-volver">↩ Volver al panel</a>
+    </div>
+</header>
 
-    <script>
-    async function cargarDashboard() {
-        try {
-            const res = await fetch("/admin/dashboard/data/resumen");
-            const data = await res.json();
+<main class="dashboard-container">
+    <!-- KPIs principales -->
+    <section class="kpis">
+        <div class="card">
+            <h3>Maestros</h3>
+            <div id="k_maestros">–</div>
+        </div>
+        <div class="card">
+            <h3>Alumnos</h3>
+            <div id="k_alumnos">–</div>
+        </div>
+        <div class="card">
+            <h3>Nominaciones</h3>
+            <div id="k_nominaciones">–</div>
+        </div>
+    </section>
 
-            if (data.error) {
-                alert(data.error);
-                return;
-            }
+    <!-- Gráficas -->
+    <section class="charts">
+        <div class="chart-box">
+            <canvas id="chart_tipo"></canvas>
+        </div>
+        <div class="chart-box">
+            <canvas id="chart_valor"></canvas>
+        </div>
+        <div class="chart-box full-width">
+            <canvas id="chart_dia"></canvas>
+        </div>
+    </section>
+</main>
 
-            document.getElementById('k_maestros').textContent = data.totales.maestros;
-            document.getElementById('k_alumnos').textContent = data.totales.alumnos;
-            document.getElementById('k_nominaciones').textContent = data.totales.nominaciones;
+<script>
+async function cargarDashboard() {
+    try {
+        const res = await fetch("/admin/dashboard/data/resumen");
+        const data = await res.json();
 
-            // Chart tipo
-            const tipoLabels = Object.keys(data.por_tipo || {});
-            const tipoValues = Object.values(data.por_tipo || {});
-            new Chart(document.getElementById('chart_tipo'), {
-                type: 'doughnut',
-                data: { labels: tipoLabels, datasets: [{ data: tipoValues }] },
-                options: { plugins: { title: { display: true, text: 'Nominaciones por tipo' } } }
-            });
-
-            // Chart valor
-            const valorLabels = data.por_valor.map(d => d.valor);
-            const valorValues = data.por_valor.map(d => d.n);
-            new Chart(document.getElementById('chart_valor'), {
-                type: 'bar',
-                data: { labels: valorLabels, datasets: [{ data: valorValues }] },
-                options: { plugins: { title: { display: true, text: 'Top valores nominados' } } }
-            });
-
-            // Chart día
-            const diaLabels = data.por_dia.map(d => d.fecha);
-            const diaValues = data.por_dia.map(d => d.n);
-            new Chart(document.getElementById('chart_dia'), {
-                type: 'line',
-                data: { labels: diaLabels, datasets: [{ data: diaValues, fill: false }] },
-                options: { plugins: { title: { display: true, text: 'Nominaciones por día' } } }
-            });
-
-        } catch (err) {
-            console.error("Error cargando dashboard:", err);
+        if (data.error) {
+            alert(data.error);
+            return;
         }
+
+        // KPIs
+        document.getElementById('k_maestros').textContent = data.totales.maestros;
+        document.getElementById('k_alumnos').textContent = data.totales.alumnos;
+        document.getElementById('k_nominaciones').textContent = data.totales.nominaciones;
+
+        // === Gráfica 1: Nominaciones por tipo ===
+        const ctxTipo = document.getElementById('chart_tipo').getContext('2d');
+        new Chart(ctxTipo, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(data.por_tipo || {}),
+                datasets: [{
+                    data: Object.values(data.por_tipo || {}),
+                    backgroundColor: ['#1976d2', '#ec407a'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Nominaciones por tipo',
+                        font: { size: 16, weight: 'bold' }
+                    },
+                    legend: {
+                        position: 'bottom'
+                    }
+                },
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        // === Gráfica 2: Top valores nominados ===
+        const ctxValor = document.getElementById('chart_valor').getContext('2d');
+        new Chart(ctxValor, {
+            type: 'bar',
+            data: {
+                labels: data.por_valor.map(d => d.valor),
+                datasets: [{
+                    data: data.por_valor.map(d => d.n),
+                    backgroundColor: '#42a5f5',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Top valores nominados',
+                        font: { size: 16, weight: 'bold' }
+                    },
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                },
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        // === Gráfica 3: Nominaciones por día ===
+        const ctxDia = document.getElementById('chart_dia').getContext('2d');
+        new Chart(ctxDia, {
+            type: 'line',
+            data: {
+                labels: data.por_dia.map(d => d.fecha),
+                datasets: [{
+                    data: data.por_dia.map(d => d.n),
+                    label: 'Nominaciones',
+                    borderColor: '#7b0000',
+                    backgroundColor: 'rgba(123,0,0,0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#7b0000'
+                }]
+            },
+            options: {
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Nominaciones por día',
+                        font: { size: 16, weight: 'bold' }
+                    },
+                    legend: { display: false }
+                },
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+    } catch (err) {
+        console.error("Error cargando dashboard:", err);
     }
-    document.addEventListener('DOMContentLoaded', cargarDashboard);
-    </script>
+}
+
+document.addEventListener('DOMContentLoaded', cargarDashboard);
+</script>
 </body>
 </html>

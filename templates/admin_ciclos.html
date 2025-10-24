@@ -1,89 +1,107 @@
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
+<!DOCTYPE html>
+<html lang="es">
+<head>
     <meta charset="UTF-8">
     <title>Gestión de Ciclos Escolares</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_ciclos.css') }}">
-    </head>
-    <body>
-        <div class="admin-user-info">
-            <a href="{{ url_for('nom.panel_admin') }}" class="btn btn-secondary">↩ Volver al panel</a>
-        </div>
-    <div class="container">
-        <h1>Gestión de Ciclos Escolares</h1>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+</head>
+<body>
 
-        <form method="POST">
-        <input type="text" name="nombre" placeholder="Ej. 2025-2026" required>
-        <input type="date" name="fecha_inicio">
-        <input type="date" name="fecha_fin">
-        <button type="submit">Crear ciclo</button>
+<header class="admin-header">
+    <div class="header-left">
+        <h1>📅 Gestión de Ciclos Escolares</h1>
+    </div>
+    <div class="header-right">
+        <span>{{ current_user.nombre }}</span>
+        <a href="{{ url_for('nom.panel_admin') }}" class="btn-volver">↩ Volver al panel</a>
+    </div>
+</header>
+
+<main class="crear-usuario-container">
+    <section class="formulario-box">
+
+        <!-- 🔔 Mensajes flash -->
+        <div id="flash-container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- 🟢 Formulario crear ciclo -->
+        <form method="POST" class="form-ciclos">
+            <input type="text" name="nombre" placeholder="Ej. 2025-2026" required>
+            <input type="date" name="fecha_inicio" required>
+            <input type="date" name="fecha_fin" required>
+            <button type="submit" class="btn btn-primary">➕ Crear ciclo</button>
         </form>
 
-        <h2>Listado de ciclos</h2>
-        <table>
-        <thead>
-            <tr>
-            <th>Nombre</th>
-            <th>Activo</th>
-            <th>Fechas</th>
-            <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for ciclo in ciclos %}
-            <tr id="fila-{{ ciclo.id }}">
-            <td>{{ ciclo.nombre }}</td>
-            <td class="estado">
-                {% if ciclo.activo %}
-                <span class="activo">✅</span>
-                {% else %}
-                <span class="inactivo">❌</span>
-                {% endif %}
-            </td>
-            <td>{{ ciclo.fecha_inicio }} - {{ ciclo.fecha_fin }}</td>
-            <td>
-                {% if not ciclo.activo %}
-                <button class="btn btn-activar" onclick="activarCiclo({{ ciclo.id }})">Activar</button>
-                {% else %}
-                <button class="btn btn-eliminar" disabled>Activo</button>
-                {% endif %}
-            </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-        </table>
-    </div>
+        <!-- 📋 Tabla de ciclos -->
+        <h2 class="subtitulo">Listado de ciclos</h2>
+        <div class="tabla-contenedor">
+            <table class="tabla-ciclos">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Activo</th>
+                        <th>Fechas</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ciclo in ciclos %}
+                    <tr id="fila-{{ ciclo.id }}">
+                        <td>{{ ciclo.nombre }}</td>
+                        <td>
+                            {% if ciclo.activo %}
+                                <span class="estado activo">✔️</span>
+                            {% else %}
+                                <span class="estado inactivo">✖️</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ ciclo.fecha_inicio }} – {{ ciclo.fecha_fin }}</td>
+                        <td>
+                            {% if not ciclo.activo %}
+                                <button class="btn btn-warning" onclick="activarCiclo({{ ciclo.id }})">Activar</button>
+                            {% else %}
+                                <button class="btn btn-secondary" disabled>Activo</button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
 
-    <script>
+<script>
+    // 💨 Desvanecer mensajes flash
+    setTimeout(() => {
+        document.querySelectorAll('.flash').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(-10px)';
+            setTimeout(() => el.remove(), 600);
+        });
+    }, 3000);
+
+    // 🟡 Activar ciclo con confirmación
     async function activarCiclo(id) {
         if (!confirm("¿Seguro que deseas activar este ciclo escolar? Esto desactivará los demás.")) return;
 
-        const resp = await fetch(`/admin/ciclos/activar/${id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" }
-        });
+        const resp = await fetch(`/admin/ciclos/activar/${id}`, { method: "POST" });
 
         if (resp.ok) {
-        // Actualiza visualmente la tabla
-        document.querySelectorAll(".estado span").forEach(e => e.textContent = "❌");
-        document.querySelectorAll(".btn").forEach(b => {
-            b.textContent = "Activar";
-            b.disabled = false;
-            b.classList.remove("btn-eliminar");
-            b.classList.add("btn-activar");
-        });
-
-        const fila = document.getElementById(`fila-${id}`);
-        fila.querySelector(".estado span").textContent = "✅";
-        const btn = fila.querySelector(".btn");
-        btn.textContent = "Activo";
-        btn.disabled = true;
-        btn.classList.remove("btn-activar");
-        btn.classList.add("btn-eliminar");
+            location.reload();
         } else {
-        alert("Error al activar el ciclo. Intenta nuevamente.");
+            alert("❌ Error al activar el ciclo. Intenta nuevamente.");
         }
     }
-    </script>
-    </body>
-    </html>
+</script>
+
+</body>
+</html>

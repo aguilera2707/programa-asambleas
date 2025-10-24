@@ -73,7 +73,7 @@ class Alumno(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
     grado = db.Column(db.String(20), nullable=False)
-    grupo = db.Column(db.String(5), nullable=False)
+    grupo = db.Column(db.String(15), nullable=False)
     nivel = db.Column(db.String(50), nullable=False)
     email_tutor = db.Column(db.String(120))
 

@@ -1,68 +1,100 @@
-    <!doctype html>
-    <html lang="es">
-    <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
     <title>Valores del ciclo {{ ciclo.nombre or (ciclo.anio_inicio ~ '–' ~ ciclo.anio_fin) }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_admin.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/valores.css') }}">
-    </head>
-    <body>
-    <div class="contenedor-valores">
-        <div class="admin-user-info">
-            <a href="{{ url_for('nom.panel_admin') }}" class="btn btn-secondary">↩ Volver al panel</a>
-        </div>
-        <h1 class="titulo-seccion">🏫 Valores del ciclo {{ ciclo.nombre or (ciclo.anio_inicio ~ '–' ~ ciclo.anio_fin) }}</h1>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+</head>
+<body>
 
-        <div class="formulario-nuevo">
+<header class="admin-header">
+    <div class="header-left">
+        <h1>🏅 Valores del ciclo {{ ciclo.nombre or (ciclo.anio_inicio ~ '–' ~ ciclo.anio_fin) }}</h1>
+    </div>
+    <div class="header-right">
+        <span>{{ current_user.nombre }}</span>
+        <a href="{{ url_for('nom.panel_admin') }}" class="btn-volver">↩ Volver al panel</a>
+    </div>
+</header>
+
+<main class="crear-usuario-container">
+    <section class="formulario-box">
+
+        <!-- 🔔 Mensajes flash -->
+        <div id="flash-container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- 🟢 Formulario agregar valor -->
         <form method="POST" action="{{ url_for('admin_bp.crear_valor') }}" class="form-valores">
             <input type="text" name="nombre" placeholder="Nombre del valor" required>
             <input type="text" name="descripcion" placeholder="Descripción (opcional)">
-            <button type="submit" class="btn-rojo">➕ Agregar valor</button>
+            <button type="submit" class="btn btn-primary">➕ Agregar valor</button>
         </form>
-        </div>
 
         {% if valores %}
+        <h2 class="subtitulo">Listado de valores</h2>
+
         <div class="tabla-contenedor">
-        <table class="tabla-valores">
-            <thead>
-            <tr>
-                <th>Nombre</th>
-                <th>Descripción</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-            </tr>
-            </thead>
-            <tbody>
-            {% for valor in valores %}
-            <tr class="{{ 'inactivo' if not valor.activo else '' }}">
-                <td>{{ valor.nombre }}</td>
-                <td>{{ valor.descripcion or '' }}</td>
-                <td>
-                {% if valor.activo %}
-                    <span class="estado activo">Activo</span>
-                {% else %}
-                    <span class="estado inactivo">Inactivo</span>
-                {% endif %}
-                </td>
-                <td class="acciones">
-                <form method="POST" action="{{ url_for('admin_bp.alternar_valor', id=valor.id) }}" style="display:inline;">
-                    <button type="submit" class="btn-accion btn-toggle">
-                    {{ '🔴 Desactivar' if valor.activo else '🟢 Activar' }}
-                    </button>
-                </form>
-                <form method="POST" action="{{ url_for('admin_bp.eliminar_valor', id=valor.id) }}" style="display:inline;" onsubmit="return confirm('¿Eliminar este valor?');">
-                    <button type="submit" class="btn-accion btn-eliminar">🗑️ Eliminar</button>
-                </form>
-                </td>
-            </tr>
-            {% endfor %}
-            </tbody>
-        </table>
+            <table class="tabla-valores">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Descripción</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for valor in valores %}
+                    <tr class="{{ 'inactivo' if not valor.activo else '' }}">
+                        <td>{{ valor.nombre }}</td>
+                        <td>{{ valor.descripcion or '' }}</td>
+                        <td>
+                            {% if valor.activo %}
+                                <span class="estado activo">Activo</span>
+                            {% else %}
+                                <span class="estado inactivo">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td class="acciones">
+                            <form method="POST" action="{{ url_for('admin_bp.alternar_valor', id=valor.id) }}" style="display:inline;">
+                                <button type="submit" class="btn btn-toggle">
+                                    {{ '🔴 Desactivar' if valor.activo else '🟢 Activar' }}
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ url_for('admin_bp.eliminar_valor', id=valor.id) }}" style="display:inline;" onsubmit="return confirm('¿Eliminar este valor?');">
+                                <button type="submit" class="btn btn-secondary">🗑️ Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
         {% else %}
-        <p class="mensaje-vacio">No hay valores registrados para este ciclo.</p>
+            <p class="mensaje-vacio">No hay valores registrados para este ciclo.</p>
         {% endif %}
-    </div>
-    </body>
-    </html>
+    </section>
+</main>
+
+<script>
+    // 💨 Desvanecer mensajes automáticamente
+    setTimeout(() => {
+        document.querySelectorAll('.flash').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(-10px)';
+            setTimeout(() => el.remove(), 600);
+        });
+    }, 3000);
+</script>
+
+</body>
+</html>

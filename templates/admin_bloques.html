@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Gestión de Bloques</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_bloques.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
 </head>
 
 <body>
@@ -78,7 +79,7 @@
         </table>
     </section>
 
-    <!-- 🔹 Vista de grados y grupos -->
+    <!-- 🔹 Vista general por grados y grupos -->
     <section class="bloques-vista">
         <h3>Vista general por grados y grupos</h3>
         {% if data %}
@@ -87,7 +88,8 @@
                 <h4>🏫 {{ item.bloque.nombre }}</h4>
 
                 {% if item.grados %}
-                    {% for g in item.grados %}
+                    {# 🧩 Ordenar los grados alfabéticamente o numéricamente #}
+                    {% for g in item.grados | sort(attribute='grado') %}
                     <div class="bloque-grado">
                         <p><strong>Grado:</strong> {{ g.grado }}</p>
                         <p><strong>Grupos:</strong> {{ g.grupos | join(', ') }}</p>
