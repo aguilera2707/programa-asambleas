@@ -4,20 +4,34 @@
     <meta charset="UTF-8">
     <title>Mis nominaciones</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mis_nominaciones.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
 
+<!-- 🔹 Encabezado -->
 <header class="topbar">
     <h2>📊 Mis nominaciones</h2>
     <div class="usuario">
         <span>{{ current_user.nombre }}</span>
-        <a href="{{ url_for('nom.logout') }}" class="btn-cerrar">Cerrar sesión</a>
+        <a href="{{ url_for('nom.panel_profesor') }}" class="btn-volver">← Volver al panel del maestro</a>
     </div>
 </header>
 
+<!-- 🔹 Contenido principal -->
 <main class="contenedor">
-    <a href="{{ url_for('nom.panel_profesor') }}" class="btn-volver">← Volver al panel del maestro</a>
 
+    <!-- 🔸 Mensajes flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div id="flash-container">
+            {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- 🔸 Info del maestro -->
     <section class="info">
         <p>
             📘 <strong>Ciclo:</strong> {{ ciclo.nombre }} |
@@ -25,6 +39,7 @@
         </p>
     </section>
 
+    <!-- 🔸 Tabla de nominaciones -->
     {% if nominaciones %}
     <table class="tabla-nominaciones">
         <thead>
@@ -34,11 +49,12 @@
                 <th>Valor</th>
                 <th>Comentario</th>
                 <th>Fecha</th>
+                <th>Acciones</th>
             </tr>
         </thead>
         <tbody>
             {% for n in nominaciones %}
-            <tr>
+            <tr data-id="{{ n.id }}" data-valor="{{ n.valor_id }}" data-comentario="{{ n.comentario or '' }}">
                 <td>{{ 'Alumno' if n.tipo == 'alumno' else 'Personal' }}</td>
                 <td>
                     {% if n.tipo == 'alumno' %}
@@ -50,14 +66,134 @@
                 <td>{{ n.valor.nombre if n.valor else '—' }}</td>
                 <td>{{ n.comentario or '—' }}</td>
                 <td>{{ n.fecha.strftime('%d/%m/%Y') if n.fecha else '—' }}</td>
+                <td class="acciones">
+                    <!-- ✅ Nombre de función actualizado -->
+                    <button class="btn-accion editar" 
+                            onclick="openEditNomination({{ n.id }}, {{ n.valor_id }}, '{{ n.comentario or '' }}')" 
+                            title="Editar">✏️</button>
+                    <form action="{{ url_for('nom.eliminar_nominacion', id=n.id) }}" method="POST" style="display:inline;">
+                        <button type="button" class="btn-accion eliminar" 
+                                onclick="confirmarEliminacion(this.form)" 
+                                title="Eliminar">🗑️</button>
+                    </form>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
+
     </table>
     {% else %}
     <p class="sin-datos">⚠️ Aún no has registrado ninguna nominación en este ciclo.</p>
     {% endif %}
 </main>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    // 👇 mapa con las opciones permitidas por nominación
+    const valoresPermitidosPorFila = {{ allowed_valores_map_json | tojson }};
+    const valoresDisponibles = {{ valores_json | tojson }};
+
+    function opcionSelectHtml(valores, seleccionadoId) {
+        return valores.map(v => {
+        const sel = String(v.id) === String(seleccionadoId) ? 'selected' : '';
+        return `<option value="${v.id}" ${sel}>${v.nombre}</option>`;
+        }).join('');
+    }
+
+    async function openEditNomination(id, currentValorId, currentComentario) {
+        const listaPermitidos = valoresPermitidosPorFila[id] || [];
+        if (!listaPermitidos.length) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Sin opciones disponibles',
+                text: 'No hay valores válidos para esta edición.',
+                confirmButtonColor: '#7b0000'
+            });
+            return;
+        }
+
+        const { value: formValues } = await Swal.fire({
+            title: '✏️ Editar nominación',
+            html: `
+                <div style="text-align:left; font-family:'Poppins',sans-serif; padding:5px 10px; max-width:480px; margin:0 auto;">
+                    <label style="font-weight:600; color:#333; font-size:15px;">Valor:</label>
+                    <select id="swal-valor" 
+                            style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-top:5px; font-size:14px;">
+                        ${opcionSelectHtml(listaPermitidos, currentValorId)}
+                    </select>
+                    <label style="font-weight:600; color:#333; font-size:15px; display:block; margin-top:15px;">Comentario (opcional):</label>
+                    <textarea id="swal-comentario" 
+                            style="width:100%; height:90px; padding:10px; border-radius:8px; border:1px solid #ccc; font-size:14px; resize:none;">${currentComentario || ''}</textarea>
+                </div>
+            `,
+            customClass: {
+                popup: 'swal-popup-edit'
+            },
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: '💾 Guardar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#7b0000',
+            cancelButtonColor: '#6c757d',
+            width: 550,
+            preConfirm: () => {
+                const valor = document.getElementById('swal-valor').value;
+                const comentario = document.getElementById('swal-comentario').value.trim();
+                if (!valor) {
+                    Swal.showValidationMessage('Debes seleccionar un valor');
+                    return false;
+                }
+                return { valor_id: valor, comentario };
+            }
+        });
+
+        if (!formValues) return;
+
+        const res = await fetch(`/nominaciones/editar/${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formValues)
+        });
+
+        const data = await res.json();
+        if (data.status === 'success') {
+            Swal.fire({
+                icon: 'success',
+                title: '✅ Cambios guardados',
+                text: data.message,
+                confirmButtonColor: '#7b0000',
+                timer: 1600,
+                showConfirmButton: false
+            }).then(() => location.reload());
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.message || 'No se pudo actualizar la nominación.',
+                confirmButtonColor: '#7b0000'
+            });
+        }
+    }
+
+
+    // ✅ Confirmación de eliminación (faltaba esta función)
+    function confirmarEliminacion(form) {
+        Swal.fire({
+        title: '¿Eliminar nominación?',
+        text: 'Esta acción no se puede deshacer.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#7b0000',
+        cancelButtonColor: '#aaa',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+        }).then(result => {
+        if (result.isConfirmed) form.submit();
+        });
+    }
+</script>
+
+
 
 </body>
 </html>

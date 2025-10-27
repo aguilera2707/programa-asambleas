@@ -14,7 +14,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 30px 40px;
+    padding: 24px 40px;
     box-shadow: 0 3px 10px rgba(0,0,0,0.1);
 }
 
@@ -46,22 +46,7 @@ body {
     transform: translateY(-2px);
 }
 
-/* 🔹 Botón volver */
-.btn-volver {
-    display: inline-block;
-    background-color: #f1f1f1;
-    color: #333;
-    text-decoration: none;
-    padding: 8px 14px;
-    border-radius: 8px;
-    margin-bottom: 15px;
-    font-weight: 600;
-    transition: 0.3s;
-}
 
-.btn-volver:hover {
-    background-color: #ddd;
-}
 
 /* 🔹 Contenedor */
 .contenedor-grupos {
@@ -163,5 +148,45 @@ tr:nth-child(even) {
         width: 100%;
         display: block;
         margin-top: 5px;
+    }
+}
+
+/* ====== BOTÓN VOLVER ====== */
+.btn-volver {
+    text-decoration: none;
+    text-align: center;
+    display: inline-block;
+    padding: 10px 16px;
+    border-radius: 8px;
+    background-color: #f1f1f1;
+    border: 1px solid #ddd;
+    color: #444;
+    font-weight: 500;
+    margin-top: 5px;
+    transition: all 0.25s ease;
+}
+.btn-volver:hover {
+    background-color: #e9e9e9;
+    transform: translateY(-1px);
+}
+
+/* ====== DETALLES DE TRANSICIÓN ====== */
+option {
+    padding: 6px;
+}
+
+/* ====== RESPONSIVE ====== */
+@media (max-width: 600px) {
+    .contenedor-formulario {
+        width: 94%;
+        padding: 25px 20px;
+    }
+
+    .contenedor-formulario h2 {
+        font-size: 1.2rem;
+    }
+
+    .btn-filtrar, .btn-volver {
+        font-size: 0.9rem;
     }
 }

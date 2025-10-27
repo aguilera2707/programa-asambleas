@@ -1880,11 +1880,10 @@ def panel_profesor():
 
 # =======================================
 # 👨‍🏫 VISTA "MIS GRUPOS" (profesor)
-# =======================================
 @nom.route('/mis_grupos')
 @login_required
 def mis_grupos():
-    """Muestra los grupos y alumnos organizados por grado y grupo."""
+    """Muestra los grupos y alumnos organizados por sección (K, PP, P, SEC), grado numérico y letra."""
     if current_user.rol != 'profesor':
         flash("🚫 Solo los profesores pueden acceder a esta vista.", "danger")
         return redirect(url_for('nom.principal'))
@@ -1894,10 +1893,14 @@ def mis_grupos():
         flash("⚠️ No hay ciclo escolar activo.", "warning")
         return redirect(url_for('nom.panel_profesor'))
 
-    # Obtener alumnos del ciclo agrupados por grado y grupo
-    alumnos = Alumno.query.filter_by(ciclo_id=ciclo_activo.id).order_by(Alumno.grado, Alumno.grupo, Alumno.nombre).all()
+    # Traemos alumnos y armamos el diccionario { "01 - PRIMERO°K1 A": [alumnos], ... }
+    alumnos = (
+        Alumno.query
+        .filter_by(ciclo_id=ciclo_activo.id)
+        .order_by(Alumno.grado, Alumno.grupo, Alumno.nombre)
+        .all()
+    )
 
-    # Organizar los alumnos en un diccionario: { "1A": [alumnos], "1B": [...], etc. }
     grupos = {}
     for alumno in alumnos:
         clave = f"{alumno.grado}°{alumno.grupo}"
@@ -1905,8 +1908,42 @@ def mis_grupos():
             grupos[clave] = []
         grupos[clave].append(alumno)
 
-    return render_template('mis_grupos.html', grupos=grupos, ciclo=ciclo_activo)
+    # ---------- Parser robusto del token después de "°" ----------
+    import re
 
+    def parse_grupo_key(nombre_grupo: str):
+        """
+        nombre_grupo ejemplo: '01 - PRIMERO°K1 A', '03 - TERCERO°PP1 B', '05 - QUINTO°P5 C', '01 - PRIMERO°SEC1 A'
+        Extrae sección y número del token inmediatamente después de '°'.
+        Devuelve tupla para ordenar: (orden_seccion, grado_num, letra_grupo)
+        """
+        t = nombre_grupo.upper().strip()
+
+        # 1) Extraer token de sección+num justo después del símbolo °
+        #    Captura como: K1, PP1, P3, SEC2 ...
+        m = re.search(r'°\s*([A-Z]+)(\d+)\b', t)
+        if not m:
+            # Si no matchea, lo mandamos al final
+            return (99, 99, 'Z')
+
+        seccion_code = m.group(1)    # 'K', 'PP', 'P', 'SEC'
+        grado_num   = int(m.group(2))  # p.ej. 1,2,3,...
+
+        # 2) Letra de grupo (último carácter A/B/C...)
+        m2 = re.search(r'\s([A-Z])$', t)
+        letra = m2.group(1) if m2 else ''
+
+        # 3) Orden de secciones EXACTO que necesitas:
+        # Kinder -> Preprimaria -> Primaria -> Secundaria
+        orden_seccion = {'K': 1, 'PP': 2, 'P': 3, 'SEC': 4}.get(seccion_code, 9)
+
+        return (orden_seccion, grado_num, letra)
+
+    grupos_ordenados = dict(
+        sorted(grupos.items(), key=lambda kv: parse_grupo_key(kv[0]))
+    )
+
+    return render_template('mis_grupos.html', grupos=grupos_ordenados, ciclo=ciclo_activo)
 
 @nom.route('/seleccionar_bloque')
 @login_required
@@ -2255,7 +2292,7 @@ def mis_nominaciones():
         flash("⚠️ No se encontró tu registro como maestro en el ciclo activo.", "warning")
         return redirect(url_for('nom.panel_profesor'))
 
-    # 🔍 Buscar nominaciones hechas por este maestro
+    # 🔍 Nominaciones actuales del maestro
     nominaciones = (
         Nominacion.query
         .filter_by(maestro_id=maestro.id, ciclo_id=ciclo_activo.id)
@@ -2263,13 +2300,40 @@ def mis_nominaciones():
         .all()
     )
 
+    # 📋 Todos los valores del ciclo
+    valores = Valor.query.filter_by(ciclo_id=ciclo_activo.id, activo=True).all()
+    valores_json = [{"id": v.id, "nombre": v.nombre} for v in valores]
+
+    # 🔄 Generar mapa de valores permitidos por nominación (evita duplicados)
+    allowed_map = {}
+    for n in nominaciones:
+        # valores que YA tiene este alumno o maestro nominado
+        if n.tipo == "alumno":
+            usados = {nom.valor_id for nom in Nominacion.query.filter_by(
+                ciclo_id=ciclo_activo.id,
+                tipo='alumno',
+                alumno_id=n.alumno_id
+            )}
+        else:
+            usados = {nom.valor_id for nom in Nominacion.query.filter_by(
+                ciclo_id=ciclo_activo.id,
+                tipo='personal',
+                maestro_id=n.maestro_id,
+                maestro_nominado_id=n.maestro_nominado_id
+            )}
+
+        # permitir todos menos los usados (excepto el valor actual)
+        disponibles = [v for v in valores if v.id not in usados or v.id == n.valor_id]
+        allowed_map[n.id] = [{"id": v.id, "nombre": v.nombre} for v in disponibles]
+
     return render_template(
         'mis_nominaciones.html',
         maestro=maestro,
         nominaciones=nominaciones,
-        ciclo=ciclo_activo
+        ciclo=ciclo_activo,
+        valores_json=valores_json,
+        allowed_valores_map_json=allowed_map
     )
-
 
 
 from sqlalchemy import cast, Integer, func
@@ -2443,3 +2507,69 @@ def editar_nominacion_personal(id):
     db.session.commit()
     flash("✏️ Nominación actualizada correctamente.", "success")
     return redirect(url_for('nom.nominar_personal'))
+
+# ============================================
+# ✏️ Editar nominación
+# ============================================
+@nom.route('/nominaciones/editar/<int:id>', methods=['POST'])
+@login_required
+def editar_nominacion(id):
+    nominacion = Nominacion.query.get_or_404(id)
+
+    data = request.get_json()
+    try:
+        valor_id = int(data.get('valor_id'))
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Valor inválido."}), 400
+
+    comentario = (data.get('comentario') or '').strip()
+
+    ciclo_id = nominacion.ciclo_id
+
+    # 🔒 Validar duplicados según tipo
+    if nominacion.tipo == 'alumno' and nominacion.alumno_id:
+        existe = Nominacion.query.filter(
+            Nominacion.ciclo_id == ciclo_id,
+            Nominacion.tipo == 'alumno',
+            Nominacion.alumno_id == nominacion.alumno_id,
+            Nominacion.valor_id == valor_id,
+            Nominacion.id != nominacion.id
+        ).first()
+        if existe:
+            return jsonify({
+                "status": "error",
+                "message": "Ese alumno ya tiene asignado ese valor en este ciclo."
+            }), 400
+
+    if nominacion.tipo == 'personal' and nominacion.maestro_nominado_id:
+        existe = Nominacion.query.filter(
+            Nominacion.ciclo_id == ciclo_id,
+            Nominacion.tipo == 'personal',
+            Nominacion.maestro_id == nominacion.maestro_id,
+            Nominacion.maestro_nominado_id == nominacion.maestro_nominado_id,
+            Nominacion.valor_id == valor_id,
+            Nominacion.id != nominacion.id
+        ).first()
+        if existe:
+            return jsonify({
+                "status": "error",
+                "message": "Ya registraste ese mismo valor para este maestro en este ciclo."
+            }), 400
+
+    nominacion.valor_id = valor_id
+    nominacion.comentario = comentario
+    db.session.commit()
+
+    return jsonify({"status": "success", "message": "✅ Nominación actualizada correctamente."})
+
+# ============================================
+# 🗑️ Eliminar nominación
+# ============================================
+@nom.route('/nominaciones/eliminar/<int:id>', methods=['POST'])
+@login_required
+def eliminar_nominacion(id):
+    nominacion = Nominacion.query.get_or_404(id)
+    db.session.delete(nominacion)
+    db.session.commit()
+    flash("🗑️ Nominación eliminada correctamente.", "success")
+    return redirect(url_for('nom.mis_nominaciones'))

@@ -14,15 +14,16 @@
         </div>
         <div class="admin-user-info">
             <span>{{ current_user.nombre }}</span>
-            <a href="{{ url_for('nom.panel_profesor') }}" class="btn-volver">← Volver al panel del maestro</a>
+        <a href="{{ url_for('nom.panel_profesor') }}" class="btn-volver">
+            ← Volver al panel del maestro
+        </a>
         </div>
     </header>
 
     <!-- 🔹 Contenedor principal -->
     <main class="contenedor-grupos">
 
-        <!-- Botón volver -->
-        
+
 
         <h2>Ciclo escolar: {{ ciclo.nombre }}</h2>
 
@@ -41,7 +42,6 @@
                     <tr>
                         <td>{{ alumno.nombre }}</td>
                         <td>
-                            <!-- ✅ Ruta corregida -->
                             <a href="{{ url_for('nom.nominar_alumno_individual', alumno_id=alumno.id) }}" class="btn-nominar">Nominar</a>
                         </td>
                     </tr>

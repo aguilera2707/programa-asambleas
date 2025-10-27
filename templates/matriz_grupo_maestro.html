@@ -22,6 +22,17 @@
         </div>
     </header>
 
+        <!-- 🔸 Mensajes flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div id="flash-container">
+            {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
     <!-- 🔹 Panel informativo superior -->
     <section class="info-panel">
         <p>
@@ -102,6 +113,14 @@
             </tbody>
         </table>
     </main>
-
+    <script>
+    // Hace que los mensajes desaparezcan automáticamente
+    setTimeout(() => {
+        document.querySelectorAll('.flash').forEach(el => {
+        el.classList.add('hide');
+        setTimeout(() => el.remove(), 600); // Se elimina después de desvanecerse
+        });
+    }, 3000);
+    </script>
 </body>
 </html>
