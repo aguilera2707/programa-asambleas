@@ -1016,14 +1016,55 @@ def nominar_alumno():
         evento=evento_abierto
     )
 
+
+# 🔧 Función para asegurar que los admins existan como maestros en el ciclo actual
+def sincronizar_admins_como_maestros(ciclo_activo):
+    from models import Usuario, Maestro, db
+    admins = Usuario.query.filter_by(rol='admin').all()
+    for admin in admins:
+        existente = Maestro.query.filter_by(correo=admin.email, ciclo_id=ciclo_activo.id).first()
+        if not existente:
+            nuevo = Maestro(
+                nombre=admin.nombre,
+                correo=admin.email,
+                ciclo_id=ciclo_activo.id,
+                activo=True
+            )
+            db.session.add(nuevo)
+    db.session.commit()
 # Maestro nomina a otro maestro (sin bloque, solo requiere evento activo)
-# Maestro nomina a otro maestro (sin bloque, solo requiere evento activo)
+# ============================================================
+# 🔧 FUNCIÓN AUXILIAR: sincronizar administradores como maestros
+# ============================================================
+def sincronizar_admins_como_maestros(ciclo_activo):
+    """Asegura que todos los administradores tengan un registro en Maestro."""
+    from models import Usuario, Maestro, db
+
+    admins = Usuario.query.filter_by(rol='admin').all()
+    for admin in admins:
+        # Verificar si ya existe en la tabla maestros para este ciclo
+        existente = Maestro.query.filter_by(correo=admin.email, ciclo_id=ciclo_activo.id).first()
+        if not existente:
+            nuevo = Maestro(
+                nombre=admin.nombre,
+                correo=admin.email,
+                ciclo_id=ciclo_activo.id,
+                activo=True
+            )
+            db.session.add(nuevo)
+    db.session.commit()
+
+
+# ============================================================
+# 👨‍🏫 NOMINAR PERSONAL (profesor o admin)
+# ============================================================
 @nom.route('/nominaciones/personal', methods=['GET', 'POST'])
 @login_required
 def nominar_personal():
+    """Vista para que los profesores (o admins) nominen a otros miembros del personal."""
     # 1️⃣ Validar rol del usuario
-    if current_user.rol != 'profesor':
-        flash("🚫 Solo los profesores pueden registrar nominaciones.", "danger")
+    if current_user.rol not in ['profesor', 'admin']:
+        flash("🚫 Solo los profesores o administradores pueden registrar nominaciones.", "danger")
         return redirect(url_for('nom.principal'))
 
     # 2️⃣ Validar ciclo activo
@@ -1031,6 +1072,9 @@ def nominar_personal():
     if not ciclo_activo:
         flash("⚠️ No hay ciclo activo disponible.", "warning")
         return redirect(url_for('nom.principal'))
+
+    # 🔹 Asegurar que los administradores también estén en la tabla maestros
+    sincronizar_admins_como_maestros(ciclo_activo)
 
     # 3️⃣ Obtener maestro actual
     maestro = Maestro.query.filter_by(correo=current_user.email, ciclo_id=ciclo_activo.id, activo=True).first()
@@ -1050,7 +1094,7 @@ def nominar_personal():
         flash("🚫 No hay un evento de asamblea abierto para nominaciones en este momento.", "warning")
         return redirect(url_for('nom.principal'))
 
-    # 5️⃣ Procesar nominaciones
+    # 5️⃣ Procesar nominaciones (POST)
     if request.method == 'POST':
         valor_id = request.form.get('valor_id')
         nominados = request.form.getlist('maestros')
@@ -1064,7 +1108,6 @@ def nominar_personal():
         duplicados = []
 
         for nominado_id in nominados:
-            # Evitar duplicados en el mismo ciclo y valor
             existente = Nominacion.query.filter_by(
                 maestro_nominado_id=nominado_id,
                 maestro_id=maestro.id,
@@ -1073,7 +1116,6 @@ def nominar_personal():
             ).first()
 
             if existente:
-                # Guardar nombres duplicados para avisar después
                 nominado = Maestro.query.get(nominado_id)
                 if nominado:
                     duplicados.append(nominado.nombre)
@@ -1093,7 +1135,7 @@ def nominar_personal():
 
         db.session.commit()
 
-        # ✅ Mostrar mensajes más informativos
+        # ✅ Mensajes más detallados
         if nuevas > 0 and not duplicados:
             flash(f"✅ Se registraron {nuevas} nominaciones de personal al evento {evento_abierto.nombre_mes}.", "success")
 
@@ -1110,7 +1152,7 @@ def nominar_personal():
 
         return redirect(url_for('nom.nominar_personal'))
 
-    # 6️⃣ Datos para el formulario
+    # 6️⃣ Datos para el formulario (GET)
     maestros = Maestro.query.filter(
         Maestro.ciclo_id == ciclo_activo.id,
         Maestro.id != maestro.id,
@@ -1126,7 +1168,6 @@ def nominar_personal():
         .all()
     )
 
-    # 🔸 Convertir valores a JSON para el script de edición
     valores_json = [{"id": v.id, "nombre": v.nombre} for v in valores]
 
     return render_template(
@@ -2573,3 +2614,4 @@ def eliminar_nominacion(id):
     db.session.commit()
     flash("🗑️ Nominación eliminada correctamente.", "success")
     return redirect(url_for('nom.mis_nominaciones'))
+
