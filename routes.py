@@ -2491,7 +2491,7 @@ def mis_nominaciones():
             mes_seleccionado = abierto_ordenado[0]
         elif eventos_ciclo:
             mes_seleccionado = sorted({e.nombre_mes for e in eventos_ciclo},
-                                      key=lambda m: next(x.mes_ordinal for x in eventos_ciclo if x.nombre_mes == m))[-1]
+                                    key=lambda m: next(x.mes_ordinal for x in eventos_ciclo if x.nombre_mes == m))[-1]
         else:
             mes_seleccionado = None
 
@@ -2833,3 +2833,131 @@ def eliminar_nominacion(id):
 
     flash("🗑️ Nominación eliminada correctamente.", "success")
     return redirect(url_for('nom.mis_nominaciones'))
+
+@admin_bp.route('/dashboard/nominaciones_maestro', methods=['GET'])
+@login_required
+@admin_required
+def nominaciones_por_maestro_y_mes():
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    maestro_id = request.args.get('maestro_id', type=int)
+    mes_ordinal = request.args.get('mes', type=int)
+
+    if not ciclo or not maestro_id or not mes_ordinal:
+        return jsonify({"error": "Parámetros incompletos"}), 400
+
+    nominaciones = (
+        Nominacion.query
+        .join(EventoAsamblea)
+        .filter(
+            Nominacion.ciclo_id == ciclo.id,
+            Nominacion.maestro_id == maestro_id,
+            EventoAsamblea.mes_ordinal == mes_ordinal
+        )
+        .order_by(Nominacion.fecha.asc())
+        .all()
+    )
+
+    data = []
+    for n in nominaciones:
+        data.append({
+            "id": n.id,
+            "tipo": n.tipo,
+            "nominado": n.alumno.nombre if n.alumno else n.maestro_nominado.nombre if n.maestro_nominado else "",
+            "valor": n.valor.nombre if n.valor else "",
+            "fecha": n.fecha.strftime("%Y-%m-%d"),
+            "comentario": n.comentario or "",
+            "evento": n.evento.nombre_mes if n.evento else ""
+        })
+    return jsonify(data)
+
+
+# == Generar PDFs seleccionados (ZIP) ==
+@admin_bp.route('/dashboard/generar_invitaciones', methods=['POST'])
+@login_required
+@admin_required
+def generar_invitaciones_seleccionadas():
+    from io import BytesIO
+    import zipfile, re, os
+    from datetime import datetime
+
+    payload = request.get_json(silent=True) or {}
+    ids = payload.get('ids', [])
+    if not ids:
+        return jsonify({"error": "No se recibieron nominaciones."}), 400
+
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        return jsonify({"error": "No hay ciclo activo."}), 400
+
+    output_dir = os.path.join("invitaciones", ciclo.nombre.replace("/", "-"))
+    os.makedirs(output_dir, exist_ok=True)
+
+    def slug(s):
+        s = (s or "").strip()
+        s = re.sub(r"\s+", "_", s)
+        return re.sub(r"[^A-Za-z0-9_\-\.]", "", s)
+
+    plantilla_alumno = "formato_asamblea.docx"
+    plantilla_personal = "invitacion colaborador 1.docx"  # usa tu nombre real
+
+    if not os.path.exists(os.path.join("docx_templates", plantilla_personal)):
+        plantilla_personal = plantilla_alumno
+
+    zip_buffer = BytesIO()
+    errores = []
+
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for nom_id in ids:
+            n = Nominacion.query.get(nom_id)
+            if not n:
+                continue
+
+            nominado = ""
+            if n.tipo == "alumno" and n.alumno:
+                nominado = n.alumno.nombre
+            elif n.tipo == "personal" and n.maestro_nominado:
+                nominado = n.maestro_nominado.nombre
+
+            valor = n.valor.nombre if n.valor else ""
+            quien_nomina = n.maestro.nombre if n.maestro else ""
+            fecha_evento = n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else (n.fecha.strftime("%d/%m/%Y") if n.fecha else "")
+            texto_adicional = n.comentario or ""
+
+            context = {
+                "nominado": nominado,
+                "valor": valor,
+                "quien_nomina": quien_nomina,
+                "fecha_evento": fecha_evento,
+                "texto_adicional": texto_adicional,
+            }
+            context_alt = {
+                "TEXTO": texto_adicional,
+                "VALOR": valor,
+                "ALUMNO": nominado,
+                "Quién_nomina": quien_nomina,
+                "Fecha": fecha_evento,
+            }
+
+            plantilla = plantilla_alumno if n.tipo == "alumno" else plantilla_personal
+            filename_base = f"{n.tipo}_{slug(nominado)}_{slug(valor)}"
+
+            try:
+                pdf_path = generar_pdf(plantilla, context, output_dir, filename_base)
+            except Exception:
+                try:
+                    pdf_path = generar_pdf(plantilla, context_alt, output_dir, filename_base)
+                except Exception as e2:
+                    errores.append(f"{nominado} ({valor}): {e2}")
+                    continue
+
+            zf.write(pdf_path, arcname=os.path.basename(pdf_path))
+
+    zip_buffer.seek(0)
+    nombre_zip = f"invitaciones_{datetime.now().strftime('%Y%m%d_%H%M')}.zip"
+
+    if errores:
+        with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("README_errores.txt", "\n".join(errores))
+        zip_buffer.seek(0)
+
+    return send_file(zip_buffer, as_attachment=True, download_name=nombre_zip, mimetype="application/zip")

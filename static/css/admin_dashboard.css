@@ -134,3 +134,47 @@ canvas {
     border-color: #b10000;
     box-shadow: 0 0 0 2px rgba(123,0,0,0.2);
 }
+
+
+.export-section {
+    background: rgba(255,255,255,0.9);
+    padding: 1.5rem;
+    margin-top: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.export-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.btn-accion {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    background: #7b0000;
+    color: #fff;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+.btn-accion:hover { background: #9b0000; }
+.btn-accion.verde { background: #2e7d32; }
+.btn-accion.verde:hover { background: #388e3c; }
+
+.tabla-dashboard {
+    width: 100%;
+    border-collapse: collapse;
+}
+.tabla-dashboard th, .tabla-dashboard td {
+    border: 1px solid #ddd;
+    padding: 0.5rem;
+    text-align: left;
+}
+.tabla-dashboard th {
+    background: #f4f4f4;
+}
