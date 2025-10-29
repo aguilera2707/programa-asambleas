@@ -1,7 +1,6 @@
 import os, platform
 from extensions import db
-from models import CicloEscolar
-
+from models import CicloEscolar, EventoAsamblea  # 👈 agregamos EventoAsamblea aquí
 from functools import wraps
 from flask import redirect, url_for, flash
 from flask_login import current_user
@@ -12,8 +11,6 @@ if platform.system() == "Windows":
 else:
     from weasyprint import HTML
     from flask import render_template
-    
-    
 
 def generar_pdf(template_name: str, context: dict, output_dir: str, filename: str):
     os.makedirs(output_dir, exist_ok=True)
@@ -63,3 +60,26 @@ def admin_required(f):
 
         return f(*args, **kwargs)
     return decorated_function
+
+
+# ======================================
+# 🔹 Cierre automático de eventos vencidos
+# ======================================
+from datetime import datetime
+
+def cerrar_eventos_vencidos():
+    """Desactiva automáticamente los eventos cuya fecha de cierre ya pasó, 
+    pero respeta si el administrador los reactivó manualmente."""
+    ahora = datetime.now()
+
+    eventos = EventoAsamblea.query.all()
+    for evento in eventos:
+        # Si el admin lo activó manualmente, no lo tocamos
+        if evento.activo:
+            continue
+
+        # Si ya pasó su fecha de cierre y sigue marcado activo, lo cerramos
+        if evento.fecha_cierre_nominaciones and evento.fecha_cierre_nominaciones <= ahora:
+            evento.activo = False
+
+    db.session.commit()

@@ -20,6 +20,23 @@
 </header>
 
 <main class="dashboard-container">
+
+    <!-- 🔹 Filtro de mes -->
+    <div class="card-filtro-mes">
+        <form id="form-filtro-dashboard">
+            <label for="mes-dashboard" class="label-filtro">📅 Selecciona el mes a consultar:</label>
+            <div class="select-wrapper">
+                <select id="mes-dashboard" name="mes-dashboard">
+                    {% for evento in eventos %}
+                        <option value="{{ evento.nombre_mes }}" {% if evento.nombre_mes == mes_seleccionado %}selected{% endif %}>
+                            {{ evento.nombre_mes }}{% if not evento.esta_abierto_mes %} (cerrado){% endif %}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+
     <!-- KPIs principales -->
     <section class="kpis">
         <div class="card">
@@ -51,9 +68,27 @@
 </main>
 
 <script>
-async function cargarDashboard() {
+let chartTipo = null;
+let chartValor = null;
+let chartDia = null;
+
+// 🔢 Animación de contador para KPIs
+function animateCounter(element, start, end, duration = 800) {
+    const startTime = performance.now();
+    function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const value = Math.floor(start + (end - start) * progress);
+        element.textContent = value;
+        if (progress < 1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+}
+
+async function cargarDashboard(mes = null) {
     try {
-        const res = await fetch("/admin/dashboard/data/resumen");
+        const url = mes ? `/admin/dashboard/data/resumen?mes=${mes}` : '/admin/dashboard/data/resumen';
+        const res = await fetch(url);
         const data = await res.json();
 
         if (data.error) {
@@ -61,14 +96,25 @@ async function cargarDashboard() {
             return;
         }
 
-        // KPIs
-        document.getElementById('k_maestros').textContent = data.totales.maestros;
-        document.getElementById('k_alumnos').textContent = data.totales.alumnos;
-        document.getElementById('k_nominaciones').textContent = data.totales.nominaciones;
+        // === Actualizar KPIs con animación ===
+        animateCounter(document.getElementById('k_maestros'),
+            parseInt(document.getElementById('k_maestros').textContent) || 0,
+            data.totales.maestros);
+        animateCounter(document.getElementById('k_alumnos'),
+            parseInt(document.getElementById('k_alumnos').textContent) || 0,
+            data.totales.alumnos);
+        animateCounter(document.getElementById('k_nominaciones'),
+            parseInt(document.getElementById('k_nominaciones').textContent) || 0,
+            data.totales.nominaciones);
+
+        // === Destruir gráficas previas si existen ===
+        if (chartTipo) chartTipo.destroy();
+        if (chartValor) chartValor.destroy();
+        if (chartDia) chartDia.destroy();
 
         // === Gráfica 1: Nominaciones por tipo ===
         const ctxTipo = document.getElementById('chart_tipo').getContext('2d');
-        new Chart(ctxTipo, {
+        chartTipo = new Chart(ctxTipo, {
             type: 'doughnut',
             data: {
                 labels: Object.keys(data.por_tipo || {}),
@@ -80,6 +126,7 @@ async function cargarDashboard() {
                 }]
             },
             options: {
+                animation: { duration: 800, easing: 'easeOutQuart' },
                 plugins: {
                     title: {
                         display: true,
@@ -97,7 +144,7 @@ async function cargarDashboard() {
 
         // === Gráfica 2: Top valores nominados ===
         const ctxValor = document.getElementById('chart_valor').getContext('2d');
-        new Chart(ctxValor, {
+        chartValor = new Chart(ctxValor, {
             type: 'bar',
             data: {
                 labels: data.por_valor.map(d => d.valor),
@@ -108,6 +155,7 @@ async function cargarDashboard() {
                 }]
             },
             options: {
+                animation: { duration: 800, easing: 'easeOutQuart' },
                 plugins: {
                     title: {
                         display: true,
@@ -126,7 +174,7 @@ async function cargarDashboard() {
 
         // === Gráfica 3: Nominaciones por día ===
         const ctxDia = document.getElementById('chart_dia').getContext('2d');
-        new Chart(ctxDia, {
+        chartDia = new Chart(ctxDia, {
             type: 'line',
             data: {
                 labels: data.por_dia.map(d => d.fecha),
@@ -142,6 +190,7 @@ async function cargarDashboard() {
                 }]
             },
             options: {
+                animation: { duration: 900, easing: 'easeOutQuart' },
                 plugins: {
                     title: {
                         display: true,
@@ -160,7 +209,21 @@ async function cargarDashboard() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', cargarDashboard);
+// 🟢 Cargar por defecto al entrar
+document.addEventListener('DOMContentLoaded', () => {
+    const mesInicial = document.getElementById('mes-dashboard')?.value;
+    cargarDashboard(mesInicial);
+
+    // 🔄 Detectar cambio de mes
+    const selectMes = document.getElementById('mes-dashboard');
+    if (selectMes) {
+        selectMes.addEventListener('change', () => {
+            const nuevoMes = selectMes.value;
+            cargarDashboard(nuevoMes);
+        });
+    }
+});
 </script>
+
 </body>
 </html>

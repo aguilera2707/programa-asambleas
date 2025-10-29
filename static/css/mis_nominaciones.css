@@ -146,3 +146,104 @@ body {
     border-radius: 6px !important;
     font-weight: 600 !important;
 }
+
+.card-filtro-mes {
+    background: #fff;
+    border-left: 6px solid #7b0000;
+    border-radius: 10px;
+    padding: 12px 18px;
+    margin: 15px 0;
+    display: flex;
+    flex-direction: column;
+    max-width: 420px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.label-filtro {
+    font-weight: 600;
+    color: #7b0000;
+    margin-bottom: 6px;
+}
+
+.select-wrapper select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 15px;
+    color: #333;
+    background-color: #fafafa;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.select-wrapper select:hover {
+    border-color: #7b0000;
+}
+
+.select-wrapper select:focus {
+    outline: none;
+    border-color: #b10000;
+    box-shadow: 0 0 0 2px rgba(123,0,0,0.2);
+}
+
+/* === 💠 NUEVOS AJUSTES PARA BLOQUE Y ESTADO === */
+
+/* 🔹 Estado del evento (verde o rojo) */
+.estado-evento {
+    font-family: 'Poppins', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    border-radius: 8px;
+    padding: 10px 15px;
+    margin: 15px auto;
+    max-width: 950px;
+    text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.estado-evento strong {
+    font-weight: 700;
+}
+
+/* 🔹 Nueva columna de bloque */
+.tabla-nominaciones th:nth-child(3),
+.tabla-nominaciones td:nth-child(3) {
+    text-align: center;
+    width: 160px;
+}
+
+/* 🔸 Etiqueta visual del bloque */
+.tabla-nominaciones td:nth-child(3) {
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: uppercase;
+}
+
+.tabla-nominaciones td:nth-child(3):not(:empty):not(:contains("—")) {
+    background: #f8f9fa;
+    color: #7b0000;
+    border-radius: 6px;
+}
+
+/* 🔹 Ajustes visuales para el estado cerrado */
+.estado-evento[style*="f8d7da"] {
+    border: 1px solid #f5c2c7;
+}
+
+.estado-evento[style*="d4edda"] {
+    border: 1px solid #badbcc;
+}
+
+/* 🔸 Responsividad */
+@media (max-width: 768px) {
+    .tabla-nominaciones th:nth-child(3),
+    .tabla-nominaciones td:nth-child(3) {
+        display: none; /* Oculta columna 'Bloque' en móvil si se necesita espacio */
+    }
+
+    .estado-evento {
+        font-size: 14px;
+        padding: 8px;
+    }
+}

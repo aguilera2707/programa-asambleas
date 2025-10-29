@@ -6,7 +6,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_calendario.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
 </head>
-
 <body>
 
 <header class="admin-header">
@@ -33,75 +32,98 @@
 
     <!-- 📋 Formulario de creación de eventos -->
     <section class="formulario-calendario">
-        <form method="POST">
-            <select name="bloque_id" required>
-                <option value="">Seleccione bloque</option>
-                {% for b in bloques %}
-                    <option value="{{ b.id }}">{{ b.nombre }}</option>
-                {% endfor %}
-            </select>
+        <form method="POST" class="cal-grid">
+            <div class="field">
+                <label>Bloque</label>
+                <select name="bloque_id" required>
+                    <option value="">Seleccione bloque</option>
+                    {% for b in bloques %}
+                        <option value="{{ b.id }}">{{ b.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
 
-            <input type="number" name="mes_ordinal" placeholder="Número de mes (1..N)" required>
-            <input type="text" name="nombre_mes" placeholder="Nombre del mes" required>
-            <input type="date" name="fecha_evento" required>
-            <input type="datetime-local" name="fecha_cierre_nominaciones" required>
+            <div class="field">
+                <label>Número de mes (1..N)</label>
+                <input type="number" name="mes_ordinal" min="1" placeholder="Ej. 1, 2, 3…" required>
+            </div>
 
-            <select name="plantilla_id">
-                <option value="">Plantilla predeterminada</option>
-                {% for p in plantillas %}
-                    <option value="{{ p.id }}">{{ p.nombre }}</option>
-                {% endfor %}
-            </select>
+            <div class="field">
+                <label>Nombre del mes</label>
+                <input type="text" name="nombre_mes" placeholder="Ej. Noviembre" required>
+            </div>
 
-            <button type="submit" class="btn btn-primary">➕ Agregar evento</button>
+            <div class="field span-2">
+                <label>📅 Fecha del evento (asamblea)</label>
+                <input type="date" id="fecha_evento" name="fecha_evento" required>
+            </div>
+
+            <div class="field span-2">
+                <label>⏰ Cierre de nominaciones (fecha y hora)</label>
+                <input type="datetime-local" id="fecha_cierre_nominaciones" name="fecha_cierre_nominaciones" required>
+            </div>
+
+            <div class="field">
+                <label>Plantilla</label>
+                <select name="plantilla_id">
+                    <option value="">Plantilla predeterminada</option>
+                    {% for p in plantillas %}
+                        <option value="{{ p.id }}">{{ p.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="actions">
+                <button type="submit" class="btn btn-primary">➕ Agregar evento</button>
+            </div>
         </form>
     </section>
 
     <!-- 🗓️ Tabla de eventos -->
     <section class="tabla-calendario">
         {% if eventos %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Mes</th>
-                    <th>Bloque</th>
-                    <th>Fecha del evento</th>
-                    <th>Cierre de nominaciones</th>
-                    <th>Plantilla</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for e in eventos %}
-                {% set hoy = datetime.utcnow() %}
-                {% if e.fecha_cierre_nominaciones > hoy %}
-                    {% set estado = "Abierto" %}
-                    {% set color = "abierto" %}
-                {% else %}
-                    {% set estado = "Cerrado" %}
-                    {% set color = "cerrado" %}
-                {% endif %}
-                <tr id="fila-{{ e.id }}">
-                    <td>{{ e.mes_ordinal }} – {{ e.nombre_mes }}</td>
-                    <td>{{ e.bloque.nombre }}</td>
-                    <td>{{ e.fecha_evento.strftime('%d/%m/%Y') }}</td>
-                    <td>{{ e.fecha_cierre_nominaciones.strftime('%d/%m/%Y %H:%M') }}</td>
-                    <td>{{ e.plantilla.nombre if e.plantilla else 'Predeterminada' }}</td>
-                    <td><span class="estado {{ color }}">{{ estado }}</span></td>
-                    <td>
-                        <a href="#" class="btn-toggle" data-id="{{ e.id }}">
-                            {{ "Desactivar" if e.activo else "Activar" }}
-                        </a>
-                        <span class="separador">|</span>
-                        <a href="#" class="btn-eliminar" data-id="{{ e.id }}">Eliminar</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mes</th>
+                        <th>Bloque</th>
+                        <th>Fecha del evento</th>
+                        <th>Cierre de nominaciones</th>
+                        <th>Plantilla</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in eventos %}
+                        {% set hoy = datetime.utcnow() %}
+                        {% if e.fecha_cierre_nominaciones > hoy %}
+                            {% set estado = "Abierto" %}
+                            {% set color = "abierto" %}
+                        {% else %}
+                            {% set estado = "Cerrado" %}
+                            {% set color = "cerrado" %}
+                        {% endif %}
+                        <tr id="fila-{{ e.id }}">
+                            <td>{{ e.mes_ordinal }} – {{ e.nombre_mes }}</td>
+                            <td>{{ e.bloque.nombre }}</td>
+                            <td>{{ e.fecha_evento.strftime('%d/%m/%Y') }}</td>
+                            <td>{{ e.fecha_cierre_nominaciones.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td>{{ e.plantilla.nombre if e.plantilla else 'Predeterminada' }}</td>
+                            <td><span class="estado {{ color }}">{{ estado }}</span></td>
+                            <td>
+                                <a href="#" class="btn-toggle" data-id="{{ e.id }}">
+                                    {{ "Desactivar" if e.activo else "Activar" }}
+                                </a>
+                                <span class="separador">|</span>
+                                <a href="#" class="btn-eliminar" data-id="{{ e.id }}">Eliminar</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         {% else %}
-        <p class="sin-datos">No hay eventos registrados para este ciclo.</p>
+            <p class="sin-datos">No hay eventos registrados para este ciclo.</p>
         {% endif %}
     </section>
 </main>

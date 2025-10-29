@@ -17,6 +17,45 @@
     </div>
 </header>
 
+<!-- 🔹 Estado del evento actual -->
+{% if eventos_abiertos_mes %}
+    <div class="estado-evento" style="background:#d4edda; color:#155724; padding:10px; border-radius:6px; margin-bottom:12px;">
+        🟢 Nominaciones abiertas para <strong>{{ eventos_abiertos_mes[0].nombre_mes }}</strong> 
+        {% set bloques_abiertos = eventos_abiertos_mes | map(attribute='bloque.nombre') | list %}
+        (Bloques {{ bloques_abiertos | join(', ') }}).
+        Puedes editar o eliminar tus nominaciones de este mes.
+    </div>
+{% else %}
+    <div class="estado-evento" style="background:#f8d7da; color:#721c24; padding:10px; border-radius:6px; margin-bottom:12px;">
+        🔒 No hay eventos abiertos actualmente para tu bloque. Solo puedes consultar nominaciones anteriores.
+    </div>
+{% endif %}
+
+<!-- 🔹 Selector con card elegante -->
+<div class="card-filtro-mes">
+    <form method="get" action="{{ url_for('nom.mis_nominaciones') }}">
+        <label for="mes" class="label-filtro">📅 Selecciona el mes de nominaciones:</label>
+        <div class="select-wrapper">
+            <select name="mes" id="mes" onchange="this.form.submit()">
+                {% for evento in eventos %}
+                    {% set mes = evento.nombre_mes %}
+                    <option value="{{ mes }}" {% if mes == mes_seleccionado %}selected{% endif %}>
+                        {{ mes }}{% if not mes_abierto_map.get(mes) %} (cerrado){% endif %}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</div>
+
+<!-- 🔸 Aviso si el mes seleccionado está cerrado -->
+{% if mes_seleccionado and not mes_abierto_map.get(mes_seleccionado) %}
+    <div style="background:#fff3cd; color:#856404; padding:8px 12px; border-radius:6px; margin-bottom:10px;">
+        ⚠️ Las nominaciones de <strong>{{ mes_seleccionado }}</strong> están cerradas.
+        Solo puedes consultar esta información.
+    </div>
+{% endif %}
+
 <!-- 🔹 Contenido principal -->
 <main class="contenedor">
 
@@ -45,7 +84,8 @@
         <thead>
             <tr>
                 <th>Tipo</th>
-                <th>Destinatario</th>
+                <th>Alumno</th>
+                <th>Bloque</th>
                 <th>Valor</th>
                 <th>Comentario</th>
                 <th>Fecha</th>
@@ -63,40 +103,51 @@
                         {{ n.maestro_nominado.nombre if n.maestro_nominado else '—' }}
                     {% endif %}
                 </td>
+                <td>
+                    {% if n.tipo == 'alumno' and n.alumno and n.alumno.bloque %}
+                        {{ n.alumno.bloque.nombre }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
                 <td>{{ n.valor.nombre if n.valor else '—' }}</td>
                 <td>{{ n.comentario or '—' }}</td>
                 <td>{{ n.fecha.strftime('%d/%m/%Y') if n.fecha else '—' }}</td>
+
+                <!-- 🔹 Acciones (ahora permite edición si el evento pertenece a cualquier bloque abierto del mes) -->
                 <td class="acciones">
-                    <!-- ✅ Nombre de función actualizado -->
-                    <button class="btn-accion editar" 
-                            onclick="openEditNomination({{ n.id }}, {{ n.valor_id }}, '{{ n.comentario or '' }}')" 
-                            title="Editar">✏️</button>
-                    <form action="{{ url_for('nom.eliminar_nominacion', id=n.id) }}" method="POST" style="display:inline;">
-                        <button type="button" class="btn-accion eliminar" 
-                                onclick="confirmarEliminacion(this.form)" 
-                                title="Eliminar">🗑️</button>
-                    </form>
+                    {% if n.evento and n.evento.id in open_event_ids %}
+                        <button class="btn-accion editar"
+                                onclick="openEditNomination({{ n.id }}, {{ n.valor_id }}, '{{ n.comentario or '' }}')"
+                                title="Editar">✏️</button>
+                        <form action="{{ url_for('nom.eliminar_nominacion', id=n.id) }}" method="POST" style="display:inline;">
+                            <button type="button" class="btn-accion eliminar"
+                                    onclick="confirmarEliminacion(this.form)"
+                                    title="Eliminar">🗑️</button>
+                        </form>
+                    {% else %}
+                        <span class="bloqueado" title="Evento cerrado">🔒</span>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}
         </tbody>
-
     </table>
     {% else %}
     <p class="sin-datos">⚠️ Aún no has registrado ninguna nominación en este ciclo.</p>
     {% endif %}
 </main>
 
+<!-- 🔹 Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    // 👇 mapa con las opciones permitidas por nominación
     const valoresPermitidosPorFila = {{ allowed_valores_map_json | tojson }};
     const valoresDisponibles = {{ valores_json | tojson }};
 
     function opcionSelectHtml(valores, seleccionadoId) {
         return valores.map(v => {
-        const sel = String(v.id) === String(seleccionadoId) ? 'selected' : '';
-        return `<option value="${v.id}" ${sel}>${v.nombre}</option>`;
+            const sel = String(v.id) === String(seleccionadoId) ? 'selected' : '';
+            return `<option value="${v.id}" ${sel}>${v.nombre}</option>`;
         }).join('');
     }
 
@@ -117,18 +168,15 @@
             html: `
                 <div style="text-align:left; font-family:'Poppins',sans-serif; padding:5px 10px; max-width:480px; margin:0 auto;">
                     <label style="font-weight:600; color:#333; font-size:15px;">Valor:</label>
-                    <select id="swal-valor" 
+                    <select id="swal-valor"
                             style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-top:5px; font-size:14px;">
                         ${opcionSelectHtml(listaPermitidos, currentValorId)}
                     </select>
                     <label style="font-weight:600; color:#333; font-size:15px; display:block; margin-top:15px;">Comentario (opcional):</label>
-                    <textarea id="swal-comentario" 
+                    <textarea id="swal-comentario"
                             style="width:100%; height:90px; padding:10px; border-radius:8px; border:1px solid #ccc; font-size:14px; resize:none;">${currentComentario || ''}</textarea>
                 </div>
             `,
-            customClass: {
-                popup: 'swal-popup-edit'
-            },
             focusConfirm: false,
             showCancelButton: true,
             confirmButtonText: '💾 Guardar',
@@ -175,25 +223,22 @@
         }
     }
 
-
-    // ✅ Confirmación de eliminación (faltaba esta función)
+    // ✅ Confirmación de eliminación
     function confirmarEliminacion(form) {
         Swal.fire({
-        title: '¿Eliminar nominación?',
-        text: 'Esta acción no se puede deshacer.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#7b0000',
-        cancelButtonColor: '#aaa',
-        confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar'
+            title: '¿Eliminar nominación?',
+            text: 'Esta acción no se puede deshacer.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#7b0000',
+            cancelButtonColor: '#aaa',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
         }).then(result => {
-        if (result.isConfirmed) form.submit();
+            if (result.isConfirmed) form.submit();
         });
     }
 </script>
-
-
 
 </body>
 </html>

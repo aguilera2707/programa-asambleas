@@ -18,6 +18,7 @@ from flask import send_file, request, jsonify
 from flask import jsonify
 from datetime import datetime
 from utils import admin_required
+from utils import cerrar_eventos_vencidos
 
 # -------------------------------
 # 🔹 Definición de Blueprints
@@ -908,6 +909,7 @@ def gestionar_nominaciones():
 @nom.route('/nominaciones/alumno', methods=['GET', 'POST'])
 @login_required
 def nominar_alumno():
+    cerrar_eventos_vencidos()
     # 1️⃣ Validar rol del usuario
     if current_user.rol != 'profesor':
         flash("🚫 Solo los profesores pueden registrar nominaciones.", "danger")
@@ -1061,6 +1063,7 @@ def sincronizar_admins_como_maestros(ciclo_activo):
 @nom.route('/nominaciones/personal', methods=['GET', 'POST'])
 @login_required
 def nominar_personal():
+    cerrar_eventos_vencidos()
     """Vista para que los profesores (o admins) nominen a otros miembros del personal."""
     # 1️⃣ Validar rol del usuario
     if current_user.rol not in ['profesor', 'admin']:
@@ -1458,14 +1461,123 @@ def eliminar_maestro(id):
 # --- DASHBOARD JSON ---
 # -------------------------------
 # 🔹 Dashboard del Administrador
-# -------------------------------
+
+from datetime import datetime
+
 @admin_bp.route('/dashboard')
 @login_required
 def admin_dashboard():
+    cerrar_eventos_vencidos()
+
     if current_user.rol != 'admin':
         flash("🚫 Solo los administradores pueden acceder al dashboard.", "danger")
         return redirect(url_for('nom.principal'))
-    return render_template('admin_dashboard.html')
+
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo_activo:
+        flash("⚠️ No hay ciclo escolar activo.", "warning")
+        return redirect(url_for('nom.panel_admin'))
+
+    # 🔎 Traer todos los eventos del ciclo
+    eventos_ciclo = (
+        EventoAsamblea.query
+        .filter_by(ciclo_id=ciclo_activo.id)
+        .order_by(EventoAsamblea.mes_ordinal, EventoAsamblea.fecha_evento)
+        .all()
+    )
+
+    # 📦 Agrupar por nombre de mes
+    meses = {}
+    for e in eventos_ciclo:
+        meses.setdefault(e.nombre_mes, []).append(e)
+
+    # 🧠 Construir "eventos_unicos": un representante por mes + flag esta_abierto_mes
+    now = datetime.utcnow()
+    eventos_unicos = []
+    for nombre_mes, lista in meses.items():
+        # ✅ usar fecha_cierre_nominaciones
+        algun_abierto = any(
+            (ev.activo is True) and (
+                ev.fecha_cierre_nominaciones is None or ev.fecha_cierre_nominaciones >= now
+            )
+            for ev in lista
+        )
+
+        rep = lista[0]                       # representativo del mes (ya ordenado)
+        rep.esta_abierto_mes = algun_abierto # flag para el template
+        eventos_unicos.append(rep)
+
+    # 🟢 Mes por defecto: el más reciente con algún bloque abierto; si no, el primero
+    abiertos = [ev for ev in eventos_unicos if getattr(ev, 'esta_abierto_mes', False)]
+    if abiertos:
+        seleccionado = max(abiertos, key=lambda ev: ev.fecha_evento or now)
+        mes_seleccionado = seleccionado.nombre_mes
+    else:
+        mes_seleccionado = eventos_unicos[0].nombre_mes if eventos_unicos else None
+
+    return render_template(
+        'admin_dashboard.html',
+        eventos=eventos_unicos,
+        mes_seleccionado=mes_seleccionado
+    )
+
+# 🔹 Datos JSON para el dashboard (filtrados por mes)
+@admin_bp.route('/dashboard/data/resumen')
+@login_required
+def data_dashboard_resumen():
+    if current_user.rol != 'admin':
+        return jsonify({"error": "Solo los administradores pueden consultar este recurso."}), 403
+
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        return jsonify({"error": "No hay ciclo activo."}), 400
+
+    mes = request.args.get("mes")  # p.ej. ?mes=Octubre
+
+    # Base query: nominaciones del ciclo
+    query = Nominacion.query.filter_by(ciclo_id=ciclo.id)
+    if mes:
+        query = query.join(EventoAsamblea).filter(EventoAsamblea.nombre_mes == mes)
+
+    nominaciones = query.all()
+
+    # KPIs
+    total_maestros = Maestro.query.filter_by(ciclo_id=ciclo.id).count()
+    total_alumnos = Alumno.query.filter_by(ciclo_id=ciclo.id).count()
+    total_nominaciones = len(nominaciones)
+
+    # Nominaciones por tipo
+    por_tipo = {"alumno": 0, "personal": 0}
+    for n in nominaciones:
+        if n.tipo in por_tipo:
+            por_tipo[n.tipo] += 1
+
+    # Top valores
+    conteo_valores = {}
+    for n in nominaciones:
+        if n.valor:
+            nombre = n.valor.nombre
+            conteo_valores[nombre] = conteo_valores.get(nombre, 0) + 1
+    por_valor = [{"valor": v, "n": c} for v, c in sorted(conteo_valores.items(), key=lambda x: x[1], reverse=True)]
+
+    # Nominaciones por día (solo días del mes si se pasó ?mes=)
+    fechas = {}
+    for n in nominaciones:
+        fecha_str = n.fecha.strftime("%d/%m/%Y") if n.fecha else "Sin fecha"
+        fechas[fecha_str] = fechas.get(fecha_str, 0) + 1
+    por_dia = [{"fecha": f, "n": c} for f, c in sorted(fechas.items())]
+
+    return jsonify({
+        "totales": {
+            "maestros": total_maestros,
+            "alumnos": total_alumnos,
+            "nominaciones": total_nominaciones
+        },
+        "por_tipo": por_tipo,
+        "por_valor": por_valor,
+        "por_dia": por_dia
+    })
+
 
 # -------------------------------
 # 🔹 Endpoints JSON para gráficas
@@ -1525,6 +1637,7 @@ def dashboard_data_resumen():
 # ===============================
 # 🗓️ CALENDARIO DE EVENTOS
 # ===============================
+from datetime import datetime
 from models import EventoAsamblea, PlantillaInvitacion, Bloque, CicloEscolar
 
 @admin_bp.route('/calendario', methods=['GET', 'POST'])
@@ -1537,10 +1650,10 @@ def calendario_eventos():
         return redirect(url_for('admin_bp.gestionar_ciclos'))
 
     bloques = (
-    Bloque.query
-    .filter_by(ciclo_id=ciclo_activo.id)
-    .order_by(cast(func.substr(Bloque.nombre, 8), Integer).asc())
-    .all()
+        Bloque.query
+        .filter_by(ciclo_id=ciclo_activo.id)
+        .order_by(cast(func.substr(Bloque.nombre, 8), Integer).asc())
+        .all()
     )
     plantillas = PlantillaInvitacion.query.filter_by(ciclo_id=ciclo_activo.id, activa=True).all()
 
@@ -1556,6 +1669,20 @@ def calendario_eventos():
             flash("⚠️ Todos los campos son obligatorios.", "warning")
             return redirect(url_for('admin_bp.calendario_eventos'))
 
+        # 🧩 Validación: la fecha de cierre debe ser menor a la fecha del evento
+        try:
+            fecha_evento_dt = datetime.fromisoformat(fecha_evento)
+            fecha_cierre_dt = datetime.fromisoformat(fecha_cierre)
+
+            if fecha_cierre_dt >= fecha_evento_dt:
+                flash("⚠️ La fecha de cierre de nominaciones debe ser anterior a la fecha del evento.", "danger")
+                return redirect(url_for('admin_bp.calendario_eventos'))
+
+        except Exception as e:
+            flash(f"❌ Error al procesar las fechas: {str(e)}", "danger")
+            return redirect(url_for('admin_bp.calendario_eventos'))
+
+        # ✅ Crear evento si las fechas son válidas
         evento = EventoAsamblea(
             ciclo_id=ciclo_activo.id,
             bloque_id=bloque_id,
@@ -1578,13 +1705,14 @@ def calendario_eventos():
         .all()
     )
     return render_template(
-    'admin_calendario.html',
-    ciclo=ciclo_activo,
-    bloques=bloques,
-    plantillas=plantillas,
-    eventos=eventos,
-    datetime=datetime
-)
+        'admin_calendario.html',
+        ciclo=ciclo_activo,
+        bloques=bloques,
+        plantillas=plantillas,
+        eventos=eventos,
+        datetime=datetime
+    )
+
 # ===============================
 # 🗑️ ELIMINAR EVENTO DE ASAMBLEA (AJAX)
 # ===============================
@@ -1811,6 +1939,7 @@ def panel_nominaciones_data():
         "alumnos": resultado
     })
 
+
 # ===============================
 # 🧾 NOMINACIÓN INDIVIDUAL DE ALUMNO
 # ===============================
@@ -1819,6 +1948,7 @@ from datetime import datetime
 @nom.route('/nominacion_alumno/<int:alumno_id>', methods=['GET', 'POST'])
 @login_required
 def nominar_alumno_individual(alumno_id):
+    cerrar_eventos_vencidos()
     """Vista individual donde el maestro puede nominar a un alumno."""
     if current_user.rol != 'profesor':
         flash("🚫 Solo los profesores pueden registrar nominaciones.", "danger")
@@ -1842,30 +1972,28 @@ def nominar_alumno_individual(alumno_id):
         .order_by(EventoAsamblea.fecha_evento.asc())
         .first()
     )
-
-    # Si hay evento activo, filtrar nominaciones solo de ese evento (mismo mes)
-    if evento_abierto:
-        nominaciones_previas = (
-            Nominacion.query
-            .filter_by(alumno_id=alumno.id, ciclo_id=ciclo_activo.id, evento_id=evento_abierto.id)
-            .all()
-        )
-    else:
-        nominaciones_previas = []
+    
+    # 🚫 Verificar si el evento ya cerró nominaciones
+    if not evento_abierto:
+        flash("🚫 Las nominaciones han cerrado para este bloque.", "danger")
+        return redirect(url_for(
+            'nom.matriz_grupo_maestro',
+            bloque_id=alumno.bloque_id,
+            grado=alumno.grado,
+            grupo=alumno.grupo
+        ))
+    # Filtrar nominaciones solo de ese evento (mismo mes)
+    nominaciones_previas = (
+        Nominacion.query
+        .filter_by(alumno_id=alumno.id, ciclo_id=ciclo_activo.id, evento_id=evento_abierto.id)
+        .all()
+    )
 
     # Obtener valores ya usados en el mes actual
     valores_asignados = [n.valor_id for n in nominaciones_previas]
 
     # Filtrar valores que aún puede recibir este mes
     valores_disponibles = [v for v in valores if v.id not in valores_asignados]
-
-    # Evento activo del bloque del alumno
-    evento_abierto = (
-        EventoAsamblea.query
-        .filter_by(ciclo_id=ciclo_activo.id, bloque_id=alumno.bloque_id, activo=True)
-        .order_by(EventoAsamblea.fecha_evento.asc())
-        .first()
-    )
 
     if request.method == 'POST':
         valor_id = request.form.get('valor_id')
@@ -1881,7 +2009,7 @@ def nominar_alumno_individual(alumno_id):
             valor_id=valor_id,
             ciclo_id=ciclo_activo.id,
             comentario=comentario,
-            evento_id=evento_abierto.id if evento_abierto else None,
+            evento_id=evento_abierto.id,
             tipo='alumno',
             fecha=datetime.utcnow()
         )
@@ -2314,10 +2442,9 @@ def matriz_grupo_maestro(bloque_id, grado, grupo):
     )
 
 
-@nom.route('/mis_nominaciones')
+@nom.route('/mis_nominaciones', methods=['GET'])
 @login_required
 def mis_nominaciones():
-    """Muestra las nominaciones realizadas por el maestro actual"""
     if current_user.rol != 'profesor':
         flash("🚫 Solo los profesores pueden acceder a esta vista.", "danger")
         return redirect(url_for('nom.principal'))
@@ -2327,43 +2454,91 @@ def mis_nominaciones():
         flash("⚠️ No hay ciclo escolar activo.", "warning")
         return redirect(url_for('nom.panel_profesor'))
 
-    # 🧑‍🏫 Buscar al maestro logueado
     maestro = Maestro.query.filter_by(correo=current_user.email, ciclo_id=ciclo_activo.id).first()
     if not maestro:
         flash("⚠️ No se encontró tu registro como maestro en el ciclo activo.", "warning")
         return redirect(url_for('nom.panel_profesor'))
 
-    # 🔍 Nominaciones actuales del maestro
-    nominaciones = (
-        Nominacion.query
-        .filter_by(maestro_id=maestro.id, ciclo_id=ciclo_activo.id)
-        .order_by(Nominacion.fecha.desc())
+    # Todos los eventos del ciclo
+    eventos_ciclo = (
+        EventoAsamblea.query
+        .filter_by(ciclo_id=ciclo_activo.id)
+        .order_by(EventoAsamblea.mes_ordinal, EventoAsamblea.bloque_id)
         .all()
     )
 
-    # 📋 Todos los valores del ciclo
+    # Un evento representativo por mes para el selector (solo para nombre y orden)
+    eventos_unicos = []
+    meses_vistos = set()
+    for e in eventos_ciclo:
+        if e.nombre_mes not in meses_vistos:
+            eventos_unicos.append(e)
+            meses_vistos.add(e.nombre_mes)
+
+    # Mapa: mes -> ¿hay al menos un evento abierto en ese mes?
+    ahora = datetime.utcnow()
+    mes_abierto_map = {}
+    for e in eventos_ciclo:
+        abierto = (e.activo is True) and (e.fecha_cierre_nominaciones and e.fecha_cierre_nominaciones > ahora)
+        mes_abierto_map[e.nombre_mes] = mes_abierto_map.get(e.nombre_mes, False) or abierto
+
+    # Mes seleccionado (querystring) o, si no hay, el primer mes que tenga algún evento abierto; si no, el más reciente
+    mes_seleccionado = request.args.get('mes')
+    if not mes_seleccionado:
+        abierto_ordenado = [e.nombre_mes for e in eventos_ciclo
+                            if (e.activo is True and e.fecha_cierre_nominaciones and e.fecha_cierre_nominaciones > ahora)]
+        if abierto_ordenado:
+            mes_seleccionado = abierto_ordenado[0]
+        elif eventos_ciclo:
+            mes_seleccionado = sorted({e.nombre_mes for e in eventos_ciclo},
+                                      key=lambda m: next(x.mes_ordinal for x in eventos_ciclo if x.nombre_mes == m))[-1]
+        else:
+            mes_seleccionado = None
+
+    # Nominaciones del maestro del mes seleccionado
+    if mes_seleccionado:
+        nominaciones = (
+            Nominacion.query
+            .filter_by(maestro_id=maestro.id, ciclo_id=ciclo_activo.id)
+            .join(EventoAsamblea)
+            .filter(EventoAsamblea.nombre_mes == mes_seleccionado)
+            .order_by(Nominacion.fecha.desc())
+            .all()
+        )
+    else:
+        nominaciones = []
+
+    # Eventos ABiertos de ese mes (pueden ser varios bloques)
+    eventos_abiertos_mes = (
+        EventoAsamblea.query
+        .filter(
+            EventoAsamblea.ciclo_id == ciclo_activo.id,
+            EventoAsamblea.nombre_mes == mes_seleccionado,
+            EventoAsamblea.activo.is_(True),
+            EventoAsamblea.fecha_cierre_nominaciones > ahora
+        )
+        .all()
+        if mes_seleccionado else []
+    )
+    open_event_ids = {e.id for e in eventos_abiertos_mes}
+    evento_abierto = eventos_abiertos_mes[0] if eventos_abiertos_mes else None  # para el banner verde/rojo
+
+    # Valores disponibles
     valores = Valor.query.filter_by(ciclo_id=ciclo_activo.id, activo=True).all()
     valores_json = [{"id": v.id, "nombre": v.nombre} for v in valores]
 
-    # 🔄 Generar mapa de valores permitidos por nominación (evita duplicados)
+    # Mapa de valores permitidos por nominación
     allowed_map = {}
     for n in nominaciones:
-        # valores que YA tiene este alumno o maestro nominado
         if n.tipo == "alumno":
             usados = {nom.valor_id for nom in Nominacion.query.filter_by(
-                ciclo_id=ciclo_activo.id,
-                tipo='alumno',
-                alumno_id=n.alumno_id
+                ciclo_id=ciclo_activo.id, tipo='alumno', alumno_id=n.alumno_id
             )}
         else:
             usados = {nom.valor_id for nom in Nominacion.query.filter_by(
-                ciclo_id=ciclo_activo.id,
-                tipo='personal',
-                maestro_id=n.maestro_id,
-                maestro_nominado_id=n.maestro_nominado_id
+                ciclo_id=ciclo_activo.id, tipo='personal',
+                maestro_id=n.maestro_id, maestro_nominado_id=n.maestro_nominado_id
             )}
-
-        # permitir todos menos los usados (excepto el valor actual)
         disponibles = [v for v in valores if v.id not in usados or v.id == n.valor_id]
         allowed_map[n.id] = [{"id": v.id, "nombre": v.nombre} for v in disponibles]
 
@@ -2373,9 +2548,14 @@ def mis_nominaciones():
         nominaciones=nominaciones,
         ciclo=ciclo_activo,
         valores_json=valores_json,
-        allowed_valores_map_json=allowed_map
+        allowed_valores_map_json=allowed_map,
+        eventos=eventos_unicos,
+        mes_seleccionado=mes_seleccionado,
+        evento_abierto=evento_abierto,
+        eventos_abiertos_mes=eventos_abiertos_mes,
+        open_event_ids=open_event_ids,
+        mes_abierto_map=mes_abierto_map
     )
-
 
 from sqlalchemy import cast, Integer, func
 # ===========================
@@ -2550,13 +2730,32 @@ def editar_nominacion_personal(id):
     return redirect(url_for('nom.nominar_personal'))
 
 # ============================================
-# ✏️ Editar nominación
+# ✏️ Editar nominación (blindada + validación de duplicados)
 # ============================================
 @nom.route('/nominaciones/editar/<int:id>', methods=['POST'])
 @login_required
 def editar_nominacion(id):
-    nominacion = Nominacion.query.get_or_404(id)
+    from flask import jsonify
 
+    nominacion = Nominacion.query.get_or_404(id)
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+
+    # 🔐 Validar rol y propiedad
+    if current_user.rol != 'profesor':
+        return jsonify({"status": "error", "message": "Solo los maestros pueden editar nominaciones."}), 403
+
+    maestro = Maestro.query.filter_by(correo=current_user.email, ciclo_id=ciclo_activo.id).first()
+    if not maestro or nominacion.maestro_id != maestro.id:
+        return jsonify({"status": "error", "message": "No tienes permiso para editar esta nominación."}), 403
+
+    # 🚫 Verificar si el evento ya cerró
+    if not nominacion.evento or not nominacion.evento.esta_abierto:
+        return jsonify({
+            "status": "error",
+            "message": f"Las nominaciones del mes '{nominacion.evento.nombre_mes}' están cerradas."
+        }), 403
+
+    # 🧩 Obtener datos enviados
     data = request.get_json()
     try:
         valor_id = int(data.get('valor_id'))
@@ -2564,10 +2763,9 @@ def editar_nominacion(id):
         return jsonify({"status": "error", "message": "Valor inválido."}), 400
 
     comentario = (data.get('comentario') or '').strip()
-
     ciclo_id = nominacion.ciclo_id
 
-    # 🔒 Validar duplicados según tipo
+    # 🔒 Validar duplicados según tipo (tu lógica original conservada)
     if nominacion.tipo == 'alumno' and nominacion.alumno_id:
         existe = Nominacion.query.filter(
             Nominacion.ciclo_id == ciclo_id,
@@ -2597,21 +2795,41 @@ def editar_nominacion(id):
                 "message": "Ya registraste ese mismo valor para este maestro en este ciclo."
             }), 400
 
+    # ✅ Guardar cambios
     nominacion.valor_id = valor_id
     nominacion.comentario = comentario
     db.session.commit()
 
     return jsonify({"status": "success", "message": "✅ Nominación actualizada correctamente."})
 
+
 # ============================================
-# 🗑️ Eliminar nominación
+# 🗑️ Eliminar nominación (blindada)
 # ============================================
 @nom.route('/nominaciones/eliminar/<int:id>', methods=['POST'])
 @login_required
 def eliminar_nominacion(id):
     nominacion = Nominacion.query.get_or_404(id)
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+
+    # 🔐 Validar rol y propiedad
+    if current_user.rol != 'profesor':
+        flash("🚫 Solo los maestros pueden eliminar nominaciones.", "danger")
+        return redirect(url_for('nom.mis_nominaciones'))
+
+    maestro = Maestro.query.filter_by(correo=current_user.email, ciclo_id=ciclo_activo.id).first()
+    if not maestro or nominacion.maestro_id != maestro.id:
+        flash("⚠️ No tienes permiso para eliminar esta nominación.", "warning")
+        return redirect(url_for('nom.mis_nominaciones'))
+
+    # 🚫 Verificar si el evento está cerrado
+    if not nominacion.evento or not nominacion.evento.esta_abierto:
+        flash(f"⚠️ Las nominaciones del mes '{nominacion.evento.nombre_mes}' están cerradas. No puedes eliminarla.", "warning")
+        return redirect(url_for('nom.mis_nominaciones'))
+
+    # ✅ Eliminar si todo está correcto
     db.session.delete(nominacion)
     db.session.commit()
+
     flash("🗑️ Nominación eliminada correctamente.", "success")
     return redirect(url_for('nom.mis_nominaciones'))
-
