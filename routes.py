@@ -2859,16 +2859,29 @@ def nominaciones_por_maestro_y_mes():
 
     data = []
     for n in nominaciones:
+        # 🔹 Determinar bloque solo si es alumno
+        if n.tipo == "alumno" and n.alumno:
+            bloque = n.alumno.bloque.nombre
+        else:
+            bloque = "—"
+
         data.append({
             "id": n.id,
             "tipo": n.tipo,
-            "nominado": n.alumno.nombre if n.alumno else n.maestro_nominado.nombre if n.maestro_nominado else "",
+            "nominado": (
+                n.alumno.nombre if n.alumno
+                else n.maestro_nominado.nombre if n.maestro_nominado
+                else ""
+            ),
             "valor": n.valor.nombre if n.valor else "",
-            "fecha": n.fecha.strftime("%Y-%m-%d"),
+            "fecha": n.fecha.strftime("%Y-%m-%d") if n.fecha else "",
             "comentario": n.comentario or "",
-            "evento": n.evento.nombre_mes if n.evento else ""
+            "evento": n.evento.nombre_mes if n.evento else "",
+            "bloque": bloque  # 🔹 Nuevo campo agregado
         })
+
     return jsonify(data)
+
 
 
 

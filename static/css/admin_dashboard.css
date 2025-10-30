@@ -263,3 +263,194 @@ canvas {
     from { opacity: 0; transform: scale(0.95); }
     to { opacity: 1; transform: scale(1); }
 }
+/* 🔹 Inputs y Selects refinados */
+.input-buscar,
+select {
+    padding: 10px 12px;
+    border: 1.5px solid #ccc;
+    border-radius: 10px;
+    font-size: 15px;
+    color: #333;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    transition: all 0.25s ease;
+}
+
+.input-buscar {
+    width: 230px;
+}
+
+select {
+    min-width: 190px;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%237b0000' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 10px;
+    cursor: pointer;
+}
+
+.input-buscar:hover,
+select:hover {
+    border-color: #7b0000;
+    box-shadow: 0 0 0 3px rgba(123,0,0,0.1);
+}
+
+.input-buscar:focus,
+select:focus {
+    outline: none;
+    border-color: #b10000;
+    box-shadow: 0 0 0 3px rgba(177,0,0,0.2);
+}
+
+/* 🔹 Opciones del select */
+select option {
+    padding: 8px;
+    background-color: #fff;
+    color: #333;
+}
+
+/* 🔹 Botón de búsqueda */
+.btn-accion.rojo {
+    background-color: #7b0000;
+    color: #fff;
+    border-radius: 8px;
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+.btn-accion.rojo:hover {
+    background-color: #a30000;
+}
+
+/* 🔹 Contenedor de controles de exportación */
+.export-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+/* Fila adicional automática */
+@media (max-width: 1100px) {
+    .export-controls {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto;
+        row-gap: 1rem;
+    }
+}
+
+/* 🔹 Botones ajustados */
+.btn-accion {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-accion.rojo {
+    background: #7b0000;
+    color: #fff;
+}
+.btn-accion.rojo:hover { background: #a30000; }
+
+.btn-accion.verde {
+    background: #2e7d32;
+    color: #fff;
+}
+.btn-accion.verde:hover { background: #388e3c; }
+
+/* 🔹 Inputs y selects coherentes */
+.input-buscar,
+select {
+    padding: 10px 12px;
+    border: 1.5px solid #ccc;
+    border-radius: 10px;
+    font-size: 15px;
+    color: #333;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    transition: all 0.25s ease;
+}
+
+.input-buscar {
+    width: 100%;
+    max-width: 240px;
+}
+
+select {
+    width: 100%;
+    min-width: 220px;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%237b0000' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 10px;
+    cursor: pointer;
+}
+.tabla-dashboard th:nth-child(5),
+.tabla-dashboard td:nth-child(5) {
+    text-align: center;
+    width: 90px;
+}
+
+/* 🔹 Filtros de exportación */
+.export-filtros {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    align-items: end;
+    margin-bottom: 1.5rem;
+}
+
+.export-filtros .campo label {
+    display: block;
+    font-weight: 600;
+    color: #7b0000;
+    margin-bottom: 6px;
+    font-size: 0.95rem;
+}
+
+.export-filtros select,
+.export-filtros .input-buscar {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid #ccc;
+    border-radius: 10px;
+    background-color: #fff;
+    font-size: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: all 0.25s;
+}
+
+.export-filtros select:focus,
+.export-filtros .input-buscar:focus {
+    border-color: #7b0000;
+    box-shadow: 0 0 0 3px rgba(123,0,0,0.15);
+    outline: none;
+}
+
+.export-filtros .botones {
+    display: flex;
+    gap: 0.8rem;
+}
+
+/* 🔹 Chip de bloque */
+.chip-bloque {
+    display: inline-block;
+    background: #f7e5e5;
+    color: #7b0000;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 4px 10px;
+    border-radius: 20px;
+    text-align: center;
+    min-width: 50px;
+}
+.chip-bloque:empty::before {
+    content: "—";
+    color: #aaa;
+}

@@ -58,29 +58,43 @@
     <section class="export-section">
         <h2>📩 Exportar nominaciones por maestro</h2>
 
-        <div class="export-controls">
-            <label for="maestro-search">🔍 Buscar maestro:</label>
-            <input type="text" id="maestro-search" placeholder="Escribe para filtrar..." class="input-buscar">
+        <div class="export-filtros">
+            <div class="campo">
+                <label for="maestro-search">🔍 Buscar maestro:</label>
+                <input type="text" id="maestro-search" placeholder="Escribe para filtrar..." class="input-buscar">
+            </div>
 
-            <label for="maestro-select">👨‍🏫 Maestro:</label>
-            <select id="maestro-select"></select>
+            <div class="campo">
+                <label for="maestro-select">👨‍🏫 Maestro:</label>
+                <select id="maestro-select"></select>
+            </div>
 
-            <label for="mes-export">📅 Mes:</label>
-            <select id="mes-export">
-                {% for evento in eventos %}
-                    <option value="{{ evento.mes_ordinal }}">{{ evento.nombre_mes }}</option>
-                {% endfor %}
-            </select>
+            <div class="campo">
+                <label for="mes-export">📅 Mes:</label>
+                <select id="mes-export">
+                    {% for evento in eventos %}
+                        <option value="{{ evento.mes_ordinal }}">{{ evento.nombre_mes }}</option>
+                    {% endfor %}
+                </select>
+            </div>
 
-            <button id="btn-buscar-nominaciones" class="btn-accion rojo">🔍 Buscar</button>
-            <button id="btn-generar-pdf" class="btn-accion verde" disabled>📄 Generar PDFs seleccionados</button>
+            <div class="botones">
+                <button id="btn-buscar-nominaciones" class="btn-accion rojo">🔍 Buscar</button>
+                <button id="btn-generar-pdf" class="btn-accion verde" disabled>📄 Generar PDFs seleccionados</button>
+            </div>
         </div>
 
         <table id="tabla-nominaciones" class="tabla-dashboard">
             <thead>
                 <tr>
                     <th><input type="checkbox" id="select-all"></th>
-                    <th>Fecha</th><th>Tipo</th><th>Nominado</th><th>Valor</th><th>Comentario</th><th>Evento</th>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Nominado</th>
+                    <th>Bloque</th>
+                    <th>Valor</th>
+                    <th>Comentario</th>
+                    <th>Evento</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -178,23 +192,37 @@ async function cargarDashboard(mes=null){
 // ===============================
 // 🔹 Cargar maestros + buscador
 // ===============================
-async function cargarMaestros(){
-    const r=await fetch('/admin/catalogo/maestros');
-    const ms=await r.json();
-    const s=document.getElementById('maestro-select');
-    s.innerHTML='';
-    ms.forEach(m=>{
-        const o=document.createElement('option');
-        o.value=m.id; o.textContent=m.nombre;
-        s.appendChild(o);
+async function cargarMaestros() {
+    const r = await fetch('/admin/catalogo/maestros');
+    const maestros = await r.json();
+    const select = document.getElementById('maestro-select');
+    const input = document.getElementById('maestro-search');
+
+    // 🔹 Llenar inicialmente
+    select.innerHTML = '';
+    maestros.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.nombre;
+        select.appendChild(opt);
     });
 
-    const input=document.getElementById('maestro-search');
-    input.addEventListener('input',()=>{
-        const term=input.value.toLowerCase();
-        for(const opt of s.options){
-            const visible = opt.textContent.toLowerCase().includes(term);
-            opt.hidden = !visible; // Usa hidden, no display:none
+    // 🔹 Filtro dinámico mientras se escribe
+    input.addEventListener('input', () => {
+        const term = input.value.toLowerCase().trim();
+        const filtrados = maestros.filter(m => m.nombre.toLowerCase().includes(term));
+
+        select.innerHTML = '';
+        filtrados.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = m.nombre;
+            select.appendChild(opt);
+        });
+
+        // Si solo hay un maestro coincidente → selección automática
+        if (filtrados.length === 1) {
+            select.value = filtrados[0].id;
         }
     });
 }
@@ -212,9 +240,16 @@ async function buscarNominaciones(){
     tbody.innerHTML="";
     data.forEach(n=>{
         const tr=document.createElement('tr');
-        tr.innerHTML=`<td><input type="checkbox" class="chk-nom" value="${n.id}" checked></td>
-        <td>${n.fecha}</td><td>${n.tipo}</td><td>${n.nominado}</td><td>${n.valor}</td>
-        <td>${n.comentario}</td><td>${n.evento}</td>`;
+        tr.innerHTML = `
+        <td><input type="checkbox" class="chk-nom" value="${n.id}" checked></td>
+        <td>${n.fecha}</td>
+        <td>${n.tipo}</td>
+        <td>${n.nominado}</td>
+        <td><span class="chip-bloque">${n.bloque || "—"}</span></td>
+        <td>${n.valor}</td>
+        <td>${n.comentario}</td>
+        <td>${n.evento}</td>
+        `;
         tbody.appendChild(tr);
     });
     document.getElementById('btn-generar-pdf').disabled=data.length===0;
