@@ -2871,17 +2871,22 @@ def nominaciones_por_maestro_y_mes():
     return jsonify(data)
 
 
-# == Generar PDFs seleccionados (ZIP) ==
-@admin_bp.route('/dashboard/generar_invitaciones', methods=['POST'])
+
+
+# ======================================================
+# == Generar PDFs seleccionados (SSE + descarga ZIP) ==
+# ======================================================
+@nom.route('/admin/dashboard/generar_invitaciones_stream')
 @login_required
 @admin_required
-def generar_invitaciones_seleccionadas():
+def generar_invitaciones_stream():
     from io import BytesIO
-    import zipfile, re, os
+    import zipfile, re, os, json
     from datetime import datetime
+    from flask import Response, current_app
 
-    payload = request.get_json(silent=True) or {}
-    ids = payload.get('ids', [])
+    ids_raw = request.args.get('ids', '')
+    ids = [int(x) for x in ids_raw.split(',') if x.strip().isdigit()]
     if not ids:
         return jsonify({"error": "No se recibieron nominaciones."}), 400
 
@@ -2889,7 +2894,8 @@ def generar_invitaciones_seleccionadas():
     if not ciclo:
         return jsonify({"error": "No hay ciclo activo."}), 400
 
-    output_dir = os.path.join("invitaciones", ciclo.nombre.replace("/", "-"))
+    ciclo_dir = ciclo.nombre.replace("/", "-")
+    output_dir = os.path.join("invitaciones", ciclo_dir)
     os.makedirs(output_dir, exist_ok=True)
 
     def slug(s):
@@ -2898,66 +2904,79 @@ def generar_invitaciones_seleccionadas():
         return re.sub(r"[^A-Za-z0-9_\-\.]", "", s)
 
     plantilla_alumno = "formato_asamblea.docx"
-    plantilla_personal = "invitacion colaborador 1.docx"  # usa tu nombre real
+    plantilla_personal = "invitacion colaborador 1.docx"
 
-    if not os.path.exists(os.path.join("docx_templates", plantilla_personal)):
-        plantilla_personal = plantilla_alumno
-
-    zip_buffer = BytesIO()
+    total = len(ids)
     errores = []
+    zip_name = f"invitaciones_{datetime.now().strftime('%Y%m%d_%H%M')}.zip"
+    zip_path = os.path.join(output_dir, zip_name)
 
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for nom_id in ids:
-            n = Nominacion.query.get(nom_id)
-            if not n:
-                continue
+    app = current_app._get_current_object()
 
-            nominado = ""
-            if n.tipo == "alumno" and n.alumno:
-                nominado = n.alumno.nombre
-            elif n.tipo == "personal" and n.maestro_nominado:
-                nominado = n.maestro_nominado.nombre
+    def generar_zip():
+        with app.app_context():
+            procesados = 0
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                for nom_id in ids:
+                    n = Nominacion.query.get(nom_id)
+                    if not n:
+                        continue
 
-            valor = n.valor.nombre if n.valor else ""
-            quien_nomina = n.maestro.nombre if n.maestro else ""
-            fecha_evento = n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else (n.fecha.strftime("%d/%m/%Y") if n.fecha else "")
-            texto_adicional = n.comentario or ""
+                    nominado = n.alumno.nombre if n.alumno else (n.maestro_nominado.nombre if n.maestro_nominado else "")
+                    valor = n.valor.nombre if n.valor else ""
+                    quien_nomina = n.maestro.nombre if n.maestro else ""
+                    fecha_evento = n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else ""
+                    texto_adicional = n.comentario or ""
 
-            context = {
-                "nominado": nominado,
-                "valor": valor,
-                "quien_nomina": quien_nomina,
-                "fecha_evento": fecha_evento,
-                "texto_adicional": texto_adicional,
-            }
-            context_alt = {
-                "TEXTO": texto_adicional,
-                "VALOR": valor,
-                "ALUMNO": nominado,
-                "Quién_nomina": quien_nomina,
-                "Fecha": fecha_evento,
-            }
+                    context = {
+                        "nominado": nominado,
+                        "valor": valor,
+                        "quien_nomina": quien_nomina,
+                        "fecha_evento": fecha_evento,
+                        "texto_adicional": texto_adicional,
+                    }
 
-            plantilla = plantilla_alumno if n.tipo == "alumno" else plantilla_personal
-            filename_base = f"{n.tipo}_{slug(nominado)}_{slug(valor)}"
+                    plantilla = plantilla_alumno if n.tipo == "alumno" else plantilla_personal
+                    filename_base = f"Invitación - {slug(nominado)} - {slug(valor)}"
 
-            try:
-                pdf_path = generar_pdf(plantilla, context, output_dir, filename_base)
-            except Exception:
-                try:
-                    pdf_path = generar_pdf(plantilla, context_alt, output_dir, filename_base)
-                except Exception as e2:
-                    errores.append(f"{nominado} ({valor}): {e2}")
-                    continue
+                    try:
+                        pdf_path = generar_pdf(
+                            template_name=plantilla,
+                            context=context,
+                            output_dir=output_dir,
+                            filename=filename_base
+                        )
+                        zf.write(pdf_path, arcname=os.path.basename(pdf_path))
+                        os.remove(pdf_path)
+                    except Exception as e:
+                        errores.append(f"{nominado} ({valor}): {e}")
 
-            zf.write(pdf_path, arcname=os.path.basename(pdf_path))
+                    procesados += 1
+                    progreso = int((procesados / total) * 100)
+                    yield f"data:{json.dumps({'progreso': progreso, 'procesados': procesados, 'total': total})}\n\n"
 
-    zip_buffer.seek(0)
-    nombre_zip = f"invitaciones_{datetime.now().strftime('%Y%m%d_%H%M')}.zip"
+            if errores:
+                with zipfile.ZipFile(zip_path, "a", zipfile.ZIP_DEFLATED) as zf:
+                    zf.writestr("README_errores.txt", "\n".join(errores))
 
-    if errores:
-        with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr("README_errores.txt", "\n".join(errores))
-        zip_buffer.seek(0)
+            # ✅ Incluye el subdirectorio correcto en la respuesta
+            yield f"data:{json.dumps({'finalizado': True, 'nombre_zip': zip_name, 'subcarpeta': ciclo_dir})}\n\n"
 
-    return send_file(zip_buffer, as_attachment=True, download_name=nombre_zip, mimetype="application/zip")
+    return Response(generar_zip(), mimetype="text/event-stream")
+
+
+# ======================================================
+# == Descarga directa del ZIP ==
+# ======================================================
+@nom.route('/invitaciones/<subcarpeta>/<nombre_zip>')
+@login_required
+@admin_required
+def descargar_invitaciones(subcarpeta, nombre_zip):
+    import os
+    from flask import send_from_directory
+
+    carpeta = os.path.join(os.getcwd(), "invitaciones", subcarpeta)
+    ruta_archivo = os.path.join(carpeta, nombre_zip)
+    if not os.path.exists(ruta_archivo):
+        return "Archivo no encontrado o ya eliminado.", 404
+    return send_from_directory(carpeta, nombre_zip, as_attachment=True)

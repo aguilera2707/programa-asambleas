@@ -71,28 +71,20 @@ body {
 }
 
 canvas {
-    width: 100% !important;
-    height: 100% !important;
+    width: 100%;
+    height: auto;
+    image-rendering: crisp-edges;
+    image-rendering: -webkit-optimize-contrast;
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-    .dashboard-container {
-        padding: 30px 20px;
-    }
-
-    .charts {
-        grid-template-columns: 1fr;
-    }
-
-    .chart-box {
-        height: 350px;
-    }
-
-    .chart-box.full-width {
-        height: 400px;
-    }
+    .dashboard-container { padding: 30px 20px; }
+    .charts { grid-template-columns: 1fr; }
+    .chart-box { height: 350px; }
+    .chart-box.full-width { height: 400px; }
 }
+
 /* 🔹 Card filtro de mes */
 .card-filtro-mes {
     background: #fff;
@@ -125,17 +117,14 @@ canvas {
     transition: 0.2s;
 }
 
-.select-wrapper select:hover {
-    border-color: #7b0000;
-}
-
+.select-wrapper select:hover { border-color: #7b0000; }
 .select-wrapper select:focus {
     outline: none;
     border-color: #b10000;
     box-shadow: 0 0 0 2px rgba(123,0,0,0.2);
 }
 
-
+/* Exportaciones */
 .export-section {
     background: rgba(255,255,255,0.9);
     padding: 1.5rem;
@@ -150,6 +139,21 @@ canvas {
     align-items: center;
     gap: 1rem;
     margin-bottom: 1rem;
+}
+
+.input-buscar {
+    padding: 0.6rem 0.8rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 15px;
+    width: 220px;
+    transition: 0.2s;
+    background: #fafafa;
+}
+.input-buscar:focus {
+    outline: none;
+    border-color: #7b0000;
+    box-shadow: 0 0 0 2px rgba(123,0,0,0.15);
 }
 
 .btn-accion {
@@ -175,6 +179,87 @@ canvas {
     padding: 0.5rem;
     text-align: left;
 }
-.tabla-dashboard th {
-    background: #f4f4f4;
+.tabla-dashboard th { background: #f4f4f4; }
+
+/* 🔹 Overlay de carga con progreso */
+#overlay-cargando {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(255, 255, 255, 0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 9999;
+    backdrop-filter: blur(2px);
+}
+
+.spinner-container {
+    text-align: center;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 25px 45px;
+    border-radius: 16px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.15);
+    animation: aparecer 0.3s ease;
+}
+
+.spinner {
+    width: 70px;
+    height: 70px;
+    border: 6px solid #ddd;
+    border-top-color: #7b0000;
+    border-radius: 50%;
+    animation: girar 1s linear infinite;
+    margin: 0 auto 15px;
+}
+
+@keyframes girar { to { transform: rotate(360deg); } }
+
+#mensaje-cargando {
+    font-size: 1.1rem;
+    color: #444;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.progress-bar {
+    width: 280px;
+    height: 12px;
+    background: #eee;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 10px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #7b0000, #b71c1c);
+    transition: width .4s ease;
+    border-radius: 6px;
+}
+
+#progress-text {
+    margin-top: 8px;
+    color: #7b0000;
+    font-weight: bold;
+    font-size: 1rem;
+}
+
+#progress-text.completado {
+    color: #2e7d32;
+    animation: pulso 0.8s ease;
+}
+
+@keyframes pulso {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.9; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes aparecer {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
 }

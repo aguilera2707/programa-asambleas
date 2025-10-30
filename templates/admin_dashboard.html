@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Dashboard del Administrador</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_dashboard.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -37,45 +37,31 @@
         </form>
     </div>
 
-    <!-- 🟢 Título dinámico del mes -->
+    <!-- 🟢 Título dinámico -->
     <h2 id="titulo-mes" class="titulo-mes">{{ mes_seleccionado }}</h2>
 
-    <!-- KPIs principales -->
+    <!-- KPIs -->
     <section class="kpis">
-        <div class="card">
-            <h3>Maestros</h3>
-            <div id="k_maestros">–</div>
-        </div>
-        <div class="card">
-            <h3>Alumnos</h3>
-            <div id="k_alumnos">–</div>
-        </div>
-        <div class="card">
-            <h3>Nominaciones</h3>
-            <div id="k_nominaciones">–</div>
-        </div>
+        <div class="card"><h3>Maestros</h3><div id="k_maestros">–</div></div>
+        <div class="card"><h3>Alumnos</h3><div id="k_alumnos">–</div></div>
+        <div class="card"><h3>Nominaciones</h3><div id="k_nominaciones">–</div></div>
     </section>
 
     <!-- Gráficas -->
     <section class="charts">
-        <div class="chart-box">
-            <canvas id="chart_tipo"></canvas>
-        </div>
-        <div class="chart-box">
-            <canvas id="chart_valor"></canvas>
-        </div>
-        <div class="chart-box full-width">
-            <canvas id="chart_dia"></canvas>
-        </div>
+        <div class="chart-box"><canvas id="chart_tipo"></canvas></div>
+        <div class="chart-box"><canvas id="chart_valor"></canvas></div>
+        <div class="chart-box full-width"><canvas id="chart_dia"></canvas></div>
     </section>
 
-    <!-- ======================================== -->
-    <!-- 🧾 Nueva sección: Exportar nominaciones -->
-    <!-- ======================================== -->
+    <!-- 📩 Exportar nominaciones -->
     <section class="export-section">
         <h2>📩 Exportar nominaciones por maestro</h2>
 
         <div class="export-controls">
+            <label for="maestro-search">🔍 Buscar maestro:</label>
+            <input type="text" id="maestro-search" placeholder="Escribe para filtrar..." class="input-buscar">
+
             <label for="maestro-select">👨‍🏫 Maestro:</label>
             <select id="maestro-select"></select>
 
@@ -86,7 +72,7 @@
                 {% endfor %}
             </select>
 
-            <button id="btn-buscar-nominaciones" class="btn-accion">🔍 Buscar</button>
+            <button id="btn-buscar-nominaciones" class="btn-accion rojo">🔍 Buscar</button>
             <button id="btn-generar-pdf" class="btn-accion verde" disabled>📄 Generar PDFs seleccionados</button>
         </div>
 
@@ -94,282 +80,213 @@
             <thead>
                 <tr>
                     <th><input type="checkbox" id="select-all"></th>
-                    <th>Fecha</th>
-                    <th>Tipo</th>
-                    <th>Nominado</th>
-                    <th>Valor</th>
-                    <th>Comentario</th>
-                    <th>Evento</th>
+                    <th>Fecha</th><th>Tipo</th><th>Nominado</th><th>Valor</th><th>Comentario</th><th>Evento</th>
                 </tr>
             </thead>
             <tbody></tbody>
         </table>
     </section>
-
 </main>
+
+<!-- 🔄 Overlay con barra de progreso -->
+<div id="overlay-cargando">
+    <div class="spinner-container">
+        <div class="spinner"></div>
+        <p id="mensaje-cargando">Generando PDFs, por favor espera...</p>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+        <p id="progress-text">0%</p>
+    </div>
+</div>
 
 <script>
 // ===============================
-// 🔹 URLs dinámicas seguras
+// 🔹 URLs seguras
 // ===============================
 const URL_LISTAR = "{{ url_for('admin_bp.nominaciones_por_maestro_y_mes') }}";
-const URL_GENERAR = "{{ url_for('admin_bp.generar_invitaciones_seleccionadas') }}";
+const URL_GENERAR = "{{ url_for('nom.generar_invitaciones_stream') }}";
 
-let chartTipo = null;
-let chartValor = null;
-let chartDia = null;
+let chartTipo=null, chartValor=null, chartDia=null;
 
-// 🔢 Animación de contador para KPIs
-function animateCounter(element, start, end, duration = 800) {
-    const startTime = performance.now();
-    function update(currentTime) {
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const value = Math.floor(start + (end - start) * progress);
-        element.textContent = value;
-        if (progress < 1) requestAnimationFrame(update);
-    }
-    requestAnimationFrame(update);
+// ===============================
+// 🔹 Utilidades
+// ===============================
+function animateCounter(el,start,end,d=800){
+    const st=performance.now();
+    const up=t=>{
+        const p=Math.min((t-st)/d,1);
+        el.textContent=Math.floor(start+(end-start)*p);
+        if(p<1)requestAnimationFrame(up);
+    };
+    requestAnimationFrame(up);
 }
 
-// 🔹 Actualiza título del mes
-function actualizarTituloMes(nombreMes) {
-    const titulo = document.getElementById('titulo-mes');
-    titulo.textContent = nombreMes;
-    titulo.classList.add('animado');
-    setTimeout(() => titulo.classList.remove('animado'), 600);
+function actualizarTituloMes(m){
+    const t=document.getElementById('titulo-mes');
+    t.textContent=m;
+    t.classList.add('animado');
+    setTimeout(()=>t.classList.remove('animado'),600);
 }
 
-async function cargarDashboard(mes = null) {
-    try {
-        const url = mes ? `/admin/dashboard/data/resumen?mes=${mes}` : '/admin/dashboard/data/resumen';
-        const res = await fetch(url);
-        const data = await res.json();
+function mostrarCargando(mostrar=true,mensaje="Generando invitaciones..."){
+    const o=document.getElementById("overlay-cargando");
+    const texto=document.getElementById("mensaje-cargando");
+    texto.textContent=mensaje;
+    o.style.display=mostrar?"flex":"none";
+}
 
-        if (data.error) {
-            alert(data.error);
-            return;
+// ===============================
+// 🔹 Dashboard principal
+// ===============================
+async function cargarDashboard(mes=null){
+    try{
+        const url=mes?`/admin/dashboard/data/resumen?mes=${mes}`:'/admin/dashboard/data/resumen';
+        const res=await fetch(url);
+        const data=await res.json();
+        if(data.error)return alert(data.error);
+
+        actualizarTituloMes(mes||"Resumen general");
+        animateCounter(document.getElementById('k_maestros'),0,data.totales.maestros);
+        animateCounter(document.getElementById('k_alumnos'),0,data.totales.alumnos);
+        animateCounter(document.getElementById('k_nominaciones'),0,data.totales.nominaciones);
+
+        if(chartTipo)chartTipo.destroy(); if(chartValor)chartValor.destroy(); if(chartDia)chartDia.destroy();
+
+        chartTipo=new Chart(document.getElementById('chart_tipo'),{
+            type:'doughnut',
+            data:{labels:Object.keys(data.por_tipo||{}),
+            datasets:[{data:Object.values(data.por_tipo||{}),backgroundColor:['#1976d2','#ec407a']}]},
+            options:{devicePixelRatio:2,plugins:{title:{display:true,text:'Nominaciones por tipo'}}}
+        });
+
+        chartValor=new Chart(document.getElementById('chart_valor'),{
+            type:'bar',
+            data:{labels:data.por_valor.map(d=>d.valor),
+            datasets:[{data:data.por_valor.map(d=>d.n),backgroundColor:'#42a5f5'}]},
+            options:{devicePixelRatio:2,plugins:{title:{display:true,text:'Top valores nominados'}},scales:{y:{beginAtZero:true}}}
+        });
+
+        chartDia=new Chart(document.getElementById('chart_dia'),{
+            type:'line',
+            data:{labels:data.por_dia.map(d=>d.fecha),
+            datasets:[{data:data.por_dia.map(d=>d.n),label:'Nominaciones',
+            borderColor:'#7b0000',backgroundColor:'rgba(123,0,0,0.1)',tension:0.4,fill:true}]},
+            options:{devicePixelRatio:2,plugins:{title:{display:true,text:'Nominaciones por día'}}}
+        });
+    }catch(e){console.error("Error:",e);}
+}
+
+// ===============================
+// 🔹 Cargar maestros + buscador
+// ===============================
+async function cargarMaestros(){
+    const r=await fetch('/admin/catalogo/maestros');
+    const ms=await r.json();
+    const s=document.getElementById('maestro-select');
+    s.innerHTML='';
+    ms.forEach(m=>{
+        const o=document.createElement('option');
+        o.value=m.id; o.textContent=m.nombre;
+        s.appendChild(o);
+    });
+
+    const input=document.getElementById('maestro-search');
+    input.addEventListener('input',()=>{
+        const term=input.value.toLowerCase();
+        for(const opt of s.options){
+            const visible = opt.textContent.toLowerCase().includes(term);
+            opt.hidden = !visible; // Usa hidden, no display:none
         }
-
-        actualizarTituloMes(mes || "Resumen general");
-
-        // === Actualizar KPIs con animación ===
-        animateCounter(document.getElementById('k_maestros'),
-            parseInt(document.getElementById('k_maestros').textContent) || 0,
-            data.totales.maestros);
-        animateCounter(document.getElementById('k_alumnos'),
-            parseInt(document.getElementById('k_alumnos').textContent) || 0,
-            data.totales.alumnos);
-        animateCounter(document.getElementById('k_nominaciones'),
-            parseInt(document.getElementById('k_nominaciones').textContent) || 0,
-            data.totales.nominaciones);
-
-        // === Destruir gráficas previas si existen ===
-        if (chartTipo) chartTipo.destroy();
-        if (chartValor) chartValor.destroy();
-        if (chartDia) chartDia.destroy();
-
-        // === Gráfica 1: Nominaciones por tipo ===
-        const ctxTipo = document.getElementById('chart_tipo').getContext('2d');
-        chartTipo = new Chart(ctxTipo, {
-            type: 'doughnut',
-            data: {
-                labels: Object.keys(data.por_tipo || {}),
-                datasets: [{
-                    data: Object.values(data.por_tipo || {}),
-                    backgroundColor: ['#1976d2', '#ec407a'],
-                    borderWidth: 2,
-                    borderColor: '#fff'
-                }]
-            },
-            options: {
-                animation: { duration: 800, easing: 'easeOutQuart' },
-                plugins: {
-                    title: { display: true, text: 'Nominaciones por tipo', font: { size: 16, weight: 'bold' } },
-                    legend: { position: 'bottom' }
-                },
-                responsive: true,
-                maintainAspectRatio: false
-            }
-        });
-
-        // === Gráfica 2: Top valores nominados ===
-        const ctxValor = document.getElementById('chart_valor').getContext('2d');
-        chartValor = new Chart(ctxValor, {
-            type: 'bar',
-            data: {
-                labels: data.por_valor.map(d => d.valor),
-                datasets: [{ data: data.por_valor.map(d => d.n), backgroundColor: '#42a5f5', borderRadius: 6 }]
-            },
-            options: {
-                animation: { duration: 800, easing: 'easeOutQuart' },
-                plugins: {
-                    title: { display: true, text: 'Top valores nominados', font: { size: 16, weight: 'bold' } },
-                    legend: { display: false }
-                },
-                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
-                responsive: true,
-                maintainAspectRatio: false
-            }
-        });
-
-        // === Gráfica 3: Nominaciones por día ===
-        const ctxDia = document.getElementById('chart_dia').getContext('2d');
-        chartDia = new Chart(ctxDia, {
-            type: 'line',
-            data: {
-                labels: data.por_dia.map(d => d.fecha),
-                datasets: [{
-                    data: data.por_dia.map(d => d.n),
-                    label: 'Nominaciones',
-                    borderColor: '#7b0000',
-                    backgroundColor: 'rgba(123,0,0,0.1)',
-                    tension: 0.4,
-                    fill: true,
-                    pointRadius: 4,
-                    pointBackgroundColor: '#7b0000'
-                }]
-            },
-            options: {
-                animation: { duration: 900, easing: 'easeOutQuart' },
-                plugins: {
-                    title: { display: true, text: 'Nominaciones por día', font: { size: 16, weight: 'bold' } },
-                    legend: { display: false }
-                },
-                responsive: true,
-                maintainAspectRatio: false
-            }
-        });
-
-    } catch (err) {
-        console.error("Error cargando dashboard:", err);
-    }
-}
-
-// ===============================
-// 🔹 EXPORTAR NOMINACIONES POR MAESTRO
-// ===============================
-async function cargarMaestros() {
-    const res = await fetch('/admin/catalogo/maestros');
-    const maestros = await res.json();
-    const select = document.getElementById('maestro-select');
-    maestros.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m.id;
-        opt.textContent = m.nombre;
-        select.appendChild(opt);
     });
 }
 
-async function buscarNominaciones() {
-    const maestro_id = document.getElementById('maestro-select').value;
-    const mes = document.getElementById('mes-export').value;
-
-    if (!maestro_id || !mes) {
-        alert("Selecciona maestro y mes");
-        return;
-    }
-
-    const url = `${URL_LISTAR}?maestro_id=${maestro_id}&mes=${mes}`;
-    const res = await fetch(url);
-    const data = await res.json();
-
-    const tbody = document.querySelector('#tabla-nominaciones tbody');
-    tbody.innerHTML = "";
-
-    if (data.error) {
-        alert(data.error);
-        return;
-    }
-
-    data.forEach(n => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><input type="checkbox" class="chk-nom" value="${n.id}"></td>
-            <td>${n.fecha}</td>
-            <td>${n.tipo}</td>
-            <td>${n.nominado}</td>
-            <td>${n.valor}</td>
-            <td>${n.comentario}</td>
-            <td>${n.evento}</td>
-        `;
+// ===============================
+// 🔹 Buscar nominaciones
+// ===============================
+async function buscarNominaciones(){
+    const maestro=document.getElementById('maestro-select').value;
+    const mes=document.getElementById('mes-export').value;
+    if(!maestro||!mes)return alert("Selecciona maestro y mes");
+    const r=await fetch(`${URL_LISTAR}?maestro_id=${maestro}&mes=${mes}`);
+    const data=await r.json();
+    const tbody=document.querySelector('#tabla-nominaciones tbody');
+    tbody.innerHTML="";
+    data.forEach(n=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td><input type="checkbox" class="chk-nom" value="${n.id}" checked></td>
+        <td>${n.fecha}</td><td>${n.tipo}</td><td>${n.nominado}</td><td>${n.valor}</td>
+        <td>${n.comentario}</td><td>${n.evento}</td>`;
         tbody.appendChild(tr);
     });
-
-    document.getElementById('btn-generar-pdf').disabled = data.length === 0;
+    document.getElementById('btn-generar-pdf').disabled=data.length===0;
 }
 
-document.getElementById('select-all').addEventListener('change', e => {
-    document.querySelectorAll('.chk-nom').forEach(chk => chk.checked = e.target.checked);
+document.getElementById('select-all').addEventListener('change',e=>{
+    document.querySelectorAll('.chk-nom').forEach(chk=>chk.checked=e.target.checked);
 });
 
-async function generarPDFsSeleccionados() {
-    const seleccionados = [...document.querySelectorAll('.chk-nom:checked')].map(chk => parseInt(chk.value));
-    if (seleccionados.length === 0) {
-        alert("Selecciona al menos una nominación");
-        return;
-    }
+// ===============================
+// 🔹 Generar PDFs con progreso real
+// ===============================
+async function generarPDFsSeleccionados(){
+    const seleccionados=[...document.querySelectorAll('.chk-nom:checked')].map(chk=>parseInt(chk.value));
+    if(!seleccionados.length)return alert("Selecciona al menos una nominación");
 
-    const res = await fetch(URL_GENERAR, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: seleccionados })
-    });
+    mostrarCargando(true,"Generando invitaciones...");
+    const url=`${URL_GENERAR}?ids=${seleccionados.join(",")}`;
+    const evtSource=new EventSource(url);
 
-    if (!res.ok) {
-        const txt = await res.text();
-        alert("Error generando las invitaciones:\n" + txt);
-        return;
-    }
+    evtSource.onmessage=(event)=>{
+        const data=JSON.parse(event.data);
+        if(data.progreso){
+            const barra=document.getElementById("progress-fill");
+            const texto=document.getElementById("progress-text");
+            barra.style.width=`${data.progreso}%`;
+            texto.textContent=`${data.procesados}/${data.total} (${data.progreso}%)`;
+        }
+        if(data.finalizado){
+            evtSource.close();
+            const barra=document.getElementById("progress-fill");
+            const texto=document.getElementById("progress-text");
+            barra.style.width="100%";
+            texto.textContent="100% (completado)";
+            texto.classList.add("completado");
 
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = "invitaciones.zip";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.URL.revokeObjectURL(url);
+            setTimeout(()=>{
+                mostrarCargando(false);
+                // ✅ Incluye subcarpeta en la URL
+                fetch(`/invitaciones/${data.subcarpeta}/${data.nombre_zip}`)
+                .then(r=>r.blob())
+                .then(b=>{
+                    const url=URL.createObjectURL(b);
+                    const a=document.createElement('a');
+                    a.href=url; a.download=data.nombre_zip;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                });
+            },1000);
+        }
+    };
+
+    evtSource.onerror=(e)=>{
+        console.error("Error SSE:",e);
+        evtSource.close();
+        mostrarCargando(false);
+        alert("Error generando las invitaciones.");
+    };
 }
 
 // ===============================
-// 🔹 Inicialización al cargar
+// 🔹 Inicialización
 // ===============================
-document.addEventListener('DOMContentLoaded', () => {
-    const mesInicial = document.getElementById('mes-dashboard')?.value;
+document.addEventListener('DOMContentLoaded',()=>{
+    const mesInicial=document.getElementById('mes-dashboard')?.value;
     cargarDashboard(mesInicial);
-
-    const selectMes = document.getElementById('mes-dashboard');
-    if (selectMes) {
-        selectMes.addEventListener('change', () => {
-            const nuevoMes = selectMes.value;
-            cargarDashboard(nuevoMes);
-        });
-    }
-
+    document.getElementById('mes-dashboard').addEventListener('change',()=>cargarDashboard(document.getElementById('mes-dashboard').value));
     cargarMaestros();
-    document.getElementById('btn-buscar-nominaciones').addEventListener('click', buscarNominaciones);
-    document.getElementById('btn-generar-pdf').addEventListener('click', generarPDFsSeleccionados);
+    document.getElementById('btn-buscar-nominaciones').addEventListener('click',buscarNominaciones);
+    document.getElementById('btn-generar-pdf').addEventListener('click',generarPDFsSeleccionados);
 });
 </script>
-
-<style>
-.titulo-mes {
-    text-align: center;
-    font-size: 2.2rem;
-    font-weight: 800;
-    color: #7b0000;
-    margin-top: 1rem;
-    margin-bottom: 1.5rem;
-    text-transform: uppercase;
-    transition: all 0.4s ease-in-out;
-}
-.titulo-mes.animado {
-    transform: scale(1.1);
-    color: #b71c1c;
-}
-</style>
 
 </body>
 </html>
