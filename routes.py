@@ -3015,6 +3015,7 @@ def generar_invitaciones_stream():
 def descargar_invitaciones(subcarpeta, nombre_zip):
     import os
     import threading
+    import time
     from flask import send_from_directory, after_this_request
 
     carpeta = os.path.join(os.getcwd(), "invitaciones", subcarpeta)
@@ -3023,20 +3024,26 @@ def descargar_invitaciones(subcarpeta, nombre_zip):
     if not os.path.exists(ruta_archivo):
         return "Archivo no encontrado o ya eliminado.", 404
 
-    # 🧹 Función auxiliar para borrar el archivo después de enviarlo
     def eliminar_archivo_despues():
         try:
+            # Espera 3 segundos para asegurar que el archivo ya fue descargado
+            time.sleep(3)
             os.remove(ruta_archivo)
             print(f"🧹 ZIP eliminado: {ruta_archivo}")
+
+            # Si la carpeta quedó vacía, eliminarla también
+            if not os.listdir(carpeta):
+                os.rmdir(carpeta)
+                print(f"🗑️ Carpeta vacía eliminada: {carpeta}")
+
         except Exception as e:
             print(f"⚠️ No se pudo eliminar el ZIP: {e}")
 
-    # 🧠 Registrar eliminación automática después de la respuesta
     @after_this_request
     def limpiar_archivo(response):
+        # Ejecutar el borrado en un hilo secundario
         hilo = threading.Thread(target=eliminar_archivo_despues)
         hilo.start()
         return response
 
-    # Enviar archivo al navegador
     return send_from_directory(carpeta, nombre_zip, as_attachment=True)
