@@ -80,7 +80,7 @@
 
             <div class="botones">
                 <button id="btn-buscar-nominaciones" class="btn-accion rojo">🔍 Buscar</button>
-                <button id="btn-generar-pdf" class="btn-accion verde" disabled>📄 Generar PDFs seleccionados</button>
+                <button id="btn-generar-pdf" class="btn-accion verde" disabled>📄 Generar Words seleccionados</button>
             </div>
         </div>
 
@@ -240,16 +240,16 @@ async function buscarNominaciones(){
     tbody.innerHTML="";
     data.forEach(n=>{
         const tr=document.createElement('tr');
-        tr.innerHTML = `
-        <td><input type="checkbox" class="chk-nom" value="${n.id}" checked></td>
-        <td>${n.fecha}</td>
-        <td>${n.tipo}</td>
-        <td>${n.nominado}</td>
-        <td><span class="chip-bloque">${n.bloque || "—"}</span></td>
-        <td>${n.valor}</td>
-        <td>${n.comentario}</td>
-        <td>${n.evento}</td>
-        `;
+    tr.innerHTML = `
+    <td><input type="checkbox" class="chk-nom" value="${n.id}" checked></td>
+    <td>${n.fecha}</td>
+    <td>${n.tipo}</td>
+    <td>${n.nominado}</td>
+    <td><span class="chip-bloque">${n.bloque || "—"}</span></td>
+    <td>${n.valor}</td>
+    <td>${n.comentario}</td>
+    <td>${n.evento}</td>
+    `;
         tbody.appendChild(tr);
     });
     document.getElementById('btn-generar-pdf').disabled=data.length===0;
