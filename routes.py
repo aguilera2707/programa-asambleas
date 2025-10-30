@@ -2949,13 +2949,21 @@ def generar_invitaciones_stream():
                         "texto_adicional": texto_adicional,
                     }
 
-                    plantilla = plantilla_alumno if n.tipo == "alumno" else plantilla_personal
+                    
                     filename_base = f"Invitación - {slug(nominado)} - {slug(valor)}"
 
                     try:
-                        pdf_path = generar_pdf(
-                            template_name=plantilla,
-                            context=context,
+                        pdf_path = generar_invitacion(
+                            context={
+                                "nomina_nombre": n.maestro.nombre if n.maestro else "",
+                                "estudiante_nombre": n.alumno.nombre if n.alumno else "",
+                                "colaborador_nombre": n.maestro_nominado.nombre if n.maestro_nominado else "",
+                                "valor_nombre": n.valor.nombre if n.valor else "",
+                                "motivo": n.comentario or "",
+                                "fecha_evento": n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else "",
+                                "lugar": "Auditorio del colegio",
+                            },
+                            tipo=n.tipo,
                             output_dir=output_dir,
                             filename=filename_base
                         )
@@ -2993,3 +3001,25 @@ def descargar_invitaciones(subcarpeta, nombre_zip):
     if not os.path.exists(ruta_archivo):
         return "Archivo no encontrado o ya eliminado.", 404
     return send_from_directory(carpeta, nombre_zip, as_attachment=True)
+
+
+from weasyprint import HTML
+from flask import render_template
+import os
+
+def generar_invitacion(context, tipo, output_dir, filename):
+    """
+    Genera automáticamente la invitación en PDF
+    según el tipo ('alumno' o 'personal').
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    if tipo == 'personal':
+        template = "invitacion_colaborador.html"
+    else:
+        template = "invitacion_alumno.html"
+
+    html = render_template(template, **context)
+    output_pdf = os.path.join(output_dir, f"{filename}.pdf")
+    HTML(string=html).write_pdf(output_pdf)
+    return output_pdf
