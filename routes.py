@@ -2884,26 +2884,24 @@ def nominaciones_por_maestro_y_mes():
 
 
 
-
-
+# ======================================================
+# == Generar DOCX y ZIP (con nombre del maestro) ==
+# ======================================================
 @nom.route('/admin/dashboard/generar_invitaciones_stream')
 @login_required
 @admin_required
 def generar_invitaciones_stream():
-    """
-    Genera DOCX (invitaciones) para cada nominación seleccionada.
-    Compatible con Render (sin PDF) y con ZIP final descargable.
-    """
-    import tempfile, zipfile, json, time
+    import tempfile, zipfile, json, time, shutil
     from flask import Response
     from docxtpl import DocxTemplate
+    from sqlalchemy.orm import joinedload
+    from datetime import datetime
 
     ids = request.args.get("ids", "")
     if not ids:
         return "No se especificaron IDs", 400
 
     ids = [int(i) for i in ids.split(",")]
-    from sqlalchemy.orm import joinedload
 
     nominaciones = (
         Nominacion.query
@@ -2917,26 +2915,25 @@ def generar_invitaciones_stream():
         .filter(Nominacion.id.in_(ids))
         .all()
     )
+
     ciclo = CicloEscolar.query.filter_by(activo=True).first()
     if not ciclo:
         return "No hay ciclo activo", 400
 
-    # Carpeta de salida
     output_dir = os.path.join("invitaciones", ciclo.nombre)
     os.makedirs(output_dir, exist_ok=True)
 
-    # Subcarpeta temporal para este ZIP
     subcarpeta = f"invitaciones_{datetime.now().strftime('%Y%m%d_%H%M')}"
     carpeta_temp = os.path.join(output_dir, subcarpeta)
     os.makedirs(carpeta_temp, exist_ok=True)
 
     total = len(nominaciones)
-    zip_filename = f"{subcarpeta}.zip"
-    zip_path = os.path.join(output_dir, zip_filename)
 
     def stream():
         yield "data: " + json.dumps({"progreso": 0, "procesados": 0, "total": total}) + "\n\n"
         procesados = 0
+
+        maestro_nominador = nominaciones[0].maestro.nombre if nominaciones and nominaciones[0].maestro else "invitaciones"
 
         for n in nominaciones:
             try:
@@ -2979,10 +2976,26 @@ def generar_invitaciones_stream():
             }) + "\n\n"
             time.sleep(0.1)
 
-        # Crear ZIP final
+        maestro_zip = maestro_nominador.replace(" ", "_")
+        zip_filename = f"invitaciones_{maestro_zip}_{datetime.now().strftime('%Y%m%d_%H%M')}.zip"
+        zip_path = os.path.join(output_dir, zip_filename)
+
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for f in os.listdir(carpeta_temp):
                 zipf.write(os.path.join(carpeta_temp, f), f)
+
+        shutil.rmtree(carpeta_temp, ignore_errors=True)
+
+        ahora = datetime.now()
+        for archivo in os.listdir(output_dir):
+            if archivo.endswith(".zip"):
+                ruta = os.path.join(output_dir, archivo)
+                tiempo = datetime.fromtimestamp(os.path.getmtime(ruta))
+                if (ahora - tiempo).days > 2:
+                    try:
+                        os.remove(ruta)
+                    except Exception:
+                        pass
 
         yield "data: " + json.dumps({
             "finalizado": True,
@@ -2990,6 +3003,7 @@ def generar_invitaciones_stream():
             "nombre_zip": zip_filename
         }) + "\n\n"
 
+    # 🔹 Fundamental: devolver el flujo SSE
     return Response(stream(), mimetype="text/event-stream")
 
 # ======================================================
@@ -3000,12 +3014,29 @@ def generar_invitaciones_stream():
 @admin_required
 def descargar_invitaciones(subcarpeta, nombre_zip):
     import os
-    from flask import send_from_directory
+    import threading
+    from flask import send_from_directory, after_this_request
 
     carpeta = os.path.join(os.getcwd(), "invitaciones", subcarpeta)
     ruta_archivo = os.path.join(carpeta, nombre_zip)
+
     if not os.path.exists(ruta_archivo):
         return "Archivo no encontrado o ya eliminado.", 404
+
+    # 🧹 Función auxiliar para borrar el archivo después de enviarlo
+    def eliminar_archivo_despues():
+        try:
+            os.remove(ruta_archivo)
+            print(f"🧹 ZIP eliminado: {ruta_archivo}")
+        except Exception as e:
+            print(f"⚠️ No se pudo eliminar el ZIP: {e}")
+
+    # 🧠 Registrar eliminación automática después de la respuesta
+    @after_this_request
+    def limpiar_archivo(response):
+        hilo = threading.Thread(target=eliminar_archivo_despues)
+        hilo.start()
+        return response
+
+    # Enviar archivo al navegador
     return send_from_directory(carpeta, nombre_zip, as_attachment=True)
-
-
