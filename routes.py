@@ -3137,3 +3137,16 @@ def muro_publico():
         bloque_id=bloque_id,
         bloques=bloques
     )
+@nom.route('/inicio_rapido')
+@login_required
+def inicio_rapido():
+    """Redirige al panel correcto según el rol del usuario"""
+    if current_user.rol == 'admin':
+        return redirect(url_for('nom.panel_admin'))
+    elif current_user.rol == 'profesor':
+        return redirect(url_for('nom.panel_profesor'))  # ✅ nombre correcto
+    elif current_user.rol == 'alumno':
+        return redirect(url_for('nom.panel_alumno'))  # si llegas a tenerlo
+    else:
+        flash("Rol no reconocido. Contacte al administrador.", "warning")
+        return redirect(url_for('nom.logout'))

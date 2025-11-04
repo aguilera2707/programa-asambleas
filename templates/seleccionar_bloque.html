@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Seleccionar Bloque</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/seleccionar_bloque.css') }}">
+    
 </head>
 
 <body>
@@ -12,6 +13,7 @@
         <div class="header-left">
             <h1>🎖️ Nominar Alumno</h1>
         </div>
+        <a href="{{ url_for('nom.inicio_rapido') }}" class="btn-inicio-rapido">🏫</a>
         <div class="header-right">
             <span>{{ current_user.nombre }}</span>
             <a href="{{ url_for('nom.panel_profesor') }}" class="btn-volver-top">← Volver al panel del maestro</a>

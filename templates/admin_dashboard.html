@@ -178,13 +178,24 @@ async function cargarDashboard(mes=null){
             datasets:[{data:data.por_valor.map(d=>d.n),backgroundColor:'#42a5f5'}]},
             options:{devicePixelRatio:2,plugins:{title:{display:true,text:'Top valores nominados'}},scales:{y:{beginAtZero:true}}}
         });
-
+        const porDiaOrdenado = [...data.por_dia].reverse();
         chartDia=new Chart(document.getElementById('chart_dia'),{
             type:'line',
-            data:{labels:data.por_dia.map(d=>d.fecha),
-            datasets:[{data:data.por_dia.map(d=>d.n),label:'Nominaciones',
-            borderColor:'#7b0000',backgroundColor:'rgba(123,0,0,0.1)',tension:0.4,fill:true}]},
-            options:{devicePixelRatio:2,plugins:{title:{display:true,text:'Nominaciones por día'}}}
+            data:{
+                labels:porDiaOrdenado.map(d=>d.fecha),
+                datasets:[{
+                    data:porDiaOrdenado.map(d=>d.n),
+                    label:'Nominaciones',
+                    borderColor:'#7b0000',
+                    backgroundColor:'rgba(123,0,0,0.1)',
+                    tension:0.4,
+                    fill:true
+                }]
+            },
+            options:{
+                devicePixelRatio:2,
+                plugins:{title:{display:true,text:'Nominaciones por día'}}
+            }
         });
     }catch(e){console.error("Error:",e);}
 }
