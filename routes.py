@@ -3047,3 +3047,93 @@ def descargar_invitaciones(subcarpeta, nombre_zip):
         return response
 
     return send_from_directory(carpeta, nombre_zip, as_attachment=True)
+
+# ==========================
+# 🌟 MURO PÚBLICO DE NOMINADOS
+# ==========================
+
+from sqlalchemy.orm import joinedload
+from collections import defaultdict
+
+@nom.route('/muro_publico')
+def muro_publico():
+    """Vista pública de nominados por mes, bloque y tipo."""
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        return render_template("public_muro.html", error="No hay ciclo activo actualmente.")
+
+    # Parámetros de filtro
+    mes = request.args.get("mes", type=int)
+    tipo = request.args.get("tipo", "alumno")
+    bloque_id = request.args.get("bloque", type=int)
+
+    # Obtener eventos del ciclo activo y agrupar meses únicos
+    eventos_query = EventoAsamblea.query.filter_by(ciclo_id=ciclo.id).order_by(EventoAsamblea.mes_ordinal).all()
+
+    # 🔹 Extraer solo meses únicos (por nombre y ordinal)
+    eventos_unicos = []
+    vistos = set()
+    for e in eventos_query:
+        if e.nombre_mes not in vistos:
+            eventos_unicos.append(e)
+            vistos.add(e.nombre_mes)
+
+    # Si no se especifica mes, tomar el último evento activo
+    if not mes and eventos_unicos:
+        mes = max(e.mes_ordinal for e in eventos_unicos)
+
+    # 📦 Obtener lista de bloques (para el filtro)
+    bloques = Bloque.query.filter_by(ciclo_id=ciclo.id).order_by(Bloque.orden).all()
+
+    # Filtrar nominaciones por ciclo, mes, tipo y bloque (si aplica)
+    query = Nominacion.query.options(
+        joinedload(Nominacion.valor),
+        joinedload(Nominacion.alumno),
+        joinedload(Nominacion.maestro_nominado),
+        joinedload(Nominacion.evento)
+    ).filter(
+        Nominacion.ciclo_id == ciclo.id,
+        Nominacion.tipo == tipo,
+        Nominacion.evento.has(EventoAsamblea.mes_ordinal == mes)
+    )
+
+    if bloque_id:
+        query = query.join(Alumno).filter(Alumno.bloque_id == bloque_id)
+
+    nominaciones_raw = query.all()
+
+    # 🧩 Agrupar por persona (alumno o maestro nominado)
+    agrupadas = defaultdict(lambda: {"nombre": "", "bloque": "", "valores": set(), "evento": None})
+
+    for n in nominaciones_raw:
+        if tipo == "alumno" and n.alumno:
+            clave = n.alumno.id
+            agrupadas[clave]["nombre"] = n.alumno.nombre
+            agrupadas[clave]["bloque"] = n.alumno.bloque.nombre if n.alumno.bloque else ""
+        elif tipo == "personal" and n.maestro_nominado:
+            clave = n.maestro_nominado.id
+            agrupadas[clave]["nombre"] = n.maestro_nominado.nombre
+            agrupadas[clave]["bloque"] = "-"
+        else:
+            continue
+
+        agrupadas[clave]["valores"].add(n.valor.nombre)
+        agrupadas[clave]["evento"] = n.evento.nombre_mes
+
+    # 🧮 Convertir a lista y ordenar por cantidad de valores (mayor a menor)
+    nominaciones = sorted(
+        agrupadas.values(),
+        key=lambda x: len(x["valores"]),
+        reverse=True
+    )
+
+    return render_template(
+        "public_muro.html",
+        ciclo=ciclo,
+        eventos=eventos_unicos,
+        nominaciones=nominaciones,
+        mes=mes,
+        tipo=tipo,
+        bloque_id=bloque_id,
+        bloques=bloques
+    )

@@ -1,0 +1,205 @@
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #f8f9fa;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+.muro-header {
+    background: #7b1113;
+    color: white;
+    text-align: center;
+    padding: 1.5rem 0;
+}
+
+.muro-header h1 {
+    margin-bottom: 0.5rem;
+}
+
+.filtros {
+    margin-top: 0.5rem;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.filtros select {
+    padding: 8px;
+    border-radius: 6px;
+    border: none;
+    background: white;
+    font-size: 14px;
+}
+
+.muro-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    padding: 2rem;
+}
+
+.tarjeta {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+    padding: 1rem;
+    text-align: center;
+    transition: transform 0.2s ease;
+}
+
+.tarjeta:hover {
+    transform: translateY(-5px);
+}
+
+.foto {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 0.5rem;
+}
+
+.sin-resultados {
+    text-align: center;
+    font-style: italic;
+    color: #666;
+    margin-top: 2rem;
+}
+
+.muro-footer {
+    text-align: center;
+    padding: 1rem;
+    background: #eee;
+    font-size: 14px;
+}
+
+.valor-chip {
+    display: inline-block;
+    background: #7b1113;
+    color: white;
+    border-radius: 6px;
+    padding: 3px 8px;
+    margin: 2px;
+    font-size: 13px;
+}
+.ranking {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-weight: bold;
+    margin-top: 0.3rem;
+    color: #b8860b; /* dorado elegante */
+}
+
+.medalla {
+    font-size: 20px;
+}
+
+.cantidad {
+    font-size: 15px;
+    background: #fff4d1;
+    color: #7b1113;
+    border-radius: 6px;
+    padding: 3px 8px;
+}
+
+.medalla {
+    font-size: 22px;
+}
+
+/* 🎖️ Colores según tipo de medalla */
+.oro {
+    color: #FFD700; /* Dorado brillante */
+}
+
+.plata {
+    color: #C0C0C0; /* Plateado */
+}
+
+.bronce {
+    color: #CD7F32; /* Bronce */
+}
+
+.corona {
+    color: #ffcc00; /* Amarillo corona */
+    text-shadow: 0 0 6px rgba(255, 215, 0, 0.7);
+}
+
+/* 🧾 Caja de cantidad */
+.cantidad {
+    font-size: 15px;
+    background: #fff4d1;
+    color: #7b1113;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-weight: bold;
+}
+
+/* ✨ Animación de brillo suave */
+@keyframes brillo-dorado {
+    0% {
+        filter: drop-shadow(0 0 3px rgba(255, 215, 0, 0.5))
+                drop-shadow(0 0 6px rgba(255, 215, 0, 0.3));
+    }
+    50% {
+        filter: drop-shadow(0 0 8px rgba(255, 255, 120, 0.8))
+                drop-shadow(0 0 12px rgba(255, 255, 0, 0.6));
+    }
+    100% {
+        filter: drop-shadow(0 0 3px rgba(255, 215, 0, 0.5))
+                drop-shadow(0 0 6px rgba(255, 215, 0, 0.3));
+    }
+}
+
+/* 👑 Corona y 🥇 Oro animados */
+.medalla.corona,
+.medalla.oro {
+    animation: brillo-dorado 2.5s infinite ease-in-out;
+}
+
+/* Ajustes visuales generales */
+.medalla {
+    font-size: 22px;
+    transition: transform 0.3s ease;
+}
+
+.medalla:hover {
+    transform: scale(1.2);
+}
+
+/* Colores base */
+.oro {
+    color: #FFD700;
+}
+
+.plata {
+    color: #C0C0C0;
+}
+
+.bronce {
+    color: #CD7F32;
+}
+
+.corona {
+    color: #ffcc00;
+    text-shadow: 0 0 6px rgba(255, 215, 0, 0.8);
+}
+
+/* Caja de cantidad */
+.cantidad {
+    font-size: 15px;
+    background: #fff4d1;
+    color: #7b1113;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-weight: bold;
+}
+.foto-icono {
+    font-size: 60px;
+    margin-bottom: 0.4rem;
+    animation: brillo-dorado 2.5s infinite ease-in-out;
+}
+html, body { height: 100%; }
+html { overflow-y: auto; }
