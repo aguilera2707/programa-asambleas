@@ -163,6 +163,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Pequeña ayuda: si todo cabe en pantalla, no hay scroll (opcional)
     // Si quieres forzar movimiento aunque haya poco contenido, duplica temporalmente tarjetas.
 });
+
+const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) entry.target.classList.add('visible');
+    });
+});
+document.querySelectorAll('.tarjeta').forEach(t => observer.observe(t));
 </script>
 
 </body>
