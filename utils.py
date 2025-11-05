@@ -76,7 +76,9 @@ def generar_pdf(template_name: str, context: dict, output_dir: str, filename: st
         from flask import render_template
         html_content = render_template(template_name, **context)
         output_pdf = os.path.join(output_dir, f"{filename}.pdf")
-        HTML(string=html_content).write_pdf(output_pdf)
+        HTML(string=html_content, base_url=".").write_pdf(
+            output_pdf, optimize_size=('images',)
+        )
         return output_pdf
 
 

@@ -2887,22 +2887,29 @@ def nominaciones_por_maestro_y_mes():
 # ======================================================
 # == Generar DOCX y ZIP (con nombre del maestro) ==
 # ======================================================
+# ======================================================
+# == Generar DOCX y ZIP EN STREAMING (Optimizado para Render) ==
+# ======================================================
 @nom.route('/admin/dashboard/generar_invitaciones_stream')
 @login_required
 @admin_required
 def generar_invitaciones_stream():
-    import tempfile, zipfile, json, time, shutil
-    from flask import Response
+    from flask import Response, stream_with_context, request
+    import io, zipfile, time, os, gc
     from docxtpl import DocxTemplate
     from sqlalchemy.orm import joinedload
-    from datetime import datetime
+    from models import Nominacion, CicloEscolar
 
     ids = request.args.get("ids", "")
     if not ids:
         return "No se especificaron IDs", 400
 
     ids = [int(i) for i in ids.split(",")]
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        return "No hay ciclo activo", 400
 
+    # 🔹 Carga todas las nominaciones con sus relaciones
     nominaciones = (
         Nominacion.query
         .options(
@@ -2916,137 +2923,73 @@ def generar_invitaciones_stream():
         .all()
     )
 
-    ciclo = CicloEscolar.query.filter_by(activo=True).first()
-    if not ciclo:
-        return "No hay ciclo activo", 400
+    # 🔹 Generación y envío progresivo del ZIP
+    def stream_zip():
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for n in nominaciones:
+                try:
+                    tipo = n.tipo or "alumno"
+                    plantilla = (
+                        "formato_asamblea.docx"
+                        if tipo == "alumno"
+                        else "invitacion colaborador 1.docx"
+                    )
 
-    output_dir = os.path.join("invitaciones", ciclo.nombre)
-    os.makedirs(output_dir, exist_ok=True)
+                    doc = DocxTemplate(os.path.join("docx_templates", plantilla))
+                    context = {
+                        "quien_nomina": n.maestro.nombre if n.maestro else "",
+                        "nominado": (
+                            n.alumno.nombre if n.tipo == "alumno"
+                            else n.maestro_nominado.nombre if n.maestro_nominado else ""
+                        ),
+                        "valor": n.valor.nombre if n.valor else "",
+                        "fecha_evento": n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else "",
+                        "texto_adicional": n.comentario or "",
+                    }
 
-    subcarpeta = f"invitaciones_{datetime.now().strftime('%Y%m%d_%H%M')}"
-    carpeta_temp = os.path.join(output_dir, subcarpeta)
-    os.makedirs(carpeta_temp, exist_ok=True)
+                    doc.render(context)
 
-    total = len(nominaciones)
+                    # Guardar en memoria, no en disco
+                    temp = io.BytesIO()
+                    doc.save(temp)
+                    temp.seek(0)
 
-    def stream():
-        yield "data: " + json.dumps({"progreso": 0, "procesados": 0, "total": total}) + "\n\n"
-        procesados = 0
+                    nombre_nominado = n.alumno.nombre if tipo == "alumno" else (
+                        n.maestro_nominado.nombre if n.maestro_nominado else ""
+                    )
+                    filename_base = f"{nombre_nominado.replace(' ', '_')}_{tipo}_{n.valor.nombre if n.valor else 'SinValor'}.docx"
 
-        maestro_nominador = nominaciones[0].maestro.nombre if nominaciones and nominaciones[0].maestro else "invitaciones"
+                    zf.writestr(filename_base, temp.read())
+                    temp.close()
+                    gc.collect()
+                    yield b""  # mantiene viva la conexión
 
-        for n in nominaciones:
-            try:
-                tipo = n.tipo or "alumno"
-                plantilla = (
-                    "formato_asamblea.docx"
-                    if tipo == "alumno"
-                    else "invitacion colaborador 1.docx"
-                )
+                except Exception as e:
+                    print(f"⚠️ Error generando invitación {n.id}: {e}")
 
-                doc = DocxTemplate(os.path.join("docx_templates", plantilla))
-                context = {
-                    "quien_nomina": n.maestro.nombre if n.maestro else "",
-                    "nominado": (
-                        n.alumno.nombre if n.tipo == "alumno"
-                        else n.maestro_nominado.nombre if n.maestro_nominado else ""
-                    ),
-                    "valor": n.valor.nombre if n.valor else "",
-                    "fecha_evento": n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else "",
-                    "texto_adicional": n.comentario or "",
-                }
-                doc.render(context)
+        buffer.seek(0)
+        yield buffer.getvalue()
+        buffer.close()
 
-                nombre_nominado = n.alumno.nombre if tipo == "alumno" else (
-                    n.maestro_nominado.nombre if n.maestro_nominado else ""
-                )
-                filename_base = f"{nombre_nominado.replace(' ', '_')}_{tipo}_{n.valor.nombre if n.valor else 'SinValor'}"
-                output_path = os.path.join(carpeta_temp, f"{filename_base}.docx")
-                doc.save(output_path)
+        filename = f"invitaciones_{ciclo.nombre}_{time.strftime('%Y%m%d_%H%M')}.zip"
 
-            except Exception as e:
-                print(f"⚠️ Error con nominación {n.id}: {e}")
+        # 🔹 Nombre del archivo final
+        filename = f"invitaciones_{ciclo.nombre}_{time.strftime('%Y%m%d_%H%M')}.zip"
 
-            procesados += 1
-            progreso = int((procesados / total) * 100)
-            yield "data: " + json.dumps({
-                "progreso": progreso,
-                "procesados": procesados,
-                "total": total
-            }) + "\n\n"
-            time.sleep(0.1)
+        # 🔹 Convertimos el generador en bytes completos antes de enviar
+        data_bytes = b"".join(list(stream_zip()))
 
-        maestro_zip = maestro_nominador.replace(" ", "_")
-        zip_filename = f"invitaciones_{maestro_zip}_{datetime.now().strftime('%Y%m%d_%H%M')}.zip"
-        zip_path = os.path.join(output_dir, zip_filename)
+        return Response(
+            data_bytes,
+            mimetype="application/zip",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Content-Length": str(len(data_bytes)),
+                "Cache-Control": "no-store"
+            }
+        )
 
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-            for f in os.listdir(carpeta_temp):
-                zipf.write(os.path.join(carpeta_temp, f), f)
-
-        shutil.rmtree(carpeta_temp, ignore_errors=True)
-
-        ahora = datetime.now()
-        for archivo in os.listdir(output_dir):
-            if archivo.endswith(".zip"):
-                ruta = os.path.join(output_dir, archivo)
-                tiempo = datetime.fromtimestamp(os.path.getmtime(ruta))
-                if (ahora - tiempo).days > 2:
-                    try:
-                        os.remove(ruta)
-                    except Exception:
-                        pass
-
-        yield "data: " + json.dumps({
-            "finalizado": True,
-            "subcarpeta": ciclo.nombre,
-            "nombre_zip": zip_filename
-        }) + "\n\n"
-
-    # 🔹 Fundamental: devolver el flujo SSE
-    return Response(stream(), mimetype="text/event-stream")
-
-# ======================================================
-# == Descarga directa del ZIP ==
-# ======================================================
-@nom.route('/invitaciones/<subcarpeta>/<nombre_zip>')
-@login_required
-@admin_required
-def descargar_invitaciones(subcarpeta, nombre_zip):
-    import os
-    import threading
-    import time
-    from flask import send_from_directory, after_this_request
-
-    carpeta = os.path.join(os.getcwd(), "invitaciones", subcarpeta)
-    ruta_archivo = os.path.join(carpeta, nombre_zip)
-
-    if not os.path.exists(ruta_archivo):
-        return "Archivo no encontrado o ya eliminado.", 404
-
-    def eliminar_archivo_despues():
-        try:
-            # Espera 3 segundos para asegurar que el archivo ya fue descargado
-            time.sleep(3)
-            os.remove(ruta_archivo)
-            print(f"🧹 ZIP eliminado: {ruta_archivo}")
-
-            # Si la carpeta quedó vacía, eliminarla también
-            if not os.listdir(carpeta):
-                os.rmdir(carpeta)
-                print(f"🗑️ Carpeta vacía eliminada: {carpeta}")
-
-        except Exception as e:
-            print(f"⚠️ No se pudo eliminar el ZIP: {e}")
-
-    @after_this_request
-    def limpiar_archivo(response):
-        # Ejecutar el borrado en un hilo secundario
-        hilo = threading.Thread(target=eliminar_archivo_despues)
-        hilo.start()
-        return response
-
-    return send_from_directory(carpeta, nombre_zip, as_attachment=True)
 
 # ==========================
 # 🌟 MURO PÚBLICO DE NOMINADOS

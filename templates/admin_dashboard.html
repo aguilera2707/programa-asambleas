@@ -102,14 +102,19 @@
     </section>
 </main>
 
-<!-- 🔄 Overlay con barra de progreso -->
-<div id="overlay-cargando">
-    <div class="spinner-container">
-        <div class="spinner"></div>
-        <p id="mensaje-cargando">Generando PDFs, por favor espera...</p>
-        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-        <p id="progress-text">0%</p>
-    </div>
+<!-- 🔄 Overlay visual -->
+<div id="overlay-cargando" style="
+    display:none;
+    position:fixed;
+    top:0;left:0;width:100%;height:100%;
+    background:rgba(0,0,0,0.5);
+    color:white;
+    font-size:1.5em;
+    justify-content:center;
+    align-items:center;
+    z-index:9999;
+">
+    ⏳ Generando invitaciones, por favor espera...
 </div>
 
 <script>
@@ -141,11 +146,8 @@ function actualizarTituloMes(m){
     setTimeout(()=>t.classList.remove('animado'),600);
 }
 
-function mostrarCargando(mostrar=true,mensaje="Generando invitaciones..."){
-    const o=document.getElementById("overlay-cargando");
-    const texto=document.getElementById("mensaje-cargando");
-    texto.textContent=mensaje;
-    o.style.display=mostrar?"flex":"none";
+function mostrarOverlay(mostrar=true){
+    document.getElementById("overlay-cargando").style.display=mostrar?"flex":"none";
 }
 
 // ===============================
@@ -178,7 +180,7 @@ async function cargarDashboard(mes=null){
             datasets:[{data:data.por_valor.map(d=>d.n),backgroundColor:'#42a5f5'}]},
             options:{devicePixelRatio:2,plugins:{title:{display:true,text:'Top valores nominados'}},scales:{y:{beginAtZero:true}}}
         });
-        const porDiaOrdenado = [...data.por_dia].reverse();
+        const porDiaOrdenado=[...data.por_dia].reverse();
         chartDia=new Chart(document.getElementById('chart_dia'),{
             type:'line',
             data:{
@@ -203,38 +205,29 @@ async function cargarDashboard(mes=null){
 // ===============================
 // 🔹 Cargar maestros + buscador
 // ===============================
-async function cargarMaestros() {
-    const r = await fetch('/admin/catalogo/maestros');
-    const maestros = await r.json();
-    const select = document.getElementById('maestro-select');
-    const input = document.getElementById('maestro-search');
+async function cargarMaestros(){
+    const r=await fetch('/admin/catalogo/maestros');
+    const maestros=await r.json();
+    const select=document.getElementById('maestro-select');
+    const input=document.getElementById('maestro-search');
 
-    // 🔹 Llenar inicialmente
-    select.innerHTML = '';
-    maestros.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m.id;
-        opt.textContent = m.nombre;
+    select.innerHTML='';
+    maestros.forEach(m=>{
+        const opt=document.createElement('option');
+        opt.value=m.id; opt.textContent=m.nombre;
         select.appendChild(opt);
     });
 
-    // 🔹 Filtro dinámico mientras se escribe
-    input.addEventListener('input', () => {
-        const term = input.value.toLowerCase().trim();
-        const filtrados = maestros.filter(m => m.nombre.toLowerCase().includes(term));
-
-        select.innerHTML = '';
-        filtrados.forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m.id;
-            opt.textContent = m.nombre;
+    input.addEventListener('input',()=>{
+        const term=input.value.toLowerCase().trim();
+        const filtrados=maestros.filter(m=>m.nombre.toLowerCase().includes(term));
+        select.innerHTML='';
+        filtrados.forEach(m=>{
+            const opt=document.createElement('option');
+            opt.value=m.id; opt.textContent=m.nombre;
             select.appendChild(opt);
         });
-
-        // Si solo hay un maestro coincidente → selección automática
-        if (filtrados.length === 1) {
-            select.value = filtrados[0].id;
-        }
+        if(filtrados.length===1)select.value=filtrados[0].id;
     });
 }
 
@@ -245,22 +238,23 @@ async function buscarNominaciones(){
     const maestro=document.getElementById('maestro-select').value;
     const mes=document.getElementById('mes-export').value;
     if(!maestro||!mes)return alert("Selecciona maestro y mes");
+
     const r=await fetch(`${URL_LISTAR}?maestro_id=${maestro}&mes=${mes}`);
     const data=await r.json();
     const tbody=document.querySelector('#tabla-nominaciones tbody');
     tbody.innerHTML="";
     data.forEach(n=>{
         const tr=document.createElement('tr');
-    tr.innerHTML = `
-    <td><input type="checkbox" class="chk-nom" value="${n.id}" checked></td>
-    <td>${n.fecha}</td>
-    <td>${n.tipo}</td>
-    <td>${n.nominado}</td>
-    <td><span class="chip-bloque">${n.bloque || "—"}</span></td>
-    <td>${n.valor}</td>
-    <td>${n.comentario}</td>
-    <td>${n.evento}</td>
-    `;
+        tr.innerHTML=`
+            <td><input type="checkbox" class="chk-nom" value="${n.id}" checked></td>
+            <td>${n.fecha}</td>
+            <td>${n.tipo}</td>
+            <td>${n.nominado}</td>
+            <td><span class="chip-bloque">${n.bloque || "—"}</span></td>
+            <td>${n.valor}</td>
+            <td>${n.comentario}</td>
+            <td>${n.evento}</td>
+        `;
         tbody.appendChild(tr);
     });
     document.getElementById('btn-generar-pdf').disabled=data.length===0;
@@ -271,54 +265,32 @@ document.getElementById('select-all').addEventListener('change',e=>{
 });
 
 // ===============================
-// 🔹 Generar PDFs con progreso real
+// 🔹 Generar invitaciones (nuevo streaming directo)
 // ===============================
-async function generarPDFsSeleccionados(){
-    const seleccionados=[...document.querySelectorAll('.chk-nom:checked')].map(chk=>parseInt(chk.value));
-    if(!seleccionados.length)return alert("Selecciona al menos una nominación");
+async function generarInvitaciones(){
+    const seleccionados=[...document.querySelectorAll('.chk-nom:checked')].map(chk=>chk.value);
+    if(!seleccionados.length)return alert("Selecciona al menos una nominación.");
 
-    mostrarCargando(true,"Generando invitaciones...");
+    mostrarOverlay(true);
     const url=`${URL_GENERAR}?ids=${seleccionados.join(",")}`;
-    const evtSource=new EventSource(url);
 
-    evtSource.onmessage=(event)=>{
-        const data=JSON.parse(event.data);
-        if(data.progreso){
-            const barra=document.getElementById("progress-fill");
-            const texto=document.getElementById("progress-text");
-            barra.style.width=`${data.progreso}%`;
-            texto.textContent=`${data.procesados}/${data.total} (${data.progreso}%)`;
-        }
-        if(data.finalizado){
-            evtSource.close();
-            const barra=document.getElementById("progress-fill");
-            const texto=document.getElementById("progress-text");
-            barra.style.width="100%";
-            texto.textContent="100% (completado)";
-            texto.classList.add("completado");
+    try{
+        // 🔸 Creamos un enlace temporal para descargar directamente el ZIP
+        const enlace=document.createElement("a");
+        enlace.href=url;
+        enlace.download="";
+        document.body.appendChild(enlace);
+        enlace.click();
+        document.body.removeChild(enlace);
 
-            setTimeout(()=>{
-                mostrarCargando(false);
-                // ✅ Incluye subcarpeta en la URL
-                fetch(`/invitaciones/${data.subcarpeta}/${data.nombre_zip}`)
-                .then(r=>r.blob())
-                .then(b=>{
-                    const url=URL.createObjectURL(b);
-                    const a=document.createElement('a');
-                    a.href=url; a.download=data.nombre_zip;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                });
-            },1000);
-        }
-    };
-
-    evtSource.onerror=(e)=>{
-        console.error("Error SSE:",e);
-        evtSource.close();
-        mostrarCargando(false);
-        alert("Error generando las invitaciones.");
-    };
+        // Mensaje breve
+        setTimeout(()=>alert("✅ La descarga de invitaciones ha comenzado."),1500);
+    }catch(err){
+        console.error("Error generando invitaciones:",err);
+        alert("Ocurrió un error al generar las invitaciones.");
+    }finally{
+        mostrarOverlay(false);
+    }
 }
 
 // ===============================
@@ -330,7 +302,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     document.getElementById('mes-dashboard').addEventListener('change',()=>cargarDashboard(document.getElementById('mes-dashboard').value));
     cargarMaestros();
     document.getElementById('btn-buscar-nominaciones').addEventListener('click',buscarNominaciones);
-    document.getElementById('btn-generar-pdf').addEventListener('click',generarPDFsSeleccionados);
+    document.getElementById('btn-generar-pdf').addEventListener('click',generarInvitaciones);
 });
 </script>
 
