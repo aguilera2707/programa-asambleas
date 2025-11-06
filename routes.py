@@ -2885,17 +2885,14 @@ def nominaciones_por_maestro_y_mes():
 
 
 # ======================================================
-# == Generar DOCX y ZIP (con nombre del maestro) ==
-# ======================================================
-# ======================================================
-# == Generar DOCX y ZIP EN STREAMING (Optimizado para Render) ==
+# == Generar DOCX y ZIP EN MEMORIA (versión universal segura)
 # ======================================================
 @nom.route('/admin/dashboard/generar_invitaciones_stream')
 @login_required
 @admin_required
 def generar_invitaciones_stream():
-    from flask import Response, stream_with_context, request
     import io, zipfile, time, os, gc
+    from flask import send_file, request, make_response
     from docxtpl import DocxTemplate
     from sqlalchemy.orm import joinedload
     from models import Nominacion, CicloEscolar
@@ -2905,11 +2902,11 @@ def generar_invitaciones_stream():
         return "No se especificaron IDs", 400
 
     ids = [int(i) for i in ids.split(",")]
+
     ciclo = CicloEscolar.query.filter_by(activo=True).first()
     if not ciclo:
         return "No hay ciclo activo", 400
 
-    # 🔹 Carga todas las nominaciones con sus relaciones
     nominaciones = (
         Nominacion.query
         .options(
@@ -2923,72 +2920,59 @@ def generar_invitaciones_stream():
         .all()
     )
 
-    # 🔹 Generación y envío progresivo del ZIP
-    def stream_zip():
-        buffer = io.BytesIO()
-        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-            for n in nominaciones:
-                try:
-                    tipo = n.tipo or "alumno"
-                    plantilla = (
-                        "formato_asamblea.docx"
-                        if tipo == "alumno"
-                        else "invitacion colaborador 1.docx"
-                    )
+    if not nominaciones:
+        return "No se encontraron nominaciones.", 404
 
-                    doc = DocxTemplate(os.path.join("docx_templates", plantilla))
-                    context = {
-                        "quien_nomina": n.maestro.nombre if n.maestro else "",
-                        "nominado": (
-                            n.alumno.nombre if n.tipo == "alumno"
-                            else n.maestro_nominado.nombre if n.maestro_nominado else ""
-                        ),
-                        "valor": n.valor.nombre if n.valor else "",
-                        "fecha_evento": n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else "",
-                        "texto_adicional": n.comentario or "",
-                    }
+    # 🔹 Generar ZIP totalmente en memoria
+    mem_zip = io.BytesIO()
+    with zipfile.ZipFile(mem_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+        for n in nominaciones:
+            try:
+                tipo = n.tipo or "alumno"
+                plantilla = (
+                    "formato_asamblea.docx"
+                    if tipo == "alumno"
+                    else "invitacion colaborador 1.docx"
+                )
+                doc = DocxTemplate(os.path.join("docx_templates", plantilla))
+                context = {
+                    "quien_nomina": n.maestro.nombre if n.maestro else "",
+                    "nominado": (
+                        n.alumno.nombre if tipo == "alumno"
+                        else n.maestro_nominado.nombre if n.maestro_nominado else ""
+                    ),
+                    "valor": n.valor.nombre if n.valor else "",
+                    "fecha_evento": n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else "",
+                    "texto_adicional": n.comentario or "",
+                }
+                doc.render(context)
 
-                    doc.render(context)
+                temp = io.BytesIO()
+                doc.save(temp)
+                temp.seek(0)
 
-                    # Guardar en memoria, no en disco
-                    temp = io.BytesIO()
-                    doc.save(temp)
-                    temp.seek(0)
+                nombre_nominado = n.alumno.nombre if tipo == "alumno" else (
+                    n.maestro_nominado.nombre if n.maestro_nominado else ""
+                )
+                filename = f"{nombre_nominado.replace(' ', '_')}_{tipo}_{n.valor.nombre if n.valor else 'SinValor'}.docx"
+                zf.writestr(filename, temp.read())
+                temp.close()
+                gc.collect()
+            except Exception as e:
+                print(f"⚠️ Error generando invitación {n.id}: {e}")
 
-                    nombre_nominado = n.alumno.nombre if tipo == "alumno" else (
-                        n.maestro_nominado.nombre if n.maestro_nominado else ""
-                    )
-                    filename_base = f"{nombre_nominado.replace(' ', '_')}_{tipo}_{n.valor.nombre if n.valor else 'SinValor'}.docx"
+    mem_zip.seek(0)
+    filename_zip = f"invitaciones_{ciclo.nombre}_{time.strftime('%Y%m%d_%H%M')}.zip"
 
-                    zf.writestr(filename_base, temp.read())
-                    temp.close()
-                    gc.collect()
-                    yield b""  # mantiene viva la conexión
+    # ✅ Generamos respuesta explícita y segura
+    response = make_response(mem_zip.read())
+    response.headers["Content-Type"] = "application/zip"
+    response.headers["Content-Disposition"] = f"attachment; filename={filename_zip}"
+    response.headers["Content-Length"] = str(mem_zip.tell())
+    response.headers["Cache-Control"] = "no-store"
+    mem_zip.close()
 
-                except Exception as e:
-                    print(f"⚠️ Error generando invitación {n.id}: {e}")
-
-        buffer.seek(0)
-        yield buffer.getvalue()
-        buffer.close()
-
-        filename = f"invitaciones_{ciclo.nombre}_{time.strftime('%Y%m%d_%H%M')}.zip"
-
-        # 🔹 Nombre del archivo final
-        filename = f"invitaciones_{ciclo.nombre}_{time.strftime('%Y%m%d_%H%M')}.zip"
-
-        # 🔹 Convertimos el generador en bytes completos antes de enviar
-        data_bytes = b"".join(list(stream_zip()))
-
-        return Response(
-            data_bytes,
-            mimetype="application/zip",
-            headers={
-                "Content-Disposition": f"attachment; filename={filename}",
-                "Content-Length": str(len(data_bytes)),
-                "Cache-Control": "no-store"
-            }
-        )
+    return response
 
 
 # ==========================
