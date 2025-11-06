@@ -267,31 +267,73 @@ document.getElementById('select-all').addEventListener('change',e=>{
 // ===============================
 // 🔹 Generar invitaciones (nuevo streaming directo)
 // ===============================
+// ===============================
+// 🔹 Generar invitaciones con progreso visual simulado
+// ===============================
 async function generarInvitaciones(){
-    const seleccionados=[...document.querySelectorAll('.chk-nom:checked')].map(chk=>chk.value);
-    if(!seleccionados.length)return alert("Selecciona al menos una nominación.");
+    const seleccionados = [...document.querySelectorAll('.chk-nom:checked')].map(chk => chk.value);
+    if(!seleccionados.length) return alert("Selecciona al menos una nominación.");
 
-    mostrarOverlay(true);
-    const url=`${URL_GENERAR}?ids=${seleccionados.join(",")}`;
+    const total = seleccionados.length;
+    const url = `${URL_GENERAR}?ids=${seleccionados.join(",")}`;
+    const overlay = document.getElementById("overlay-cargando");
 
-    try{
-        // 🔸 Creamos un enlace temporal para descargar directamente el ZIP
-        const enlace=document.createElement("a");
-        enlace.href=url;
-        enlace.download="";
+    // Crear barra de progreso temporal
+    overlay.innerHTML = `
+        <div class="spinner-container">
+            <div class="spinner"></div>
+            <p id="mensaje-cargando">Generando 1 de ${total} invitaciones...</p>
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+            <p id="progress-text">0%</p>
+        </div>
+    `;
+    overlay.style.display = "flex";
+
+    // Simulación visual del progreso
+    const barra = document.getElementById("progress-fill");
+    const texto = document.getElementById("progress-text");
+    const msg = document.getElementById("mensaje-cargando");
+
+    let current = 0;
+    const duration = Math.max(3, total * 0.6); // segundos aprox.
+    const interval = setInterval(()=>{
+        current++;
+        const porcentaje = Math.min((current / duration) * 100, 100);
+        barra.style.width = `${porcentaje}%`;
+        texto.textContent = `${Math.floor(porcentaje)}%`;
+        const invitacionActual = Math.min(Math.ceil((porcentaje / 100) * total), total);
+        msg.textContent = `Generando ${invitacionActual} de ${total} invitaciones...`;
+        if(porcentaje >= 100){
+            clearInterval(interval);
+        }
+    }, 600);
+
+    try {
+        // 🔸 Crear enlace invisible para descargar el ZIP
+        const enlace = document.createElement("a");
+        enlace.href = url;
+        enlace.download = "";
         document.body.appendChild(enlace);
         enlace.click();
         document.body.removeChild(enlace);
 
-        // Mensaje breve
-        setTimeout(()=>alert("✅ La descarga de invitaciones ha comenzado."),1500);
-    }catch(err){
-        console.error("Error generando invitaciones:",err);
+        // 🔹 Mostrar mensaje final
+        setTimeout(()=>{
+            overlay.innerHTML = `
+                <div class="spinner-container">
+                    <p style="font-size:1.3em;">✅ Invitaciones listas y descargadas</p>
+                </div>
+            `;
+            setTimeout(()=> overlay.style.display = "none", 1800);
+        }, (duration * 1000) + 1000);
+
+    } catch (err) {
+        console.error("Error generando invitaciones:", err);
         alert("Ocurrió un error al generar las invitaciones.");
-    }finally{
-        mostrarOverlay(false);
+        overlay.style.display = "none";
     }
 }
+
 
 // ===============================
 // 🔹 Inicialización
