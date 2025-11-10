@@ -1,20 +1,27 @@
+/* === Fondo general y estructura === */
 body {
     font-family: 'Segoe UI', sans-serif;
-    background: #f8f9fa;
+    background: linear-gradient(120deg, #f8f9fa, #fff7e0, #f8f9fa);
+    background-size: 400% 400%;
+    animation: fondo-lento 20s ease infinite;
     color: #333;
     margin: 0;
     padding: 0;
 }
 
+@keyframes fondo-lento {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* === Encabezado === */
 .muro-header {
     background: #7b1113;
     color: white;
     text-align: center;
     padding: 1.5rem 0;
-}
-
-.muro-header h1 {
-    margin-bottom: 0.5rem;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
 }
 
 .filtros {
@@ -25,55 +32,86 @@ body {
 }
 
 .filtros select {
-    padding: 8px;
+    padding: 8px 12px;
     border-radius: 6px;
     border: none;
     background: white;
     font-size: 14px;
 }
 
+/* === Contenedor de tarjetas === */
 .muro-container {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 1rem;
+    gap: 1.5rem;
     padding: 2rem;
 }
 
+/* === Tarjetas === */
 .tarjeta {
     background: white;
-    border-radius: 10px;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+    border-radius: 12px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
     padding: 1rem;
     text-align: center;
-    transition: transform 0.2s ease;
+    transition: transform 0.25s ease, box-shadow 0.3s ease;
 }
 
 .tarjeta:hover {
     transform: translateY(-5px);
+    box-shadow: 0 8px 18px rgba(0,0,0,0.2);
 }
 
-.foto {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin-bottom: 0.5rem;
+/* === 🌟 Estrella central === */
+.estrella {
+    position: relative;
+    display: inline-block;
+    width: 90px;
+    height: 90px;
+    margin: 10px auto 15px;
+    color: #FFD700;
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.6),
+                0 0 12px rgba(255, 255, 0, 0.4);
+    animation: brillar 2.5s infinite ease-in-out;
 }
 
-.sin-resultados {
-    text-align: center;
-    font-style: italic;
-    color: #666;
-    margin-top: 2rem;
+.estrella svg {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+    transform: scale(1);
+    transition: transform 0.3s ease;
 }
 
-.muro-footer {
-    text-align: center;
-    padding: 1rem;
-    background: #eee;
-    font-size: 14px;
+.tarjeta:hover .estrella svg {
+    transform: scale(1.1);
 }
 
+/* Número centrado dentro de la estrella */
+.numero {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #7b1113;
+    font-weight: 800;
+    font-size: 1.9em;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+}
+
+/* ✨ Animación suave de brillo */
+@keyframes brillar {
+    0%, 100% {
+        filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.5))
+                drop-shadow(0 0 12px rgba(255, 255, 0, 0.4));
+    }
+    50% {
+        filter: drop-shadow(0 0 16px rgba(255, 255, 150, 0.8))
+                drop-shadow(0 0 24px rgba(255, 255, 0, 0.6));
+    }
+}
+
+/* === Chips de valores === */
 .valor-chip {
     display: inline-block;
     background: #7b1113;
@@ -83,165 +121,27 @@ body {
     margin: 2px;
     font-size: 13px;
 }
-.ranking {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
+
+/* === Nombre, bloque y texto === */
+.nombre {
     font-weight: bold;
-    margin-top: 0.3rem;
-    color: #b8860b; /* dorado elegante */
+    margin: 0.5rem 0 0.2rem 0;
+    font-size: 1.1em;
 }
 
-.medalla {
-    font-size: 20px;
+/* === Footer === */
+.muro-footer {
+    text-align: center;
+    padding: 1rem;
+    background: #eee;
+    font-size: 14px;
+    color: #333;
 }
 
-.cantidad {
-    font-size: 15px;
-    background: #fff4d1;
-    color: #7b1113;
-    border-radius: 6px;
-    padding: 3px 8px;
-}
-
-.medalla {
-    font-size: 22px;
-}
-
-/* 🎖️ Colores según tipo de medalla */
-.oro {
-    color: #FFD700; /* Dorado brillante */
-}
-
-.plata {
-    color: #C0C0C0; /* Plateado */
-}
-
-.bronce {
-    color: #CD7F32; /* Bronce */
-}
-
-.corona {
-    color: #ffcc00; /* Amarillo corona */
-    text-shadow: 0 0 6px rgba(255, 215, 0, 0.7);
-}
-
-/* 🧾 Caja de cantidad */
-.cantidad {
-    font-size: 15px;
-    background: #fff4d1;
-    color: #7b1113;
-    border-radius: 6px;
-    padding: 3px 8px;
-    font-weight: bold;
-}
-
-/* ✨ Animación de brillo suave */
-@keyframes brillo-dorado {
-    0% {
-        filter: drop-shadow(0 0 3px rgba(255, 215, 0, 0.5))
-                drop-shadow(0 0 6px rgba(255, 215, 0, 0.3));
-    }
-    50% {
-        filter: drop-shadow(0 0 8px rgba(255, 255, 120, 0.8))
-                drop-shadow(0 0 12px rgba(255, 255, 0, 0.6));
-    }
-    100% {
-        filter: drop-shadow(0 0 3px rgba(255, 215, 0, 0.5))
-                drop-shadow(0 0 6px rgba(255, 215, 0, 0.3));
-    }
-}
-
-/* 👑 Corona y 🥇 Oro animados */
-.medalla.corona,
-.medalla.oro {
-    animation: brillo-dorado 2.5s infinite ease-in-out;
-}
-
-/* Ajustes visuales generales */
-.medalla {
-    font-size: 22px;
-    transition: transform 0.3s ease;
-}
-
-.medalla:hover {
-    transform: scale(1.2);
-}
-
-/* Colores base */
-.oro {
-    color: #FFD700;
-}
-
-.plata {
-    color: #C0C0C0;
-}
-
-.bronce {
-    color: #CD7F32;
-}
-
-.corona {
-    color: #ffcc00;
-    text-shadow: 0 0 6px rgba(255, 215, 0, 0.8);
-}
-
-/* Caja de cantidad */
-.cantidad {
-    font-size: 15px;
-    background: #fff4d1;
-    color: #7b1113;
-    border-radius: 6px;
-    padding: 3px 8px;
-    font-weight: bold;
-}
-.foto-icono {
-    font-size: 60px;
-    margin-bottom: 0.4rem;
-    animation: brillo-dorado 2.5s infinite ease-in-out;
-}
-html, body { height: 100%; }
-html { overflow-y: auto; }
-
-.tarjeta {
-    opacity: 0;
-    transform: translateY(20px);
-    transition: opacity 0.6s ease, transform 0.6s ease;
-}
-.tarjeta.visible {
-    opacity: 1;
-    transform: translateY(0);
-}
-body {
-    background: linear-gradient(120deg, #f8f9fa, #fff7e0, #f8f9fa);
-    background-size: 400% 400%;
-    animation: fondo-lento 20s ease infinite;
-}
-@keyframes fondo-lento {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-.tarjeta.oro, .tarjeta.corona {
-    position: relative;
-    overflow: hidden;
-}
-.tarjeta.oro::after, .tarjeta.corona::after {
-    content: "";
-    position: absolute;
-    top: 0; left: -75%;
-    width: 50%; height: 100%;
-    background: linear-gradient(120deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0.2) 100%);
-    animation: brillo 8s infinite;
-}
-@keyframes brillo {
-    0% { left: -75%; }
-    50% { left: 125%; }
-    100% { left: 125%; }
-}
-.tarjeta:hover {
-    transform: scale(1.03);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-    transition: all 0.3s ease;
+/* === Sin resultados === */
+.sin-resultados {
+    text-align: center;
+    font-style: italic;
+    color: #666;
+    margin-top: 2rem;
 }

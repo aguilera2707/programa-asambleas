@@ -2,13 +2,13 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Muro de Honor – {{ ciclo.nombre }}</title>
+    <title>Muro de Valores – {{ ciclo.nombre }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/public_muro.css') }}">
 </head>
 <body>
 
 <header class="muro-header">
-    <h1>🏆 Muro de Honor – {{ ciclo.nombre }}</h1>
+    <h1>🌟 Muro de Valores – {{ ciclo.nombre }}</h1>
     <form method="get" class="filtros">
         <select name="mes" onchange="this.form.submit()">
             {% for e in eventos %}
@@ -35,52 +35,30 @@
 <main class="muro-container">
     {% if nominaciones %}
         {% for n in nominaciones %}
-            <div class="tarjeta">
-                <div class="foto-icono">
-                    {% if n.valores|length >= 4 %}
-                        👑
-                    {% elif n.valores|length == 3 %}
-                        🥇
-                    {% elif n.valores|length == 2 %}
-                        🥈
-                    {% else %}
-                        🥉
-                    {% endif %}
-                </div>
-
-                <!-- 🥇 Medalla y número de valores -->
-                <div class="ranking">
-                    {% if n.valores|length >= 4 %}
-                        <span class="medalla corona"></span>
-                    {% elif n.valores|length == 3 %}
-                        <span class="medalla oro"></span>
-                    {% elif n.valores|length == 2 %}
-                        <span class="medalla plata"></span>
-                    {% else %}
-                        <span class="medalla bronce"></span>
-                    {% endif %}
-
-                    <span class="cantidad">
-                        {{ n.valores|length }} {{ 'valor' if n.valores|length == 1 else 'valores' }}
-                    </span>
-                </div>
-
-                <!-- Nombre -->
-                <h2>{{ n.nombre }}</h2>
-
-                <!-- Chips de valores -->
-                <p><strong>Valores:</strong>
-                    {% for v in n.valores %}
-                        <span class="valor-chip">{{ v }}</span>
-                    {% endfor %}
-                </p>
-
-                {% if n.bloque %}
-                <p><strong>Bloque:</strong> {{ n.bloque }}</p>
-                {% endif %}
-
-                <small>Evento: {{ n.evento }}</small>
+        <div class="tarjeta visible">
+            
+            <!-- 🌟 Estrella con número -->
+            <div class="estrella">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+                </svg>
+                <span class="numero">{{ n.valores|length }}</span>
             </div>
+
+            <h2 class="nombre">{{ n.nombre }}</h2>
+
+            <p><strong>Valores:</strong>
+                {% for v in n.valores %}
+                    <span class="valor-chip">{{ v }}</span>
+                {% endfor %}
+            </p>
+
+            {% if n.bloque %}
+            <p><strong>Bloque:</strong> {{ n.bloque }}</p>
+            {% endif %}
+
+            <small>Evento: {{ n.evento }}</small>
+        </div>
         {% endfor %}
     {% else %}
         <p class="sin-resultados">😅 No hay nominaciones registradas para los filtros seleccionados.</p>
@@ -97,79 +75,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const bloqueSelect = document.getElementById('bloqueSelect');
 
     function toggleBloque() {
-        if (tipoSelect.value === 'personal') {
-            bloqueSelect.style.display = 'none';
-        } else {
-            bloqueSelect.style.display = 'inline-block';
-        }
+        bloqueSelect.style.display = (tipoSelect.value === 'personal') ? 'none' : 'inline-block';
     }
-
     tipoSelect.addEventListener('change', toggleBloque);
     toggleBloque();
 });
-
-document.addEventListener('DOMContentLoaded', () => {
-  // ===== Scroll automático con acumulador (px/seg) =====
-    const root = document.scrollingElement || document.documentElement;
-
-    // Velocidades en píxeles por segundo
-    let speedDown = 30;  // baja la cifra para más lento (p.ej. 8)
-    let speedUp   = 50;  // y ajusta la subida si quieres distinta
-
-    let dir = 1;            // 1 = abajo, -1 = arriba
-    let paused = false;     // pausa por interacción
-    let last = null;        // timestamp del frame anterior
-    let acc = 0;            // acumulador sub-píxel
-
-    // Pausa 10s si se mueve el mouse
-    let timer = null;
-    document.addEventListener('mousemove', () => {
-        paused = true;
-        clearTimeout(timer);
-        timer = setTimeout(() => paused = false, 10000);
-    }, { passive: true });
-
-    function step(ts) {
-        if (last == null) last = ts;
-        const dt = (ts - last) / 1000; // segundos
-        last = ts;
-
-        const max = root.scrollHeight - root.clientHeight;
-        if (max > 0 && !paused) {
-        // velocidad actual (px/s) según dirección
-        const v = dir === 1 ? speedDown : -speedUp;
-
-        // acumula desplazamiento sub-píxel
-        acc += v * dt;
-
-        // aplica solo cuando hay al menos 1px acumulado
-        const whole = acc | 0; // truncar a entero
-        if (whole !== 0) {
-            const next = Math.min(max, Math.max(0, root.scrollTop + whole));
-            root.scrollTop = next;
-            acc -= whole; // conserva la fracción para el siguiente frame
-        }
-
-        // invertir al llegar a extremos
-        if (root.scrollTop >= max - 1) dir = -1;
-        if (root.scrollTop <= 0)      dir =  1;
-        }
-
-        requestAnimationFrame(step);
-    }
-
-    requestAnimationFrame(step);
-
-    // Pequeña ayuda: si todo cabe en pantalla, no hay scroll (opcional)
-    // Si quieres forzar movimiento aunque haya poco contenido, duplica temporalmente tarjetas.
-});
-
-const observer = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) entry.target.classList.add('visible');
-    });
-});
-document.querySelectorAll('.tarjeta').forEach(t => observer.observe(t));
 </script>
 
 </body>
