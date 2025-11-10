@@ -1485,6 +1485,14 @@ def admin_dashboard():
         .order_by(EventoAsamblea.mes_ordinal, EventoAsamblea.fecha_evento)
         .all()
     )
+    
+        # 🧩 NUEVO: traer los bloques del ciclo activo
+    bloques = (
+        Bloque.query
+        .filter_by(ciclo_id=ciclo_activo.id)
+        .order_by(db.cast(db.func.substr(Bloque.nombre, 8), db.Integer))
+        .all()
+    )
 
     # 📦 Agrupar por nombre de mes
     meses = {}
@@ -1518,6 +1526,7 @@ def admin_dashboard():
     return render_template(
         'admin_dashboard.html',
         eventos=eventos_unicos,
+        bloques=bloques,
         mes_seleccionado=mes_seleccionado
     )
 
@@ -3077,3 +3086,235 @@ def inicio_rapido():
     else:
         flash("Rol no reconocido. Contacte al administrador.", "warning")
         return redirect(url_for('nom.logout'))
+    
+# ======================================================
+# == Generar invitaciones solo de un bloque (stream seguro)
+# ======================================================
+@nom.route('/admin/dashboard/generar_invitaciones_bloque_unico')
+@login_required
+@admin_required
+def generar_invitaciones_bloque_unico():
+    import io, zipfile, time, os, re, gc
+    from flask import make_response, request
+    from sqlalchemy.orm import joinedload
+    from docxtpl import DocxTemplate
+    from models import Nominacion, Alumno, Bloque, CicloEscolar
+
+    def slug(s):
+        s = (s or "").strip()
+        s = re.sub(r"[^\w\-\.]+", "_", s, flags=re.UNICODE)
+        return s[:80] or "archivo"
+
+    bloque_id = request.args.get("bloque_id", type=int)
+    if not bloque_id:
+        return "No se especificó bloque.", 400
+
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        return "No hay ciclo activo.", 400
+
+    bloque = Bloque.query.get(bloque_id)
+    if not bloque:
+        return "Bloque no encontrado.", 404
+
+    # Traemos nominaciones de ese bloque y ciclo
+    nominaciones = (
+        Nominacion.query
+        .options(
+            joinedload(Nominacion.maestro),
+            joinedload(Nominacion.alumno),
+            joinedload(Nominacion.maestro_nominado),
+            joinedload(Nominacion.valor),
+            joinedload(Nominacion.evento),
+        )
+        .join(Alumno, Alumno.id == Nominacion.alumno_id)
+        .filter(
+            Nominacion.ciclo_id == ciclo.id,
+            Alumno.bloque_id == bloque.id
+        )
+        .order_by(Nominacion.fecha.asc())
+        .all()
+    )
+
+    if not nominaciones:
+        return f"No hay nominaciones para {bloque.nombre}.", 404
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for n in nominaciones:
+            try:
+                tipo = (n.tipo or "alumno").strip().lower()
+                plantilla = (
+                    "formato_asamblea.docx" if tipo == "alumno"
+                    else "invitacion colaborador 1.docx"
+                )
+                plantilla_path = os.path.join("docx_templates", plantilla)
+                if not os.path.exists(plantilla_path):
+                    return f"No se encontró la plantilla DOCX: {plantilla_path}", 500
+
+                doc = DocxTemplate(plantilla_path)
+                nominado = (
+                    n.alumno.nombre if tipo == "alumno"
+                    else n.maestro_nominado.nombre if n.maestro_nominado else ""
+                )
+
+                context = {
+                    "quien_nomina": n.maestro.nombre if n.maestro else "",
+                    "nominado": nominado,
+                    "valor": n.valor.nombre if n.valor else "",
+                    "fecha_evento": n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else "",
+                    "texto_adicional": n.comentario or "",
+                }
+
+                doc_io = io.BytesIO()
+                doc.render(context)
+                doc.save(doc_io)
+                doc_io.seek(0)
+                filename = f"{slug(nominado)}_{slug(tipo)}_{slug(n.valor.nombre if n.valor else 'SinValor')}.docx"
+                zf.writestr(filename, doc_io.read())
+                doc_io.close()
+                gc.collect()
+            except Exception as e:
+                print(f"⚠️ Error generando invitación NominacionID={n.id}: {e}")
+
+    zip_buffer.seek(0)
+    filename_zip = f"Invitaciones_{slug(bloque.nombre)}_{slug(ciclo.nombre)}_{time.strftime('%Y%m%d_%H%M')}.zip"
+
+    response = make_response(zip_buffer.read())
+    response.headers["Content-Type"] = "application/zip"
+    response.headers["Content-Disposition"] = f"attachment; filename={filename_zip}"
+    response.headers["Cache-Control"] = "no-store"
+    zip_buffer.close()
+    return response
+
+
+# ======================================================
+# == Exportar concentrado general de nominaciones (Excel)
+# ======================================================
+@nom.route('/admin/dashboard/exportar_concentrado_excel')
+@login_required
+@admin_required
+def exportar_concentrado_excel():
+    import io
+    import pandas as pd
+    from flask import make_response
+    from datetime import datetime
+    from models import Nominacion, CicloEscolar, Alumno, Valor, EventoAsamblea, Bloque
+    from sqlalchemy.orm import joinedload
+    from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        return "No hay ciclo activo.", 400
+
+    nominaciones = (
+        Nominacion.query
+        .options(
+            joinedload(Nominacion.maestro),
+            joinedload(Nominacion.alumno).joinedload(Alumno.bloque),
+            joinedload(Nominacion.maestro_nominado),
+            joinedload(Nominacion.valor),
+            joinedload(Nominacion.evento),
+        )
+        .filter(Nominacion.ciclo_id == ciclo.id)
+        .order_by(Nominacion.fecha.asc())
+        .all()
+    )
+
+    if not nominaciones:
+        return "No hay nominaciones registradas.", 404
+
+    # 🔹 Construcción de los datos para el DataFrame
+    data = []
+    for n in nominaciones:
+        tipo = n.tipo or "alumno"
+        nominado = (
+            n.alumno.nombre if tipo == "alumno"
+            else n.maestro_nominado.nombre if n.maestro_nominado else ""
+        )
+        bloque = n.alumno.bloque.nombre if n.alumno and n.alumno.bloque else "—"
+        grado = n.alumno.grado if n.alumno and hasattr(n.alumno, "grado") else "—"
+        grupo = n.alumno.grupo if n.alumno and hasattr(n.alumno, "grupo") else "—"
+
+        data.append({
+            "Quién nomina": n.maestro.nombre if n.maestro else "",
+            "Tipo": tipo.capitalize(),
+            "Nominado": nominado,
+            "Bloque": bloque,
+            "Grado": grado,
+            "Grupo": grupo,
+            "Valor": n.valor.nombre if n.valor else "",
+            "Comentario": n.comentario or "",
+            "Evento": (
+                getattr(n.evento, "nombre", None)
+                or getattr(n.evento, "nombre_mes", None)
+                or getattr(n.evento, "titulo", None)
+                or getattr(n.evento, "titulo_evento", None)
+                or "—"
+            ),
+            "Fecha": n.fecha.strftime("%d/%m/%Y") if n.fecha else "",
+        })
+
+    df = pd.DataFrame(data)
+
+    # 🧱 Generar Excel en memoria
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Nominaciones")
+
+        wb = writer.book
+        ws = wb["Nominaciones"]
+
+        # === Encabezado estilizado ===
+        header_fill = PatternFill(start_color="7B0000", end_color="7B0000", fill_type="solid")
+        header_font = Font(color="FFFFFF", bold=True)
+        header_align = Alignment(horizontal="center", vertical="center")
+        border = Border(
+            left=Side(style="thin", color="999999"),
+            right=Side(style="thin", color="999999"),
+            top=Side(style="thin", color="999999"),
+            bottom=Side(style="thin", color="999999")
+        )
+
+        for cell in ws[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = header_align
+            cell.border = border
+
+        # === Ajuste de columnas ===
+        for col in ws.columns:
+            max_length = max(len(str(cell.value or "")) for cell in col)
+            ws.column_dimensions[col[0].column_letter].width = max(12, min(max_length + 3, 40))
+
+        # 🎨 Paleta de colores por bloque
+        colores_bloques = {
+            "Bloque 1": "FFF8E1",  # dorado suave
+            "Bloque 2": "E3F2FD",  # azul claro
+            "Bloque 3": "E8F5E9",  # verde claro
+            "Bloque 4": "F3E5F5",  # lila
+        }
+
+        # === Pintar filas por bloque ===
+        for i, row in enumerate(ws.iter_rows(min_row=2, max_row=ws.max_row), start=2):
+            bloque_val = str(ws[f"D{i}"].value or "").strip()  # Columna D = Bloque
+            color = colores_bloques.get(bloque_val, "FFFFFF")  # default blanco
+            fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
+
+            for cell in row:
+                cell.fill = fill
+                cell.border = border
+
+        # Congelar encabezados
+        ws.freeze_panes = "A2"
+
+    output.seek(0)
+
+    filename = f"Concentrado_Nominaciones_{ciclo.nombre}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+    response = make_response(output.read())
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    response.headers["Content-Type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    response.headers["Cache-Control"] = "no-store"
+    output.close()
+
+    return response

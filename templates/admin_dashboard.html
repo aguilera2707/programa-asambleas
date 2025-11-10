@@ -56,7 +56,28 @@
 
     <!-- 📩 Exportar nominaciones -->
     <section class="export-section">
+
+    <div class="exportar-concentrado">
+    <h3>📊 Exportar concentrado general</h3>
+    <button class="btn-exportar" id="btnExportarExcel">📥 Descargar Excel</button>
+    </div>
+
+    <div class="exportar-bloques">
+    <h3>📦 Exportar invitaciones por bloque</h3>
+
+    <label for="bloqueSelect">Bloque:</label>
+    <select id="bloqueSelect">
+        {% for bloque in bloques %}
+            <option value="{{ bloque.id }}">{{ bloque.nombre }}</option>
+        {% endfor %}
+    </select>
+
+
+
+    <button class="btn-exportar" id="btnDescargarBloque">📄 Descargar</button>
+    </div>
         <h2>📩 Exportar nominaciones por maestro</h2>
+
 
         <div class="export-filtros">
             <div class="campo">
@@ -149,6 +170,8 @@ function actualizarTituloMes(m){
 function mostrarOverlay(mostrar=true){
     document.getElementById("overlay-cargando").style.display=mostrar?"flex":"none";
 }
+
+
 
 // ===============================
 // 🔹 Dashboard principal
@@ -262,6 +285,20 @@ async function buscarNominaciones(){
 
 document.getElementById('select-all').addEventListener('change',e=>{
     document.querySelectorAll('.chk-nom').forEach(chk=>chk.checked=e.target.checked);
+});
+
+document.getElementById("btnExportarExcel").addEventListener("click", () => {
+    window.location.href = "/admin/dashboard/exportar_concentrado_excel";
+});
+
+
+document.getElementById("btnDescargarBloque").addEventListener("click", () => {
+    const bloqueId = document.getElementById("bloqueSelect").value;
+    if (!bloqueId) {
+        alert("Selecciona un bloque primero.");
+        return;
+    }
+    window.location.href = `/admin/dashboard/generar_invitaciones_bloque_unico?bloque_id=${bloqueId}`;
 });
 
 // ===============================
