@@ -277,3 +277,73 @@ body {
     border-radius: 6px !important;
     font-weight: 600 !important;
 }
+
+/* ========================================
+🟡 Puntos de nominación y EXCELENCIA
+   ======================================== */
+.puntos-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+}
+
+.punto {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: #4caf50; /* verde por defecto */
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s ease, background-color 0.3s ease;
+}
+
+.punto:hover {
+    transform: scale(1.15);
+}
+
+/* 🟡 Punto dorado (EXCELENCIA) */
+.punto.excelencia {
+    background: radial-gradient(circle at center, #ffd700 30%, #c59d00 100%);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+    animation: brillo 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes brillo {
+    0% { box-shadow: 0 0 5px rgba(255,215,0,0.5); }
+    100% { box-shadow: 0 0 12px rgba(255,215,0,1); }
+}
+
+/* Tooltip */
+.tooltip-valores {
+    position: absolute;
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    max-width: 280px;
+    display: none;
+    z-index: 999;
+}
+
+.punto.excelencia:hover + .tooltip-valores {
+    display: block;
+}
+/* ===========================================
+🟡 Punto dorado de EXCELENCIA
+   =========================================== */
+.punto.dorado {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: inline-block;
+    background: radial-gradient(circle at center, #ffd700 30%, #c59d00 100%);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.9);
+    animation: brillo 1.2s ease-in-out infinite alternate;
+    margin: 0 2px;
+}
+
+@keyframes brillo {
+    0% { box-shadow: 0 0 4px rgba(255,215,0,0.5); transform: scale(1); }
+    100% { box-shadow: 0 0 12px rgba(255,215,0,1); transform: scale(1.1); }
+}

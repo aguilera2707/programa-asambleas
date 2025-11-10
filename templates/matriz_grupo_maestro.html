@@ -22,7 +22,7 @@
         </div>
     </header>
 
-        <!-- 🔸 Mensajes flash -->
+    <!-- 🔸 Mensajes flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         <div id="flash-container">
@@ -69,7 +69,7 @@
                 {% for item in alumnos %}
                 <tr>
                     <td>
-                        <a  class="nombre-alumno">
+                        <a class="nombre-alumno">
                             {{ item.alumno.nombre }} ({{ item.alumno.grado }}{{ item.alumno.grupo }})
                         </a>
                     </td>
@@ -77,9 +77,28 @@
                     {% for evento in eventos %}
                     <td>
                         {% if item.valores[evento.mes_ordinal|string] %}
-                            {% for v in item.valores[evento.mes_ordinal|string] %}
-                                <span class="punto verde" title="{{ v.valor }} — {{ v.maestro }} ({{ v.fecha }})"></span>
-                            {% endfor %}
+                            {% set valores_mes = item.valores[evento.mes_ordinal|string] %}
+
+                            {# 🟡 Caso 1: si ya tiene EXCELENCIA asignada directamente #}
+                            {% if valores_mes|length == 1 and valores_mes[0].valor == "EXCELENCIA" %}
+                                <span class="punto dorado" 
+                                    title="EXCELENCIA 🏅 — {{ valores_mes[0].comentario }}">
+                                </span>
+
+                            {# 🟡 Caso 2: si tiene 3 o más valores normales, mostrar punto dorado tipo EXCELENCIA #}
+                            {% elif valores_mes|length >= 3 %}
+                                <span class="punto dorado" 
+                                    title="EXCELENCIA 🏅 — Alcanzó este reconocimiento por tres nominaciones previas.">
+                                </span>
+
+                            {# 🟢 Caso 3: puntos normales #}
+                            {% else %}
+                                {% for v in valores_mes %}
+                                    <span class="punto verde" 
+                                        title="{{ v.valor }}{% if v.maestro %} — {{ v.maestro }}{% endif %}{% if v.fecha %} ({{ v.fecha }}){% endif %}">
+                                    </span>
+                                {% endfor %}
+                            {% endif %}
                         {% else %}
                             <span class="punto gris"></span>
                         {% endif %}
@@ -113,12 +132,13 @@
             </tbody>
         </table>
     </main>
+
     <script>
     // Hace que los mensajes desaparezcan automáticamente
     setTimeout(() => {
         document.querySelectorAll('.flash').forEach(el => {
-        el.classList.add('hide');
-        setTimeout(() => el.remove(), 600); // Se elimina después de desvanecerse
+            el.classList.add('hide');
+            setTimeout(() => el.remove(), 600); // Se elimina después de desvanecerse
         });
     }, 3000);
     </script>

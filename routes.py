@@ -94,6 +94,189 @@ def panel_admin():
     return render_template('panel_admin.html')
 
 
+
+# ======================================================
+# 🧠 Función auxiliar: actualiza a EXCELENCIA automáticamente
+# ======================================================
+def actualizar_a_excelencia(alumno_id, ciclo_id):
+    """Convierte las nominaciones de un alumno a EXCELENCIA si ya alcanzó 3."""
+    from models import Nominacion, Valor
+    from sqlalchemy.orm import joinedload
+    import datetime
+
+    # Buscar valor EXCELENCIA o crearlo si no existe (ignorando mayúsculas)
+    excelencia = Valor.query.filter(
+        db.func.lower(Valor.nombre) == "excelencia",
+        Valor.ciclo_id == ciclo_id
+    ).first()
+    if not excelencia:
+        excelencia = Valor(nombre="EXCELENCIA", ciclo_id=ciclo_id, activo=True)
+        db.session.add(excelencia)
+        db.session.commit()
+
+    # Si ya tiene EXCELENCIA, no hacer nada
+    tiene_excelencia = (
+        Nominacion.query.filter_by(alumno_id=alumno_id, ciclo_id=ciclo_id)
+        .join(Valor)
+        .filter(db.func.lower(Valor.nombre) == "excelencia")
+        .first()
+    )
+    if tiene_excelencia:
+        return False  # ya tenía excelencia
+
+    # Traer todas las nominaciones actuales (sin contar EXCELENCIA)
+    nominaciones = (
+        Nominacion.query
+        .options(joinedload(Nominacion.valor))
+        .filter(
+            Nominacion.alumno_id == alumno_id,
+            Nominacion.ciclo_id == ciclo_id
+        )
+        .all()
+    )
+
+    # Filtrar solo las nominaciones normales
+    nominaciones_normales = [n for n in nominaciones if n.valor and n.valor.nombre.upper() != "EXCELENCIA"]
+
+    if len(nominaciones_normales) < 3:
+        return False  # aún no alcanza 3
+
+    # Concatenar comentarios y valores previos
+    comentarios = []
+    valores = []
+    for n in nominaciones_normales:
+        if n.valor:
+            valores.append(n.valor.nombre)
+        if n.comentario:
+            comentarios.append(n.comentario.strip())
+
+    texto_final = f"Valores obtenidos: {', '.join(valores)}. " \
+                    f"Comentarios: {' | '.join(comentarios)}"
+
+    # 🔹 Marcar las tres nominaciones previas como "solo visuales" (no exportables)
+    for n in nominaciones_normales:
+        if n.valor and n.valor.nombre.upper() != "EXCELENCIA":
+            if "[EXCELENCIA-VISUAL]" not in (n.comentario or ""):
+                n.comentario = (n.comentario or "") + " [EXCELENCIA-VISUAL]"
+    db.session.commit()
+
+    # 🔹 Crear nueva nominación de EXCELENCIA
+    nueva = Nominacion(
+        alumno_id=alumno_id,
+        maestro_id=nominaciones_normales[-1].maestro_id if nominaciones_normales else None,
+        valor_id=excelencia.id,
+        ciclo_id=ciclo_id,
+        comentario=texto_final,
+        evento_id=nominaciones_normales[-1].evento_id if nominaciones_normales else None,
+        tipo="alumno",
+        fecha=datetime.datetime.utcnow()
+    )
+    db.session.add(nueva)
+    db.session.commit()
+
+    return True
+
+# ======================================================
+# 🧠 Verificar reversión de EXCELENCIA si bajan de 3 nominaciones
+# ======================================================
+def verificar_reversion_excelencia(alumno_id, ciclo_id):
+    """Elimina la nominación de EXCELENCIA si el alumno baja de 3 nominaciones normales."""
+    from models import Nominacion, Valor
+
+    excelencia = Valor.query.filter(
+        db.func.lower(Valor.nombre) == "excelencia",
+        Valor.ciclo_id == ciclo_id
+    ).first()
+    if not excelencia:
+        return
+
+    # Contar nominaciones normales (sin excelencia)
+    nominaciones_normales = (
+        Nominacion.query
+        .join(Valor)
+        .filter(
+            Nominacion.alumno_id == alumno_id,
+            Nominacion.ciclo_id == ciclo_id,
+            db.func.lower(Valor.nombre) != "excelencia"
+        ).count()
+    )
+
+    # Si bajó de 3 → eliminar la EXCELENCIA
+    if nominaciones_normales < 3:
+        nom_excelencia = (
+            Nominacion.query
+            .filter_by(alumno_id=alumno_id, ciclo_id=ciclo_id, valor_id=excelencia.id)
+            .first()
+        )
+        if nom_excelencia:
+            db.session.delete(nom_excelencia)
+            db.session.commit()
+
+# ======================================================
+# 🔁 Recalcular comentario de la nominación EXCELENCIA
+# ======================================================
+def recalcular_comentario_excelencia(alumno_id, ciclo_id):
+    """
+    Reconstruye el comentario de la nominación EXCELENCIA a partir de las
+    3 nominaciones 'visuales' (las que incluyen el tag [EXCELENCIA-VISUAL]).
+    Si no existe EXCELENCIA, no hace nada.
+    """
+    from models import Nominacion, Valor
+
+    excelencia = Valor.query.filter(
+        db.func.lower(Valor.nombre) == "excelencia",
+        Valor.ciclo_id == ciclo_id
+    ).first()
+    if not excelencia:
+        return
+
+    # Buscar la nominación de EXCELENCIA (si existe)
+    nom_excelencia = (
+        Nominacion.query
+        .filter_by(alumno_id=alumno_id, ciclo_id=ciclo_id, valor_id=excelencia.id)
+        .first()
+    )
+    if not nom_excelencia:
+        return  # aún no hay excelencia para este alumno
+
+    # Tomar las nominaciones 'visuales' (las 3 que originaron la excelencia)
+    visuales = (
+        Nominacion.query.join(Valor)
+        .filter(
+            Nominacion.alumno_id == alumno_id,
+            Nominacion.ciclo_id == ciclo_id,
+            db.func.lower(Valor.nombre) != "excelencia",
+            Nominacion.comentario.ilike("%[EXCELENCIA-VISUAL]%")
+        )
+        .order_by(Nominacion.fecha.asc())
+        .all()
+    )
+
+    # Limpiar y reconstruir valores y comentarios
+    valores = []
+    comentarios = []
+    for n in visuales:
+        # re-apegar el tag por si lo quitaron al editar
+        if "[EXCELENCIA-VISUAL]" not in (n.comentario or ""):
+            n.comentario = (n.comentario or "").strip() + " [EXCELENCIA-VISUAL]"
+        if n.valor:
+            valores.append(n.valor.nombre)
+        # comentario sin el tag para el texto final
+        if n.comentario:
+            comentarios.append(n.comentario.replace("[EXCELENCIA-VISUAL]", "").strip())
+
+    # Armar comentario final (soporta si hay <3 o >3 por algún motivo)
+    texto_final = ""
+    if valores:
+        texto_final += f"Valores obtenidos: {', '.join(valores)}. "
+    if comentarios:
+        texto_final += f"Comentarios: {' | '.join(comentarios)}"
+
+    nom_excelencia.comentario = texto_final.strip()
+    db.session.commit()
+
+
+
 from werkzeug.security import generate_password_hash  # asegúrate de tenerlo arriba
 
 @nom.route('/crear_usuario', methods=['GET', 'POST'])
@@ -1950,7 +2133,7 @@ def panel_nominaciones_data():
 
 
 # ===============================
-# 🧾 NOMINACIÓN INDIVIDUAL DE ALUMNO
+# 🧾 NOMINACIÓN INDIVIDUAL DE ALUMNO (con lógica de EXCELENCIA)
 # ===============================
 from datetime import datetime
 
@@ -1959,30 +2142,34 @@ from datetime import datetime
 def nominar_alumno_individual(alumno_id):
     cerrar_eventos_vencidos()
     """Vista individual donde el maestro puede nominar a un alumno."""
+
+    # 1️⃣ Verificar rol del usuario
     if current_user.rol != 'profesor':
         flash("🚫 Solo los profesores pueden registrar nominaciones.", "danger")
         return redirect(url_for('nom.principal'))
 
+    # 2️⃣ Verificar ciclo activo
     ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
     if not ciclo_activo:
         flash("⚠️ No hay ciclo activo disponible.", "warning")
         return redirect(url_for('nom.panel_nominaciones'))
 
+    # 3️⃣ Maestro actual
     maestro = Maestro.query.filter_by(correo=current_user.email, ciclo_id=ciclo_activo.id).first()
     alumno = Alumno.query.get_or_404(alumno_id)
 
-    # Valores activos del ciclo
+    # 4️⃣ Valores activos del ciclo
     valores = Valor.query.filter_by(ciclo_id=ciclo_activo.id, activo=True).all()
 
-    # Detectar el evento actual (mes abierto)
+    # 5️⃣ Detectar evento activo del bloque
     evento_abierto = (
         EventoAsamblea.query
         .filter_by(ciclo_id=ciclo_activo.id, bloque_id=alumno.bloque_id, activo=True)
         .order_by(EventoAsamblea.fecha_evento.asc())
         .first()
     )
-    
-    # 🚫 Verificar si el evento ya cerró nominaciones
+
+    # 🚫 Validar que el evento esté abierto
     if not evento_abierto:
         flash("🚫 Las nominaciones han cerrado para este bloque.", "danger")
         return redirect(url_for(
@@ -1991,19 +2178,19 @@ def nominar_alumno_individual(alumno_id):
             grado=alumno.grado,
             grupo=alumno.grupo
         ))
-    # Filtrar nominaciones solo de ese evento (mismo mes)
+
+    # 6️⃣ Filtrar nominaciones del evento actual (mismo mes)
     nominaciones_previas = (
         Nominacion.query
         .filter_by(alumno_id=alumno.id, ciclo_id=ciclo_activo.id, evento_id=evento_abierto.id)
         .all()
     )
 
-    # Obtener valores ya usados en el mes actual
+    # 7️⃣ Obtener valores ya usados
     valores_asignados = [n.valor_id for n in nominaciones_previas]
-
-    # Filtrar valores que aún puede recibir este mes
     valores_disponibles = [v for v in valores if v.id not in valores_asignados]
 
+    # 8️⃣ Procesar formulario
     if request.method == 'POST':
         valor_id = request.form.get('valor_id')
         comentario = request.form.get('comentario', '').strip()
@@ -2012,6 +2199,27 @@ def nominar_alumno_individual(alumno_id):
             flash("⚠️ Debes seleccionar un valor.", "warning")
             return redirect(request.url)
 
+        # 🚫 Bloquear si el alumno ya tiene EXCELENCIA
+        tiene_excelencia = (
+            Nominacion.query
+            .join(Valor)
+            .filter(
+                Nominacion.alumno_id == alumno.id,
+                Nominacion.ciclo_id == ciclo_activo.id,
+                Valor.nombre == "EXCELENCIA"
+            )
+            .first()
+        )
+        if tiene_excelencia:
+            flash("🏆 Este alumno ya alcanzó el valor máximo EXCELENCIA y no puede recibir más nominaciones.", "warning")
+            return redirect(url_for(
+                'nom.matriz_grupo_maestro',
+                bloque_id=alumno.bloque_id,
+                grado=alumno.grado,
+                grupo=alumno.grupo
+            ))
+
+        # ✅ Registrar la nueva nominación
         nueva_nom = Nominacion(
             alumno_id=alumno.id,
             maestro_id=maestro.id,
@@ -2025,7 +2233,14 @@ def nominar_alumno_individual(alumno_id):
         db.session.add(nueva_nom)
         db.session.commit()
 
-        flash(f"✅ Nominación registrada para {alumno.nombre}.", "success")
+        # 🧠 Verificar si alcanza EXCELENCIA
+        promovido = actualizar_a_excelencia(alumno.id, ciclo_activo.id)
+
+        if promovido:
+            flash(f"🏅 {alumno.nombre} ha alcanzado el valor EXCELENCIA por acumular 3 nominaciones.", "success")
+        else:
+            flash(f"✅ Nominación registrada para {alumno.nombre}.", "success")
+
         return redirect(url_for(
             'nom.matriz_grupo_maestro',
             bloque_id=alumno.bloque_id,
@@ -2033,13 +2248,13 @@ def nominar_alumno_individual(alumno_id):
             grupo=alumno.grupo
         ))
 
+    # 9️⃣ Renderizar plantilla
     return render_template(
         'nominacion_individual.html',
         alumno=alumno,
         valores_disponibles=valores_disponibles,
         valores_asignados=nominaciones_previas
     )
-
 
 # ===============================
 # 🧭 PANEL PRINCIPAL DEL PROFESOR
@@ -2735,11 +2950,13 @@ def editar_nominacion_personal(id):
     nominacion.fecha = datetime.utcnow()
 
     db.session.commit()
+    
+    
     flash("✏️ Nominación actualizada correctamente.", "success")
     return redirect(url_for('nom.nominar_personal'))
 
 # ============================================
-# ✏️ Editar nominación (blindada + validación de duplicados)
+# ✏️ Editar nominación (blindada + validación de duplicados + recalcula EXCELENCIA)
 # ============================================
 @nom.route('/nominaciones/editar/<int:id>', methods=['POST'])
 @login_required
@@ -2774,7 +2991,7 @@ def editar_nominacion(id):
     comentario = (data.get('comentario') or '').strip()
     ciclo_id = nominacion.ciclo_id
 
-    # 🔒 Validar duplicados según tipo (tu lógica original conservada)
+    # 🔒 Validar duplicados según tipo (mantiene tu lógica original)
     if nominacion.tipo == 'alumno' and nominacion.alumno_id:
         existe = Nominacion.query.filter(
             Nominacion.ciclo_id == ciclo_id,
@@ -2804,12 +3021,27 @@ def editar_nominacion(id):
                 "message": "Ya registraste ese mismo valor para este maestro en este ciclo."
             }), 400
 
-    # ✅ Guardar cambios
+    # ✅ Guardar cambios base
     nominacion.valor_id = valor_id
     nominacion.comentario = comentario
+
+    # 🟡 Reapegar etiqueta de control si aplica
+    if "[EXCELENCIA-VISUAL]" not in (nominacion.comentario or ""):
+        nominacion.comentario = (nominacion.comentario or "").strip() + " [EXCELENCIA-VISUAL]"
+
     db.session.commit()
 
-    return jsonify({"status": "success", "message": "✅ Nominación actualizada correctamente."})
+    # 🔁 Intentar recalcular la nominación EXCELENCIA asociada
+    try:
+        recalcular_comentario_excelencia(nominacion.alumno_id, nominacion.ciclo_id)
+    except Exception as e:
+        print("⚠️ Error recalculando EXCELENCIA:", e)
+
+    return jsonify({
+        "status": "success",
+        "message": "✅ Nominación actualizada correctamente y EXCELENCIA sincronizada."
+    })
+
 
 
 # ============================================
@@ -2839,7 +3071,7 @@ def eliminar_nominacion(id):
     # ✅ Eliminar si todo está correcto
     db.session.delete(nominacion)
     db.session.commit()
-
+    verificar_reversion_excelencia(nominacion.alumno_id, nominacion.ciclo_id)
     flash("🗑️ Nominación eliminada correctamente.", "success")
     return redirect(url_for('nom.mis_nominaciones'))
 
@@ -2894,7 +3126,7 @@ def nominaciones_por_maestro_y_mes():
 
 
 # ======================================================
-# == Generar DOCX y ZIP EN MEMORIA (versión universal segura)
+# == Generar DOCX y ZIP EN MEMORIA (versión universal segura, con filtro EXCELENCIA)
 # ======================================================
 @nom.route('/admin/dashboard/generar_invitaciones_stream')
 @login_required
@@ -2932,7 +3164,39 @@ def generar_invitaciones_stream():
     if not nominaciones:
         return "No se encontraron nominaciones.", 404
 
+    # =====================================================
+    # 🔹 Filtrar duplicados: si un alumno tiene EXCELENCIA,
+    # solo se exporta esa nominación (no las otras)
+    # =====================================================
+    nominaciones_filtradas = []
+    procesados = set()
+
+    for n in nominaciones:
+        if n.alumno_id in procesados:
+            continue
+
+        tiene_excelencia = any(
+            x.alumno_id == n.alumno_id and x.valor and x.valor.nombre.upper() == "EXCELENCIA"
+            for x in nominaciones
+        )
+
+        if tiene_excelencia:
+            excelencia = next(
+                (x for x in nominaciones if x.alumno_id == n.alumno_id and x.valor and x.valor.nombre.upper() == "EXCELENCIA"),
+                None
+            )
+            if excelencia:
+                nominaciones_filtradas.append(excelencia)
+            procesados.add(n.alumno_id)
+        else:
+            nominaciones_filtradas.append(n)
+            procesados.add(n.alumno_id)
+
+    nominaciones = nominaciones_filtradas
+
+    # =====================================================
     # 🔹 Generar ZIP totalmente en memoria
+    # =====================================================
     mem_zip = io.BytesIO()
     with zipfile.ZipFile(mem_zip, "w", zipfile.ZIP_DEFLATED) as zf:
         for n in nominaciones:
@@ -2944,6 +3208,28 @@ def generar_invitaciones_stream():
                     else "invitacion colaborador 1.docx"
                 )
                 doc = DocxTemplate(os.path.join("docx_templates", plantilla))
+
+                # =====================================================
+                # 🔹 Ajuste del comentario para EXCELENCIA
+                # =====================================================
+                comentario_final = n.comentario or ""
+                if n.valor and n.valor.nombre.upper() == "EXCELENCIA":
+                    # Eliminar tags visuales
+                    comentario_final = comentario_final.replace("[EXCELENCIA-VISUAL]", "").replace("  ", " ").strip()
+
+                    # Reemplazar texto genérico
+                    if "Valores obtenidos:" in comentario_final:
+                        comentario_final = comentario_final.replace("Valores obtenidos:", "Por sus valores de")
+                    if "Comentarios:" in comentario_final:
+                        comentario_final = comentario_final.replace("Comentarios:", "— Comentarios de los maestros:")
+
+                    # Limpieza adicional (quitar números tipo 1 | 2 | 3)
+                    comentario_final = comentario_final.replace("1 |", "").replace("2 |", "").replace("3 |", "").strip()
+                    comentario_final = comentario_final.replace("|", " ").replace("  ", " ").strip()
+
+                # =====================================================
+                # 🔹 Contexto del documento
+                # =====================================================
                 context = {
                     "quien_nomina": n.maestro.nombre if n.maestro else "",
                     "nominado": (
@@ -2952,8 +3238,9 @@ def generar_invitaciones_stream():
                     ),
                     "valor": n.valor.nombre if n.valor else "",
                     "fecha_evento": n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else "",
-                    "texto_adicional": n.comentario or "",
+                    "texto_adicional": comentario_final,
                 }
+
                 doc.render(context)
 
                 temp = io.BytesIO()
@@ -2982,7 +3269,6 @@ def generar_invitaciones_stream():
     mem_zip.close()
 
     return response
-
 
 # ==========================
 # 🌟 MURO PÚBLICO DE NOMINADOS
@@ -3088,7 +3374,7 @@ def inicio_rapido():
         return redirect(url_for('nom.logout'))
     
 # ======================================================
-# == Generar invitaciones solo de un bloque (stream seguro)
+# 📦 Generar invitaciones por bloque (solo exporta EXCELENCIA si existe)
 # ======================================================
 @nom.route('/admin/dashboard/generar_invitaciones_bloque_unico')
 @login_required
@@ -3117,7 +3403,7 @@ def generar_invitaciones_bloque_unico():
     if not bloque:
         return "Bloque no encontrado.", 404
 
-    # Traemos nominaciones de ese bloque y ciclo
+    # 🔹 Traemos nominaciones del bloque y ciclo
     nominaciones = (
         Nominacion.query
         .options(
@@ -3139,6 +3425,39 @@ def generar_invitaciones_bloque_unico():
     if not nominaciones:
         return f"No hay nominaciones para {bloque.nombre}.", 404
 
+    # =====================================================
+    # 🔹 Filtrar duplicados: si un alumno tiene EXCELENCIA,
+    # solo se exporta esa nominación
+    # =====================================================
+    nominaciones_filtradas = []
+    procesados = set()
+
+    for n in nominaciones:
+        if n.alumno_id in procesados:
+            continue
+
+        tiene_excelencia = any(
+            x.alumno_id == n.alumno_id and x.valor and x.valor.nombre.upper() == "EXCELENCIA"
+            for x in nominaciones
+        )
+
+        if tiene_excelencia:
+            excelencia = next(
+                (x for x in nominaciones if x.alumno_id == n.alumno_id and x.valor and x.valor.nombre.upper() == "EXCELENCIA"),
+                None
+            )
+            if excelencia:
+                nominaciones_filtradas.append(excelencia)
+            procesados.add(n.alumno_id)
+        else:
+            nominaciones_filtradas.append(n)
+            procesados.add(n.alumno_id)
+
+    nominaciones = nominaciones_filtradas
+
+    # =====================================================
+    # 🔹 Generar ZIP totalmente en memoria
+    # =====================================================
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
         for n in nominaciones:
@@ -3158,18 +3477,43 @@ def generar_invitaciones_bloque_unico():
                     else n.maestro_nominado.nombre if n.maestro_nominado else ""
                 )
 
+                # =====================================================
+                # 🧠 Limpiar comentario si es EXCELENCIA
+                # =====================================================
+                comentario_final = n.comentario or ""
+                if n.valor and n.valor.nombre.upper() == "EXCELENCIA":
+                    comentario_final = comentario_final.replace("[EXCELENCIA-VISUAL]", "").replace("  ", " ").strip()
+
+                    if "Valores obtenidos:" in comentario_final:
+                        comentario_final = comentario_final.replace("Valores obtenidos:", "Por sus valores de")
+                    if "Comentarios:" in comentario_final:
+                        comentario_final = comentario_final.replace("Comentarios:", "— Comentarios de los maestros:")
+
+                    comentario_final = (
+                        comentario_final.replace("1 |", "")
+                        .replace("2 |", "")
+                        .replace("3 |", "")
+                        .replace("|", " ")
+                        .replace("  ", " ")
+                        .strip()
+                    )
+
+                # =====================================================
+                # 📄 Renderizar documento
+                # =====================================================
                 context = {
                     "quien_nomina": n.maestro.nombre if n.maestro else "",
                     "nominado": nominado,
                     "valor": n.valor.nombre if n.valor else "",
                     "fecha_evento": n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else "",
-                    "texto_adicional": n.comentario or "",
+                    "texto_adicional": comentario_final,
                 }
 
                 doc_io = io.BytesIO()
                 doc.render(context)
                 doc.save(doc_io)
                 doc_io.seek(0)
+
                 filename = f"{slug(nominado)}_{slug(tipo)}_{slug(n.valor.nombre if n.valor else 'SinValor')}.docx"
                 zf.writestr(filename, doc_io.read())
                 doc_io.close()
@@ -3185,6 +3529,9 @@ def generar_invitaciones_bloque_unico():
     response.headers["Content-Disposition"] = f"attachment; filename={filename_zip}"
     response.headers["Cache-Control"] = "no-store"
     zip_buffer.close()
+
+    print(f"✅ Exportado bloque {bloque.nombre} ({len(nominaciones)} invitaciones generadas)")
+
     return response
 
 
