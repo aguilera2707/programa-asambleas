@@ -3478,25 +3478,40 @@ def generar_invitaciones_bloque_unico():
                 )
 
                 # =====================================================
-                # 🧠 Limpiar comentario si es EXCELENCIA
+                # 🧠 Limpiar y reconstruir comentario si es EXCELENCIA
                 # =====================================================
                 comentario_final = n.comentario or ""
                 if n.valor and n.valor.nombre.upper() == "EXCELENCIA":
+                    # Limpiar etiquetas visuales
                     comentario_final = comentario_final.replace("[EXCELENCIA-VISUAL]", "").replace("  ", " ").strip()
 
-                    if "Valores obtenidos:" in comentario_final:
-                        comentario_final = comentario_final.replace("Valores obtenidos:", "Por sus valores de")
-                    if "Comentarios:" in comentario_final:
-                        comentario_final = comentario_final.replace("Comentarios:", "— Comentarios de los maestros:")
-
-                    comentario_final = (
-                        comentario_final.replace("1 |", "")
-                        .replace("2 |", "")
-                        .replace("3 |", "")
-                        .replace("|", " ")
-                        .replace("  ", " ")
-                        .strip()
+                    # Buscar los comentarios de las nominaciones previas (los 3 que originaron la excelencia)
+                    comentarios_previos = (
+                        Nominacion.query
+                        .filter(
+                            Nominacion.alumno_id == n.alumno_id,
+                            Nominacion.ciclo_id == n.ciclo_id,
+                            Nominacion.valor_id != n.valor_id  # diferentes a EXCELENCIA
+                        )
+                        .order_by(Nominacion.fecha.asc())
+                        .all()
                     )
+
+                    lista_comentarios = [
+                        (c.comentario or "").replace("[EXCELENCIA-VISUAL]", "").strip()
+                        for c in comentarios_previos if c.comentario
+                    ]
+
+                    comentarios_texto = " · ".join(lista_comentarios) if lista_comentarios else ""
+                    valores_texto = ""
+
+                    # Detectar nombres de valores (por si no están en el texto original)
+                    valores_texto = ", ".join([
+                        c.valor.nombre for c in comentarios_previos if c.valor and c.valor.nombre.upper() != "EXCELENCIA"
+                    ])
+
+                    comentario_final = f"Por sus valores de {valores_texto}. — Comentarios de los maestros: {comentarios_texto}"
+
 
                 # =====================================================
                 # 📄 Renderizar documento
