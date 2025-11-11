@@ -181,8 +181,8 @@ body {
 }
 
 .btn-inicio-rapido:hover {
-    background: #7b1113;
-    color: #fff;
+    background: #ffffff;
+    color: #7b1113;
     border-color: #7b1113;
     transform: translateY(-2px);
     box-shadow: 0 6px 12px rgba(0,0,0,0.2);
