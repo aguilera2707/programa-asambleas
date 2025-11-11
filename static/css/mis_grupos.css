@@ -46,8 +46,6 @@ body {
     transform: translateY(-2px);
 }
 
-
-
 /* 🔹 Contenedor */
 .contenedor-grupos {
     max-width: 1100px;
@@ -62,7 +60,7 @@ body {
 }
 
 /* 🔹 Secciones */
-.grupo-section {
+.grupo-section, .grupo-card {
     margin-bottom: 40px;
     background-color: #fff;
     border-radius: 12px;
@@ -71,13 +69,44 @@ body {
     border-top: 5px solid #7b0000;
 }
 
-.grupo-section h3 {
+.grupo-section h3, .grupo-card h3 {
     color: #7b0000;
     font-weight: 600;
     border-bottom: 2px solid #7b0000;
     padding-bottom: 6px;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     font-size: 1.1rem;
+}
+
+/* 🔹 Contador de límite */
+.contador-limite {
+    font-size: 15px;
+    margin: 5px 0 15px 0;
+    color: #7b0000;
+    font-weight: 600;
+}
+.contador-limite span {
+    color: #b30000;
+    font-weight: 700;
+}
+
+/* 🔹 Buscador */
+.buscador-container {
+    text-align: center;
+    margin: 20px 0 35px;
+}
+#buscador {
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    width: 320px;
+    font-size: 15px;
+    transition: 0.2s;
+}
+#buscador:focus {
+    border-color: #7b0000;
+    box-shadow: 0 0 6px rgba(123, 0, 0, 0.2);
+    outline: none;
 }
 
 /* 🔹 Tabla */
@@ -103,6 +132,10 @@ tr:nth-child(even) {
     background-color: #fafafa;
 }
 
+tr:hover {
+    background-color: #f6f6f6;
+}
+
 /* 🔹 Botón Nominar */
 .btn-nominar {
     display: inline-block;
@@ -115,6 +148,7 @@ tr:nth-child(even) {
     text-decoration: none;
     transition: all 0.25s ease;
     text-align: center;
+    border: none;
 }
 
 .btn-nominar:hover {
@@ -122,10 +156,62 @@ tr:nth-child(even) {
     transform: translateY(-2px);
 }
 
-/* 🔹 Responsive */
+/* 🔹 Botón Nominar desactivado */
+.btn-nominar[disabled] {
+    background-color: #d6a5a5;
+    cursor: not-allowed;
+    color: #fff;
+    opacity: 0.9;
+}
+.btn-nominar[disabled]:hover {
+    background-color: #d6a5a5;
+    transform: none;
+}
+
+/* ====== BOTÓN VOLVER ====== */
+.btn-volver, .btn-volver-top {
+    text-decoration: none;
+    text-align: center;
+    display: inline-block;
+    padding: 10px 16px;
+    border-radius: 8px;
+    background-color: #f1f1f1;
+    border: 1px solid #ddd;
+    color: #444;
+    font-weight: 500;
+    margin-top: 5px;
+    transition: all 0.25s ease;
+}
+.btn-volver:hover, .btn-volver-top:hover {
+    background-color: #e9e9e9;
+    transform: translateY(-1px);
+}
+
+/* 🔹 Sin datos */
+.sin-datos {
+    text-align: center;
+    padding: 25px;
+    font-size: 16px;
+    color: #555;
+}
+
+/* ====== DETALLES DE TRANSICIÓN ====== */
+option {
+    padding: 6px;
+}
+
+/* ====== RESPONSIVE ====== */
 @media (max-width: 768px) {
     .contenedor-grupos {
         width: 95%;
+    }
+
+    .buscador-container {
+        margin-bottom: 25px;
+    }
+
+    #buscador {
+        width: 90%;
     }
 
     table, thead, tbody, th, td, tr {
@@ -151,42 +237,42 @@ tr:nth-child(even) {
     }
 }
 
-/* ====== BOTÓN VOLVER ====== */
-.btn-volver {
-    text-decoration: none;
+/* ==============================
+   🔍 Buscador global elegante
+   ============================== */
+.buscador-container {
     text-align: center;
-    display: inline-block;
+    margin: 25px 0 40px 0;
+}
+
+#buscador-alumno {
+    width: 45%;
+    max-width: 420px;
     padding: 10px 16px;
+    font-size: 15px;
+    border: 2px solid #7b0000;
     border-radius: 8px;
-    background-color: #f1f1f1;
-    border: 1px solid #ddd;
-    color: #444;
-    font-weight: 500;
-    margin-top: 5px;
-    transition: all 0.25s ease;
-}
-.btn-volver:hover {
-    background-color: #e9e9e9;
-    transform: translateY(-1px);
+    outline: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    font-family: 'Poppins', sans-serif;
+    text-align: center;
 }
 
-/* ====== DETALLES DE TRANSICIÓN ====== */
-option {
-    padding: 6px;
+#buscador-alumno:focus {
+    border-color: #a00000;
+    box-shadow: 0 0 8px rgba(160, 0, 0, 0.4);
 }
 
-/* ====== RESPONSIVE ====== */
-@media (max-width: 600px) {
-    .contenedor-formulario {
-        width: 94%;
-        padding: 25px 20px;
-    }
+#buscador-alumno::placeholder {
+    color: #888;
+    font-style: italic;
+}
 
-    .contenedor-formulario h2 {
-        font-size: 1.2rem;
-    }
-
-    .btn-filtrar, .btn-volver {
-        font-size: 0.9rem;
+/* Responsive */
+@media (max-width: 768px) {
+    #buscador-alumno {
+        width: 80%;
+        font-size: 14px;
     }
 }

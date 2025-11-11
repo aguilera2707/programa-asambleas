@@ -9,48 +9,146 @@
 
     <!-- 🔹 Encabezado superior -->
     <header class="admin-header">
-        <div class="admin-header-left">
-            <h1>📚 Mis Grupos</h1>
+        <div class="header-left">
+            <h1>📘 Mis Grupos</h1>
         </div>
-        <div class="admin-user-info">
+        <div class="header-right">
             <span>{{ current_user.nombre }}</span>
-        <a href="{{ url_for('nom.panel_profesor') }}" class="btn-volver">
-            ← Volver al panel del maestro
-        </a>
+            <a href="{{ url_for('nom.panel_profesor') }}" class="btn-volver-top">
+                ← Volver al panel del maestro
+            </a>
         </div>
     </header>
 
-    <!-- 🔹 Contenedor principal -->
+    <!-- 🔹 Contenido principal -->
     <main class="contenedor-grupos">
-
-
 
         <h2>Ciclo escolar: {{ ciclo.nombre }}</h2>
 
+        <!-- 🔍 Buscador global -->
+        <div class="buscador-container">
+            <input type="text" id="buscador-alumno" placeholder="Buscar alumno por nombre...">
+        </div>
+
         {% for grupo, alumnos in grupos.items() %}
-        <section class="grupo-section">
-            <h3>{{ grupo }}</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Nombre del alumno</th>
-                        <th style="width:120px;">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for alumno in alumnos %}
-                    <tr>
-                        <td>{{ alumno.nombre }}</td>
-                        <td>
-                            <a href="{{ url_for('nom.nominar_alumno_individual', alumno_id=alumno.id) }}" class="btn-nominar">Nominar</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </section>
+
+            {% if 'K' in grupo or 'k' in grupo %}
+                {% set max_permitido = 8 %}
+            {% elif 'SEC' in grupo or 'Sec' in grupo or 'sec' in grupo %}
+                {% set max_permitido = 11 %}
+            {% else %}
+                {% set max_permitido = 8 %}
+            {% endif %}
+
+            {% set total_nominados = alumnos | selectattr('tiene_nominaciones_mes') | list | length %}
+
+            <section class="grupo-section">
+                <h3>{{ grupo }}</h3>
+                <p class="contador-limite">
+                    👥 Alumnos nominados en {{ grupo.split()[-1] }}: {{ total_nominados }} / {{ max_permitido }}
+                    {% if total_nominados >= max_permitido %}
+                        <span>— Límite alcanzado</span>
+                    {% endif %}
+                </p>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre del alumno</th>
+                            <th style="width: 120px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for alumno in alumnos %}
+                        <tr class="fila-alumno">
+                            <td class="nombre">{{ alumno.numero }}. {{ alumno.nombre }}</td>
+                            <td>
+                                {% if alumno.tiene_excelencia %}
+                                    <button class="btn-nominar" disabled
+                                        title="No se puede nominar a un alumno con grado EXCELENCIA.">
+                                        Nominar
+                                    </button>
+                                {% elif total_nominados >= max_permitido %}
+                                    <button class="btn-nominar" disabled
+                                        title="Se alcanzó el límite de nominaciones para este grupo.">
+                                        Nominar
+                                    </button>
+                                {% else %}
+                                    <a href="{{ url_for('nom.nominar_alumno_individual', alumno_id=alumno.id) }}"
+                                        class="btn-nominar">Nominar</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+        {% else %}
+            <p class="sin-datos">⚠️ No tienes grupos asignados en este ciclo.</p>
         {% endfor %}
     </main>
+
+    <!-- 🔍 Buscador dinámico mejorado -->
+    <script>
+    function normalizarTexto(texto) {
+        return texto
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const input = document.getElementById("buscador-alumno");
+        const secciones = document.querySelectorAll(".grupo-section");
+
+        input.addEventListener("input", () => {
+            const termino = normalizarTexto(input.value.trim());
+            let coincidenciasTotales = 0;
+
+            secciones.forEach(seccion => {
+                const filas = seccion.querySelectorAll("tbody tr");
+                let coincidenciasGrupo = 0;
+
+                filas.forEach(fila => {
+                    const textoFila = normalizarTexto(fila.textContent);
+                    if (textoFila.includes(termino)) {
+                        fila.style.display = "";
+                        coincidenciasGrupo++;
+                    } else {
+                        fila.style.display = "none";
+                    }
+                });
+
+                // 🔹 Mostrar u ocultar grupo completo
+                if (termino === "") {
+                    seccion.style.display = "";
+                } else if (coincidenciasGrupo > 0) {
+                    seccion.style.display = "";
+                    coincidenciasTotales += coincidenciasGrupo;
+                } else {
+                    seccion.style.display = "none";
+                }
+            });
+
+            // ⚠️ Mostrar aviso si no hay coincidencias
+            const aviso = document.getElementById("sin-resultados");
+            if (termino !== "" && coincidenciasTotales === 0) {
+                if (!aviso) {
+                    const msg = document.createElement("p");
+                    msg.id = "sin-resultados";
+                    msg.textContent = "⚠️ No se encontraron alumnos con ese nombre.";
+                    msg.style.textAlign = "center";
+                    msg.style.color = "#7b0000";
+                    msg.style.fontWeight = "600";
+                    msg.style.marginTop = "20px";
+                    input.insertAdjacentElement("afterend", msg);
+                }
+            } else if (aviso) {
+                aviso.remove();
+            }
+        });
+    });
+    </script>
 
 </body>
 </html>

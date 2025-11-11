@@ -2272,11 +2272,11 @@ def panel_profesor():
 
 
 # =======================================
-# 👨‍🏫 VISTA "MIS GRUPOS" (profesor)
+# 👨‍🏫 VISTA "MIS GRUPOS" (profesor optimizada y ordenada)
 @nom.route('/mis_grupos')
 @login_required
 def mis_grupos():
-    """Muestra los grupos y alumnos organizados por sección (K, PP, P, SEC), grado numérico y letra."""
+    """Muestra los grupos y alumnos con orden correcto, límites y bloqueo por excelencia."""
     if current_user.rol != 'profesor':
         flash("🚫 Solo los profesores pueden acceder a esta vista.", "danger")
         return redirect(url_for('nom.principal'))
@@ -2286,7 +2286,12 @@ def mis_grupos():
         flash("⚠️ No hay ciclo escolar activo.", "warning")
         return redirect(url_for('nom.panel_profesor'))
 
-    # Traemos alumnos y armamos el diccionario { "01 - PRIMERO°K1 A": [alumnos], ... }
+    maestro = Maestro.query.filter_by(correo=current_user.email, ciclo_id=ciclo_activo.id).first()
+    if not maestro:
+        flash("⚠️ No se encontró tu registro como maestro activo.", "warning")
+        return redirect(url_for('nom.panel_profesor'))
+
+    # 🔹 Traer todo en una sola consulta (optimizado)
     alumnos = (
         Alumno.query
         .filter_by(ciclo_id=ciclo_activo.id)
@@ -2294,49 +2299,83 @@ def mis_grupos():
         .all()
     )
 
+    evento_abierto = EventoAsamblea.query.filter_by(activo=True).first()
+
+    # Cargar todas las nominaciones del ciclo de una sola vez
+    nominaciones_ciclo = Nominacion.query.filter_by(ciclo_id=ciclo_activo.id).all()
+    nominaciones_por_alumno = {}
+    for n in nominaciones_ciclo:
+        nominaciones_por_alumno.setdefault(n.alumno_id, []).append(n)
+
     grupos = {}
+
+    # Construir estructura base de grupos
     for alumno in alumnos:
         clave = f"{alumno.grado}°{alumno.grupo}"
         if clave not in grupos:
             grupos[clave] = []
-        grupos[clave].append(alumno)
+        nominaciones = nominaciones_por_alumno.get(alumno.id, [])
 
-    # ---------- Parser robusto del token después de "°" ----------
+        # 🟡 Verificar excelencia
+        tiene_excelencia = any(
+            n.valor and getattr(n.valor, "nombre", "").upper() == "EXCELENCIA"
+            for n in nominaciones
+        )
+
+        # 🟢 Verificar nominación del mes actual
+        tiene_nominaciones_mes = (
+            any(n.evento_id == evento_abierto.id for n in nominaciones)
+            if evento_abierto else False
+        )
+
+        grupos[clave].append({
+            "id": alumno.id,
+            "nombre": alumno.nombre,
+            "tiene_excelencia": tiene_excelencia,
+            "tiene_nominaciones_mes": tiene_nominaciones_mes
+        })
+
+    # ---------- Parser robusto del token después de "°" (para ordenar) ----------
     import re
 
     def parse_grupo_key(nombre_grupo: str):
         """
         nombre_grupo ejemplo: '01 - PRIMERO°K1 A', '03 - TERCERO°PP1 B', '05 - QUINTO°P5 C', '01 - PRIMERO°SEC1 A'
-        Extrae sección y número del token inmediatamente después de '°'.
-        Devuelve tupla para ordenar: (orden_seccion, grado_num, letra_grupo)
+        Devuelve una tupla (orden_seccion, grado_num, letra_grupo)
+        para ordenar correctamente Kinder → Preprimaria → Primaria → Secundaria.
         """
         t = nombre_grupo.upper().strip()
-
-        # 1) Extraer token de sección+num justo después del símbolo °
-        #    Captura como: K1, PP1, P3, SEC2 ...
         m = re.search(r'°\s*([A-Z]+)(\d+)\b', t)
         if not m:
-            # Si no matchea, lo mandamos al final
             return (99, 99, 'Z')
-
-        seccion_code = m.group(1)    # 'K', 'PP', 'P', 'SEC'
-        grado_num   = int(m.group(2))  # p.ej. 1,2,3,...
-
-        # 2) Letra de grupo (último carácter A/B/C...)
+        seccion_code = m.group(1)
+        grado_num = int(m.group(2))
         m2 = re.search(r'\s([A-Z])$', t)
         letra = m2.group(1) if m2 else ''
-
-        # 3) Orden de secciones EXACTO que necesitas:
-        # Kinder -> Preprimaria -> Primaria -> Secundaria
         orden_seccion = {'K': 1, 'PP': 2, 'P': 3, 'SEC': 4}.get(seccion_code, 9)
-
         return (orden_seccion, grado_num, letra)
 
-    grupos_ordenados = dict(
-        sorted(grupos.items(), key=lambda kv: parse_grupo_key(kv[0]))
+    grupos_ordenados = dict(sorted(grupos.items(), key=lambda kv: parse_grupo_key(kv[0])))
+
+    # 🔹 Detectar límite automáticamente
+    def obtener_limite(nombre_grupo):
+        nombre = nombre_grupo.upper()
+        if "SEC" in nombre or "SECUND" in nombre or "BLOQUE 4" in nombre:
+            return 11
+        return 8
+
+    # 🔹 Numerar alumnos dentro de cada grupo
+    for grupo_nombre, lista_alumnos in grupos_ordenados.items():
+        for i, alumno in enumerate(lista_alumnos, start=1):
+            alumno["numero"] = i
+
+    return render_template(
+        "mis_grupos.html",
+        grupos=grupos_ordenados,
+        ciclo=ciclo_activo,
+        obtener_limite=obtener_limite
     )
 
-    return render_template('mis_grupos.html', grupos=grupos_ordenados, ciclo=ciclo_activo)
 
 @nom.route('/seleccionar_bloque')
 @login_required
