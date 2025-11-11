@@ -111,7 +111,7 @@
                     {% endif %}
                 </td>
                 <td>{{ n.valor.nombre if n.valor else '—' }}</td>
-                <td>{{ n.comentario or '—' }}</td>
+                <td>{{ (n.comentario.replace('[EXCELENCIA-VISUAL]', '')).strip() if n.comentario else '—' }}</td>
                 <td>{{ n.fecha.strftime('%d/%m/%Y') if n.fecha else '—' }}</td>
 
                 <!-- 🔹 Acciones (ahora permite edición si el evento pertenece a cualquier bloque abierto del mes) -->

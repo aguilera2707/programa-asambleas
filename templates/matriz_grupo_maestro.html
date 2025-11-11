@@ -13,9 +13,7 @@
             <h1>👩‍🏫 Nominaciones de {{ grado }}°{{ grupo }} - {{ bloque.nombre }}</h1>
         </div>
         <div class="header-right">
-            
             <span>{{ current_user.nombre }}</span>
-
             <a href="{{ url_for('nom.grupos_por_grado', bloque_id=bloque.id, grado=grado) }}" class="btn-volver-top">
                 ← Volver a la selección de grupo
             </a>
@@ -67,6 +65,14 @@
             </thead>
             <tbody>
                 {% for item in alumnos %}
+                {% set ns = namespace(tiene_excelencia_global=false) %}
+                {% for lista_valores in item.valores.values() %}
+                    {% for v in lista_valores %}
+                        {% if v.valor == "EXCELENCIA" %}
+                            {% set ns.tiene_excelencia_global = true %}
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
                 <tr>
                     <td>
                         <a class="nombre-alumno">
@@ -79,26 +85,32 @@
                         {% if item.valores[evento.mes_ordinal|string] %}
                             {% set valores_mes = item.valores[evento.mes_ordinal|string] %}
 
-                            {# 🟡 Caso 1: si ya tiene EXCELENCIA asignada directamente #}
+                            {# 🟡 Caso 1: EXCELENCIA asignada directamente #}
                             {% if valores_mes|length == 1 and valores_mes[0].valor == "EXCELENCIA" %}
-                                <span class="punto dorado" 
-                                    title="EXCELENCIA 🏅 — {{ valores_mes[0].comentario }}">
+                                {% set v = valores_mes[0] %}
+                                <span class="punto dorado"
+                                    title="{{ v.valor }} 🏅{% if v.maestro %} — {{ v.maestro }}{% endif %}{% if v.fecha %} ({{ v.fecha }}){% endif %}">
                                 </span>
 
-                            {# 🟡 Caso 2: si tiene 3 o más valores normales, mostrar punto dorado tipo EXCELENCIA #}
+                            {# 🟡 Caso 2: alcanzó EXCELENCIA por tres valores previos #}
                             {% elif valores_mes|length >= 3 %}
-                                <span class="punto dorado" 
-                                    title="EXCELENCIA 🏅 — Alcanzó este reconocimiento por tres nominaciones previas.">
+                                {% set valores_unicos = valores_mes|unique(attribute='valor') %}
+                                {% set nombres_valores = valores_unicos | map(attribute='valor') | join(', ') %}
+                                {% set comentarios = valores_unicos | map(attribute='comentario') | join(' | ') %}
+
+                                <span class="punto dorado"
+                                    title="EXCELENCIA 🏅 — Obtenida por tres nominaciones previas: Valores: {{ nombres_valores }}">
                                 </span>
 
-                            {# 🟢 Caso 3: puntos normales #}
+                            {# 🟢 Caso 3: puntos normales individuales #}
                             {% else %}
-                                {% for v in valores_mes %}
-                                    <span class="punto verde" 
+                                {% for v in valores_mes|unique(attribute='valor') %}
+                                    <span class="punto verde"
                                         title="{{ v.valor }}{% if v.maestro %} — {{ v.maestro }}{% endif %}{% if v.fecha %} ({{ v.fecha }}){% endif %}">
                                     </span>
                                 {% endfor %}
                             {% endif %}
+
                         {% else %}
                             <span class="punto gris"></span>
                         {% endif %}
@@ -110,12 +122,19 @@
                             ⚠️ Sin nominación previa
                         {% endif %}
                     </td>
+
                     <td>
                         {% if mes_actual %}
                             {% if evento_abierto and evento_abierto.mes_ordinal == mes_actual %}
-                                <a href="{{ url_for('nom.nominar_alumno_individual', alumno_id=item.alumno.id) }}" class="btn-nominar">
-                                    Nominar
-                                </a>
+                                {% if ns.tiene_excelencia_global %}
+                                    <button class="btn-nominar" disabled 
+                                            title="No se puede nominar a un alumno con grado EXCELENCIA.">
+                                        Nominar
+                                    </button>
+                                {% else %}
+                                    <a href="{{ url_for('nom.nominar_alumno_individual', alumno_id=item.alumno.id) }}" 
+                                        class="btn-nominar">Nominar</a>
+                                {% endif %}
                             {% else %}
                                 <button class="btn-nominar" disabled style="opacity:0.6;">Bloqueado</button>
                             {% endif %}
@@ -138,7 +157,7 @@
     setTimeout(() => {
         document.querySelectorAll('.flash').forEach(el => {
             el.classList.add('hide');
-            setTimeout(() => el.remove(), 600); // Se elimina después de desvanecerse
+            setTimeout(() => el.remove(), 600);
         });
     }, 3000);
     </script>

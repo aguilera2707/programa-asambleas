@@ -140,20 +140,7 @@ body {
     background-color: #ccc;
 }
 
-.punto[title]:hover::after {
-    content: attr(title);
-    position: absolute;
-    top: -25px;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: rgba(0,0,0,0.85);
-    color: #fff;
-    padding: 4px 8px;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    white-space: nowrap;
-    z-index: 10;
-}
+
 
 /* ======== BOTÓN NOMINAR ======== */
 .btn-nominar {
@@ -346,4 +333,17 @@ body {
 @keyframes brillo {
     0% { box-shadow: 0 0 4px rgba(255,215,0,0.5); transform: scale(1); }
     100% { box-shadow: 0 0 12px rgba(255,215,0,1); transform: scale(1.1); }
+}
+
+.btn-nominar[disabled] {
+    background-color: #d6a5a5;
+    cursor: not-allowed;
+    color: #fff;
+    opacity: 0.9;
+    border: none;
+}
+
+.btn-nominar[disabled]:hover {
+    background-color: #d6a5a5;
+    transform: none;
 }
