@@ -247,3 +247,9 @@ body {
         padding: 8px;
     }
 }
+.fa-lock {
+    color: #7b0000;
+    opacity: 0.7;
+    cursor: not-allowed;
+    font-size: 1.1rem;
+}

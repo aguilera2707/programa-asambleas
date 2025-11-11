@@ -116,7 +116,10 @@
 
                 <!-- 🔹 Acciones (ahora permite edición si el evento pertenece a cualquier bloque abierto del mes) -->
                 <td class="acciones">
-                    {% if n.evento and n.evento.id in open_event_ids %}
+                    {% if n.valor and n.valor.nombre == "EXCELENCIA" and "Valores obtenidos" in (n.comentario or "") %}
+                        <!-- 🔒 Bloqueada por ser EXCELENCIA automática -->
+                        <span class="bloqueado" title="Nominación de Excelencia automática — No editable">🔒</span>
+                    {% elif n.evento and n.evento.id in open_event_ids %}
                         <button class="btn-accion editar"
                                 onclick="openEditNomination({{ n.id }}, {{ n.valor_id }}, '{{ n.comentario or '' }}')"
                                 title="Editar">✏️</button>
