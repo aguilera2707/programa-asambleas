@@ -1,147 +1,268 @@
-/* === Fondo general y estructura === */
-body {
-    font-family: 'Segoe UI', sans-serif;
+    /* =============================
+    ESTILO GENERAL Y FONDO
+    ============================= */
+    body {
+    font-family: 'Poppins', sans-serif;
+    margin: 0;
+    color: #333;
     background: linear-gradient(120deg, #f8f9fa, #fff7e0, #f8f9fa);
     background-size: 400% 400%;
     animation: fondo-lento 20s ease infinite;
-    color: #333;
-    margin: 0;
-    padding: 0;
-}
-
-@keyframes fondo-lento {
+    }
+    @keyframes fondo-lento {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
-}
+    }
 
-/* === Encabezado === */
-.muro-header {
-    background: #7b1113;
+    /* =============================
+    ENCABEZADO CON EFECTO PREMIACIÓN
+    ============================= */
+    .muro-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
     color: white;
     text-align: center;
-    padding: 1.5rem 0;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
-}
-
-.filtros {
-    margin-top: 0.5rem;
+    z-index: 10;
+    background: linear-gradient(180deg, #7b0000 0%, #8a0000 60%, #700000 100%);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    border-bottom: 4px solid #d4af37;
+    overflow: hidden;
+    transition: transform 0.6s ease, opacity 0.6s ease;
+    }
+    .muro-header.oculto {
+    transform: translateY(-120%);
+    opacity: 0;
+    }
+    .muro-header::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: -50%;
+    width: 200%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #ffd700, transparent);
+    animation: shine 4s linear infinite;
+    opacity: 0.7;
+    }
+    @keyframes shine {
+    0% { left: -50%; }
+    100% { left: 100%; }
+    }
+    .muro-header .header-inner {
     display: flex;
-    justify-content: center;
-    gap: 10px;
-}
+    flex-direction: column;
+    align-items: center;
+    padding: 15px 10px 18px;
+    }
+    .muro-header h1 {
+    margin: 0 0 10px;
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 0 10px rgba(255,215,0,0.3);
+    color: #fff9d6;
+    }
+    .muro-header .filtros select {
+    background: #fffef7;
+    color: #7b0000;
+    border: 1.5px solid #b99329;
+    border-radius: 10px;
+    padding: 8px 14px;
+    margin: 3px;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    transition: 0.3s ease;
+    }
+    .muro-header .filtros select:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 8px rgba(255,215,0,0.4);
+    }
 
-.filtros select {
-    padding: 8px 12px;
-    border-radius: 6px;
-    border: none;
-    background: white;
-    font-size: 14px;
-}
-
-/* === Contenedor de tarjetas === */
-.muro-container {
+    /* =============================
+    CONTENEDOR DE TARJETAS
+    ============================= */
+    .muro-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 1.5rem;
-    padding: 2rem;
-}
-
-/* === Tarjetas === */
-.tarjeta {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
-    padding: 1rem;
-    text-align: center;
-    transition: transform 0.25s ease, box-shadow 0.3s ease;
-}
-
-.tarjeta:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 18px rgba(0,0,0,0.2);
-}
-
-/* === 🌟 Estrella central === */
-.estrella {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 50px;
+    padding: 150px 80px 120px;
+    justify-items: center;
+    align-items: start;
+    box-sizing: border-box;
     position: relative;
-    display: inline-block;
-    width: 90px;
-    height: 90px;
-    margin: 10px auto 15px;
-    color: #FFD700;
-    text-shadow: 0 0 8px rgba(255, 215, 0, 0.6),
-                0 0 12px rgba(255, 255, 0, 0.4);
-    animation: brillar 2.5s infinite ease-in-out;
-}
+    }
 
-.estrella svg {
+    /* =============================
+    TARJETAS
+    ============================= */
+    .tarjeta {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    width: 95%;
+    max-width: 350px;
+    min-height: 420px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 25px 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+    }
+    .tarjeta:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+    }
+    .tarjeta-excelencia {
+    border-top: 6px solid #d4af37;
+    background: linear-gradient(180deg, #fff9e5 0%, #ffffff 85%);
+    }
+
+    /* =============================
+    ESTRELLA Y ETIQUETA
+    ============================= */
+    .estrella {
+    position: relative;
+    width: 85px;
+    height: 85px;
+    margin: 10px auto 12px;
+    }
+    .estrella svg {
+    fill: #ffd600;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3));
     width: 100%;
     height: 100%;
-    fill: currentColor;
-    transform: scale(1);
-    transition: transform 0.3s ease;
-}
-
-.tarjeta:hover .estrella svg {
-    transform: scale(1.1);
-}
-
-/* Número centrado dentro de la estrella */
-.numero {
+    }
+    .estrella .numero {
     position: absolute;
-    top: 50%;
+    top: 48%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: #7b1113;
     font-weight: 800;
-    font-size: 1.9em;
-    text-shadow: 0 1px 2px rgba(255,255,255,0.8);
-}
-
-/* ✨ Animación suave de brillo */
-@keyframes brillar {
-    0%, 100% {
-        filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.5))
-                drop-shadow(0 0 12px rgba(255, 255, 0, 0.4));
+    color: #7b0000;
+    font-size: 2.2rem;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.9);
     }
-    50% {
-        filter: drop-shadow(0 0 16px rgba(255, 255, 150, 0.8))
-                drop-shadow(0 0 24px rgba(255, 255, 0, 0.6));
+    .etiqueta-excelencia {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(90deg, #b99329, #ffd700);
+    color: #5a3e00;
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 4px 14px;
+    border-radius: 14px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    white-space: nowrap;
+    z-index: 3;
     }
-}
 
-/* === Chips de valores === */
-.valor-chip {
-    display: inline-block;
-    background: #7b1113;
+    /* =============================
+    TEXTOS Y VALORES
+    ============================= */
+    .nombre {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 8px 0 10px;
+    color: #222;
+    text-align: center;
+    min-height: 45px;
+    }
+    .chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 5px;
+    }
+    .valor-chip {
+    background-color: #7b0000;
     color: white;
     border-radius: 6px;
-    padding: 3px 8px;
-    margin: 2px;
-    font-size: 13px;
-}
-
-/* === Nombre, bloque y texto === */
-.nombre {
-    font-weight: bold;
-    margin: 0.5rem 0 0.2rem 0;
-    font-size: 1.1em;
-}
-
-/* === Footer === */
-.muro-footer {
-    text-align: center;
-    padding: 1rem;
-    background: #eee;
-    font-size: 14px;
-    color: #333;
-}
-
-/* === Sin resultados === */
-.sin-resultados {
-    text-align: center;
-    font-style: italic;
+    padding: 5px 9px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    }
+    .valor-chip:hover {
+    background-color: #a00000;
+    }
+    .bloque {
+    font-size: 0.9rem;
+    margin: 8px 0 3px;
+    }
+    .evento {
+    font-size: 0.8rem;
     color: #666;
-    margin-top: 2rem;
-}
+    }
+
+    /* =============================
+    FOOTER
+    ============================= */
+    .muro-footer {
+    text-align: center;
+    padding: 15px;
+    font-size: 0.9rem;
+    background: #7b0000;
+    color: #fff;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    transition: transform 0.6s ease, opacity 0.6s ease;
+    }
+    .muro-footer.oculto {
+    transform: translateY(120%);
+    opacity: 0;
+    }
+
+    /* =============================
+    BOTÓN FLOTANTE
+    ============================= */
+    #toggleViewBtn {
+    position: fixed;
+    bottom: 25px;
+    right: 25px;
+    z-index: 50;
+    background: linear-gradient(90deg, #b99329, #ffd700);
+    color: #5a3e00;
+    border: none;
+    border-radius: 50px;
+    padding: 12px 22px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    transition: all 0.3s ease;
+    }
+    #toggleViewBtn:hover {
+    transform: scale(1.08);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+    }
+
+    .muro-container {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 50px;
+    padding: 150px 80px 120px;
+    justify-items: center;
+    align-items: start;
+    box-sizing: border-box;
+    position: relative;
+    }
+
+    /* ===== EXPANSIÓN AUTOMÁTICA EN VISTA COMPLETA ===== */
+    body.vista-completa main.muro-container {
+    margin-top: 0 !important;
+    height: 100vh !important;
+    }
+
+    body.vista-completa main.muro-container::before,
+    body.vista-completa main.muro-container::after {
+    display: none; /* oculta los fades para vista limpia */
+    }

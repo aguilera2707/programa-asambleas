@@ -1,20 +1,56 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
     <meta charset="UTF-8">
     <title>Muro de Valores – {{ ciclo.nombre }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/public_muro.css') }}">
-</head>
-<body>
+    <style>
+        html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden; /* evita doble scroll global */
+        }
 
-<header class="muro-header">
-    <h1>🌟 Muro de Valores – {{ ciclo.nombre }}</h1>
-    <form method="get" class="filtros">
+        /* Contenedor principal con scroll real */
+        main.muro-container {
+        position: relative;
+        margin-top: 130px; /* espacio bajo header */
+        height: calc(100vh - 180px);
+        overflow-y: auto;
+        scroll-behavior: smooth;
+        }
+
+        /* Fades superior/inferior */
+        main.muro-container::before,
+        main.muro-container::after {
+        content:"";
+        position: fixed;
+        left:0;
+        width:100%;
+        height:80px;
+        z-index:5;
+        pointer-events:none;
+        }
+        main.muro-container::before {
+        top:0;
+        background:linear-gradient(to bottom, rgba(123,0,0,.8), transparent);
+        }
+        main.muro-container::after {
+        bottom:0;
+        background:linear-gradient(to top, rgba(123,0,0,.8), transparent);
+        }
+    </style>
+    </head>
+
+    <body>
+    <header class="muro-header">
+    <div class="header-inner">
+        <h1>🏆 Muro de Valores – {{ ciclo.nombre }}</h1>
+        <form method="get" class="filtros">
         <select name="mes" onchange="this.form.submit()">
             {% for e in eventos %}
-                <option value="{{ e.mes_ordinal }}" {% if mes == e.mes_ordinal %}selected{% endif %}>
-                    {{ e.nombre_mes }}
-                </option>
+            <option value="{{ e.mes_ordinal }}" {% if mes == e.mes_ordinal %}selected{% endif %}>{{ e.nombre_mes }}</option>
             {% endfor %}
         </select>
 
@@ -25,62 +61,139 @@
 
         <select name="bloque" id="bloqueSelect" onchange="this.form.submit()">
             <option value="">Todos los bloques</option>
+            <option value="1-2" {% if bloque_id == '1-2' %}selected{% endif %}>Bloques 1 y 2</option>
+            <option value="3-4" {% if bloque_id == '3-4' %}selected{% endif %}>Bloques 3 y 4</option>
             {% for b in bloques %}
-                <option value="{{ b.id }}" {% if bloque_id == b.id %}selected{% endif %}>{{ b.nombre }}</option>
+            <option value="{{ b.id }}" {% if bloque_id == b.id %}selected{% endif %}>{{ b.nombre }}</option>
             {% endfor %}
         </select>
-    </form>
-</header>
+        </form>
+    </div>
+    </header>
 
-<main class="muro-container">
+    <!-- 🔘 Botón flotante fuera del header -->
+    <button id="toggleViewBtn" title="Vista completa">🖥️ Vista completa</button>
+
+    <main id="muroScroll" class="muro-container">
     {% if nominaciones %}
         {% for n in nominaciones %}
-        <div class="tarjeta visible">
-            
-            <!-- 🌟 Estrella con número -->
+        <div class="tarjeta visible {% if 'EXCELENCIA' in n.valores %}tarjeta-excelencia{% endif %}">
+            {% set comentario_txt = (n.comentario or '') %}
+            {% set contiene_excelencia = 'EXCELENCIA' in n.valores %}
+            {% set base_sin_excelencia = n.valores | reject('equalto', 'EXCELENCIA') | list %}
+            {% set es_directa = contiene_excelencia and ((n.valores|length == 1) or ('[EXCELENCIA-DIRECTA]' in comentario_txt)) %}
+            {% set es_automatica = contiene_excelencia and not es_directa or ('[EXCELENCIA-AUTO]' in comentario_txt) or ('Valores obtenidos' in comentario_txt) %}
+            {% set visibles = base_sin_excelencia %}
+            {% if es_directa %}{% set visibles = visibles + ['EXCELENCIA'] %}{% endif %}
+            {% set total_base = (base_sin_excelencia|length) %}
+            {% set total = total_base + (1 if es_directa else 0) %}
+            {% set total = [total, 3]|min %}
+
             <div class="estrella">
-                <svg viewBox="0 0 24 24">
-                    <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
-                </svg>
-                <span class="numero">{{ n.valores|length }}</span>
+            {% if contiene_excelencia %}
+                <div class="etiqueta-excelencia">🏅 EXCELENCIA</div>
+            {% endif %}
+            <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            <span class="numero">{{ total }}</span>
             </div>
 
             <h2 class="nombre">{{ n.nombre }}</h2>
 
-            <p><strong>Valores:</strong>
-                {% for v in n.valores %}
+            <div class="valores-container">
+            <p><strong>Valores:</strong></p>
+            <div class="chips">
+                {% for v in visibles %}
+                {% if not (es_automatica and v == 'EXCELENCIA') %}
                     <span class="valor-chip">{{ v }}</span>
+                {% endif %}
                 {% endfor %}
-            </p>
+            </div>
+            </div>
 
-            {% if n.bloque %}
-            <p><strong>Bloque:</strong> {{ n.bloque }}</p>
-            {% endif %}
-
-            <small>Evento: {{ n.evento }}</small>
+            {% if n.bloque %}<p class="bloque"><strong>Bloque:</strong> {{ n.bloque }}</p>{% endif %}
+            <small class="evento">Evento: {{ n.evento }}</small>
         </div>
         {% endfor %}
     {% else %}
         <p class="sin-resultados">😅 No hay nominaciones registradas para los filtros seleccionados.</p>
     {% endif %}
-</main>
+    </main>
 
-<footer class="muro-footer">
+    <footer class="muro-footer">
     <p>© {{ ciclo.nombre }} – Instituto Moderno Americano</p>
-</footer>
+    </footer>
 
-<script>
-document.addEventListener('DOMContentLoaded', () => {
+    <!-- ==================== JS AUTO SCROLL Y BOTÓN ==================== -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
     const tipoSelect = document.getElementById('tipoSelect');
     const bloqueSelect = document.getElementById('bloqueSelect');
+    const cont = document.getElementById('muroScroll');
 
     function toggleBloque() {
         bloqueSelect.style.display = (tipoSelect.value === 'personal') ? 'none' : 'inline-block';
     }
     tipoSelect.addEventListener('change', toggleBloque);
     toggleBloque();
-});
-</script>
 
-</body>
-</html>
+    // ---------- AUTO-SCROLL REBOTE REAL ----------
+    let dir = 1; // 1 = baja, -1 = sube
+    let velocidad = 0.8;
+    let pausado = false;
+    let pausaTimer;
+    let prevTop = 0;
+    let stuckFrames = 0;
+
+    function loopScroll() {
+        const maxScroll = cont.scrollHeight - cont.clientHeight;
+
+        if (!pausado && maxScroll > 10) {
+        cont.scrollTop += dir * velocidad;
+
+        // Rebote superior/inferior
+        if (cont.scrollTop <= 0) dir = 1;
+        else if (cont.scrollTop >= maxScroll - 1) dir = -1;
+
+        // Anti-atasco
+        if (Math.abs(cont.scrollTop - prevTop) < 0.1) {
+            stuckFrames++;
+            if (stuckFrames > 120) { dir *= -1; stuckFrames = 0; }
+        } else stuckFrames = 0;
+
+        prevTop = cont.scrollTop;
+        }
+        requestAnimationFrame(loopScroll);
+    }
+    loopScroll();
+
+    // Pausar al interactuar
+    function pausar() {
+        pausado = true;
+        clearTimeout(pausaTimer);
+        pausaTimer = setTimeout(() => pausado = false, 8000);
+    }
+    ['mousemove','wheel','keydown','touchstart'].forEach(e =>
+        window.addEventListener(e, pausar, { passive: true })
+    );
+    });
+
+    // --- Botón Vista Completa ---
+    document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('toggleViewBtn');
+    const header = document.querySelector('.muro-header');
+    const footer = document.querySelector('.muro-footer');
+    let oculto = false;
+
+    btn.addEventListener('click', () => {
+        oculto = !oculto;
+        header.classList.toggle('oculto', oculto);
+        footer.classList.toggle('oculto', oculto);
+        document.body.classList.toggle('vista-completa', oculto);
+
+        btn.textContent = oculto ? '🔙 Mostrar paneles' : '🖥️ Vista completa';
+        btn.title = oculto ? 'Mostrar encabezado y pie' : 'Ocultar encabezado y pie';
+    });
+    });
+    </script>
+    </body>
+    </html>
