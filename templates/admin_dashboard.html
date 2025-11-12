@@ -197,11 +197,25 @@ async function cargarDashboard(mes=null){
             options:{devicePixelRatio:2,plugins:{title:{display:true,text:'Nominaciones por tipo'}}}
         });
 
-        chartValor=new Chart(document.getElementById('chart_valor'),{
-            type:'bar',
-            data:{labels:data.por_valor.map(d=>d.valor),
-            datasets:[{data:data.por_valor.map(d=>d.n),backgroundColor:'#42a5f5'}]},
-            options:{devicePixelRatio:2,plugins:{title:{display:true,text:'Top valores nominados'}},scales:{y:{beginAtZero:true}}}
+        chartValor = new Chart(document.getElementById('chart_valor'), {
+            type: 'bar',
+            data: {
+                labels: data.por_valor.map(d => d.valor),
+                datasets: [{
+                    label: 'VALORES', // ✅ agrega este label
+                    data: data.por_valor.map(d => d.n),
+                    backgroundColor: '#42a5f5'
+                }]
+            },
+            options: {
+                devicePixelRatio: 2,
+                plugins: {
+                    title: { display: true, text: 'Top valores nominados' }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
         });
         const porDiaOrdenado = [...data.por_dia].sort((a,b)=> new Date(a.fecha) - new Date(b.fecha));
         chartDia=new Chart(document.getElementById('chart_dia'),{
