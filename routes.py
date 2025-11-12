@@ -3592,6 +3592,9 @@ def generar_invitaciones_bloque_unico():
 # ======================================================
 # == Exportar concentrado general de nominaciones (Excel)
 # ======================================================
+# ======================================================
+# == Exportar concentrado general de nominaciones (Excel)
+# ======================================================
 @nom.route('/admin/dashboard/exportar_concentrado_excel')
 @login_required
 @admin_required
@@ -3608,6 +3611,7 @@ def exportar_concentrado_excel():
     if not ciclo:
         return "No hay ciclo activo.", 400
 
+    # 🔹 Cargar todas las nominaciones (con relaciones)
     nominaciones = (
         Nominacion.query
         .options(
@@ -3618,6 +3622,7 @@ def exportar_concentrado_excel():
             joinedload(Nominacion.evento),
         )
         .filter(Nominacion.ciclo_id == ciclo.id)
+        .filter(~Nominacion.comentario.contains("[EXCELENCIA-VISUAL]"))  # ⛔ excluir visuales
         .order_by(Nominacion.fecha.asc())
         .all()
     )
@@ -3625,93 +3630,109 @@ def exportar_concentrado_excel():
     if not nominaciones:
         return "No hay nominaciones registradas.", 404
 
-    # 🔹 Construcción de los datos para el DataFrame
-    data = []
+    # 🔹 Construcción de los datos para DataFrames
+    data_alumnos, data_personal = [], []
+
     for n in nominaciones:
         tipo = n.tipo or "alumno"
-        nominado = (
-            n.alumno.nombre if tipo == "alumno"
-            else n.maestro_nominado.nombre if n.maestro_nominado else ""
+        evento = (
+            getattr(n.evento, "nombre", None)
+            or getattr(n.evento, "nombre_mes", None)
+            or getattr(n.evento, "titulo", None)
+            or getattr(n.evento, "titulo_evento", None)
+            or "—"
         )
-        bloque = n.alumno.bloque.nombre if n.alumno and n.alumno.bloque else "—"
-        grado = n.alumno.grado if n.alumno and hasattr(n.alumno, "grado") else "—"
-        grupo = n.alumno.grupo if n.alumno and hasattr(n.alumno, "grupo") else "—"
 
-        data.append({
+        base = {
             "Quién nomina": n.maestro.nombre if n.maestro else "",
             "Tipo": tipo.capitalize(),
-            "Nominado": nominado,
-            "Bloque": bloque,
-            "Grado": grado,
-            "Grupo": grupo,
+            "Nominado": (
+                n.alumno.nombre if tipo == "alumno"
+                else n.maestro_nominado.nombre if n.maestro_nominado else ""
+            ),
+            "Bloque": n.alumno.bloque.nombre if n.alumno and n.alumno.bloque else "—",
+            "Grado": n.alumno.grado if n.alumno and hasattr(n.alumno, "grado") else "—",
+            "Grupo": n.alumno.grupo if n.alumno and hasattr(n.alumno, "grupo") else "—",
             "Valor": n.valor.nombre if n.valor else "",
             "Comentario": n.comentario or "",
-            "Evento": (
-                getattr(n.evento, "nombre", None)
-                or getattr(n.evento, "nombre_mes", None)
-                or getattr(n.evento, "titulo", None)
-                or getattr(n.evento, "titulo_evento", None)
-                or "—"
-            ),
+            "Evento": evento,
             "Fecha": n.fecha.strftime("%d/%m/%Y") if n.fecha else "",
-        })
-
-    df = pd.DataFrame(data)
-
-    # 🧱 Generar Excel en memoria
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Nominaciones")
-
-        wb = writer.book
-        ws = wb["Nominaciones"]
-
-        # === Encabezado estilizado ===
-        header_fill = PatternFill(start_color="7B0000", end_color="7B0000", fill_type="solid")
-        header_font = Font(color="FFFFFF", bold=True)
-        header_align = Alignment(horizontal="center", vertical="center")
-        border = Border(
-            left=Side(style="thin", color="999999"),
-            right=Side(style="thin", color="999999"),
-            top=Side(style="thin", color="999999"),
-            bottom=Side(style="thin", color="999999")
-        )
-
-        for cell in ws[1]:
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = header_align
-            cell.border = border
-
-        # === Ajuste de columnas ===
-        for col in ws.columns:
-            max_length = max(len(str(cell.value or "")) for cell in col)
-            ws.column_dimensions[col[0].column_letter].width = max(12, min(max_length + 3, 40))
-
-        # 🎨 Paleta de colores por bloque
-        colores_bloques = {
-            "Bloque 1": "FFF8E1",  # dorado suave
-            "Bloque 2": "E3F2FD",  # azul claro
-            "Bloque 3": "E8F5E9",  # verde claro
-            "Bloque 4": "F3E5F5",  # lila
         }
 
-        # === Pintar filas por bloque ===
-        for i, row in enumerate(ws.iter_rows(min_row=2, max_row=ws.max_row), start=2):
-            bloque_val = str(ws[f"D{i}"].value or "").strip()  # Columna D = Bloque
-            color = colores_bloques.get(bloque_val, "FFFFFF")  # default blanco
-            fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
+        if tipo == "alumno":
+            data_alumnos.append(base)
+        else:
+            data_personal.append(base)
 
-            for cell in row:
-                cell.fill = fill
+    # Crear DataFrames
+    df_alumnos = pd.DataFrame(data_alumnos)
+    df_personal = pd.DataFrame(data_personal)
+
+    # 🧱 Generar Excel
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        # --- HOJA 1: ALUMNOS ---
+        if not df_alumnos.empty:
+            df_alumnos = df_alumnos.sort_values(by=["Grupo", "Bloque", "Grado"])
+            df_alumnos.to_excel(writer, index=False, sheet_name="Alumnos")
+
+            ws = writer.book["Alumnos"]
+            header_fill = PatternFill(start_color="7B0000", end_color="7B0000", fill_type="solid")
+            header_font = Font(color="FFFFFF", bold=True)
+            header_align = Alignment(horizontal="center", vertical="center")
+            border = Border(
+                left=Side(style="thin", color="999999"),
+                right=Side(style="thin", color="999999"),
+                top=Side(style="thin", color="999999"),
+                bottom=Side(style="thin", color="999999"),
+            )
+
+            for cell in ws[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = header_align
                 cell.border = border
 
-        # Congelar encabezados
-        ws.freeze_panes = "A2"
+            # 🎨 Alternar colores por grupo
+            colores = ["FFF8E1", "FFFFFF"]
+            ultimo_grupo = None
+            color_idx = 0
+            for i, row in enumerate(ws.iter_rows(min_row=2, max_row=ws.max_row), start=2):
+                grupo = str(ws[f"F{i}"].value or "").strip()  # columna F = Grupo
+                if grupo != ultimo_grupo:
+                    color_idx = 1 - color_idx
+                    ultimo_grupo = grupo
+                fill = PatternFill(start_color=colores[color_idx], end_color=colores[color_idx], fill_type="solid")
+                for c in row:
+                    c.fill = fill
+                    c.border = border
 
+            ws.freeze_panes = "A2"
+            for col in ws.columns:
+                max_len = max(len(str(cell.value or "")) for cell in col)
+                ws.column_dimensions[col[0].column_letter].width = min(max_len + 3, 45)
+
+        # --- HOJA 2: PERSONAL ---
+        if not df_personal.empty:
+            df_personal = df_personal.sort_values(by=["Fecha"])
+            df_personal.to_excel(writer, index=False, sheet_name="Personal")
+
+            ws2 = writer.book["Personal"]
+            for cell in ws2[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = header_align
+                cell.border = border
+
+            ws2.freeze_panes = "A2"
+            for col in ws2.columns:
+                max_len = max(len(str(cell.value or "")) for cell in col)
+                ws2.column_dimensions[col[0].column_letter].width = min(max_len + 3, 45)
+
+    # 📦 Enviar respuesta
     output.seek(0)
-
     filename = f"Concentrado_Nominaciones_{ciclo.nombre}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+
     response = make_response(output.read())
     response.headers["Content-Disposition"] = f"attachment; filename={filename}"
     response.headers["Content-Type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
