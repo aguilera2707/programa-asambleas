@@ -690,3 +690,9 @@ select {
 .exportar-concentrado .btn-exportar:hover {
     background: #a30000;
 }
+.btn-exportar.azul {
+    background-color: #1565c0;
+}
+.btn-exportar.azul:hover {
+    background-color: #0d47a1;
+}

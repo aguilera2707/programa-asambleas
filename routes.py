@@ -3740,3 +3740,109 @@ def exportar_concentrado_excel():
     output.close()
 
     return response
+
+# ======================================================
+# 📦 Generar invitaciones para PROFESORES (colaboradores)
+# ======================================================
+# ======================================================
+# 📦 Generar invitaciones para PROFESORES (colaboradores)
+# ======================================================
+@nom.route('/admin/dashboard/generar_invitaciones_profesores')
+@login_required
+@admin_required
+def generar_invitaciones_profesores():
+    import io, zipfile, time, os, re, gc
+    from flask import make_response
+    from sqlalchemy.orm import joinedload
+    from docxtpl import DocxTemplate
+    from models import Nominacion, CicloEscolar
+
+    def slug(s):
+        s = (s or "").strip()
+        s = re.sub(r"[^\w\-\.]+", "_", s, flags=re.UNICODE)
+        return s[:80] or "archivo"
+
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        return "No hay ciclo activo", 400
+
+    # 🔹 Solo profesores (n.maestro_nominado ≠ null)
+    nominaciones = (
+        Nominacion.query
+        .options(
+            joinedload(Nominacion.maestro),
+            joinedload(Nominacion.maestro_nominado),
+            joinedload(Nominacion.valor),
+            joinedload(Nominacion.evento),
+        )
+        .filter(
+            Nominacion.ciclo_id == ciclo.id,
+            Nominacion.tipo == "personal"
+        )
+        .order_by(Nominacion.fecha.asc())
+        .all()
+    )
+
+    if not nominaciones:
+        return "No hay nominaciones para profesores.", 404
+
+    # =====================================================
+    # 🔹 Generar ZIP totalmente en memoria
+    # =====================================================
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+
+        for n in nominaciones:
+            try:
+                plantilla_path = os.path.join("docx_templates", "invitacion colaborador 1.docx")
+                if not os.path.exists(plantilla_path):
+                    return f"No se encontró la plantilla DOCX: {plantilla_path}", 500
+
+                doc = DocxTemplate(plantilla_path)
+
+                nominado = n.maestro_nominado.nombre if n.maestro_nominado else ""
+                valor = n.valor.nombre if n.valor else ""
+
+                # 🔹 Comentario directo (sin reglas especiales)
+                comentario_final = (n.comentario or "").strip()
+
+                fecha_evento = (
+                    n.evento.fecha_evento.strftime("%d/%m/%Y")
+                    if n.evento and n.evento.fecha_evento else ""
+                )
+
+                # =====================================================
+                # 📄 Renderizar documento
+                # =====================================================
+                contexto = {
+                    "quien_nomina": n.maestro.nombre if n.maestro else "",
+                    "nominado": nominado,
+                    "valor": valor,
+                    "fecha_evento": fecha_evento,
+                    "texto_adicional": comentario_final,
+                }
+
+                doc_io = io.BytesIO()
+                doc.render(contexto)
+                doc.save(doc_io)
+                doc_io.seek(0)
+
+                filename = f"{slug(nominado)}_{slug(valor)}.docx"
+                zf.writestr(filename, doc_io.read())
+                doc_io.close()
+                gc.collect()
+
+            except Exception as e:
+                print(f"⚠️ Error generando invitación de profesor (ID={n.id}): {e}")
+
+    zip_buffer.seek(0)
+    filename_zip = (
+        f"Invitaciones_Profesores_{slug(ciclo.nombre)}_{time.strftime('%Y%m%d_%H%M')}.zip"
+    )
+
+    response = make_response(zip_buffer.read())
+    response.headers["Content-Type"] = "application/zip"
+    response.headers["Content-Disposition"] = f"attachment; filename={filename_zip}"
+    response.headers["Cache-Control"] = "no-store"
+
+    return response
