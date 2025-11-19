@@ -2299,7 +2299,19 @@ def mis_grupos():
         .all()
     )
 
-    evento_abierto = EventoAsamblea.query.filter_by(activo=True).first()
+    # 🔹 Traer TODOS los eventos activos del ciclo y mapearlos por bloque
+    eventos_activos = (
+        EventoAsamblea.query
+        .filter_by(ciclo_id=ciclo_activo.id, activo=True)
+        .all()
+    )
+
+    evento_por_bloque = {}
+    for e in eventos_activos:
+        # Si hay varios activos en el mismo bloque, nos quedamos con el más reciente por fecha_evento
+        actual = evento_por_bloque.get(e.bloque_id)
+        if not actual or e.fecha_evento > actual.fecha_evento:
+            evento_por_bloque[e.bloque_id] = e
 
     # Cargar todas las nominaciones del ciclo de una sola vez
     nominaciones_ciclo = Nominacion.query.filter_by(ciclo_id=ciclo_activo.id).all()
@@ -2314,6 +2326,7 @@ def mis_grupos():
         clave = f"{alumno.grado}°{alumno.grupo}"
         if clave not in grupos:
             grupos[clave] = []
+
         nominaciones = nominaciones_por_alumno.get(alumno.id, [])
 
         # 🟡 Verificar excelencia
@@ -2322,11 +2335,14 @@ def mis_grupos():
             for n in nominaciones
         )
 
-        # 🟢 Verificar nominación del mes actual
-        tiene_nominaciones_mes = (
-            any(n.evento_id == evento_abierto.id for n in nominaciones)
-            if evento_abierto else False
-        )
+        # 🟢 Verificar nominación del mes actual PERO por BLOQUE del alumno
+        tiene_nominaciones_mes = False
+        evento_bloque = evento_por_bloque.get(alumno.bloque_id)
+        if evento_bloque:
+            # Nominaciones ligadas al evento de ese bloque
+            tiene_nominaciones_mes = any(
+                n.evento_id == evento_bloque.id for n in nominaciones
+            )
 
         grupos[clave].append({
             "id": alumno.id,
