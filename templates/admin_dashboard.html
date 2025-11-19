@@ -309,14 +309,14 @@ document.getElementById("btnExportarExcel").addEventListener("click", () => {
 
 document.getElementById("btnDescargarBloque").addEventListener("click", () => {
     const bloqueId = document.getElementById("bloqueSelect").value;
+    const mes = document.getElementById("mes-dashboard").value;
+
     if (!bloqueId) {
         alert("Selecciona un bloque primero.");
         return;
     }
-    window.location.href = `/admin/dashboard/generar_invitaciones_bloque_unico?bloque_id=${bloqueId}`;
-});
-document.getElementById("btnDescargarProfesores").addEventListener("click", () => {
-    window.location.href = "/admin/dashboard/generar_invitaciones_profesores";
+
+    window.location.href = `/admin/dashboard/generar_invitaciones_bloque_unico?bloque_id=${bloqueId}&mes=${mes}`;
 });
 
 // ===============================

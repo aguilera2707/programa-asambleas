@@ -3431,6 +3431,9 @@ def inicio_rapido():
 # ======================================================
 # 📦 Generar invitaciones por bloque (solo exporta EXCELENCIA si existe)
 # ======================================================
+# ======================================================
+# 📦 Generar invitaciones por bloque (solo exporta EXCELENCIA si existe)
+# ======================================================
 @nom.route('/admin/dashboard/generar_invitaciones_bloque_unico')
 @login_required
 @admin_required
@@ -3439,14 +3442,14 @@ def generar_invitaciones_bloque_unico():
     from flask import make_response, request
     from sqlalchemy.orm import joinedload
     from docxtpl import DocxTemplate
-    from models import Nominacion, Alumno, Bloque, CicloEscolar
+    from models import Nominacion, Alumno, Bloque, CicloEscolar, EventoAsamblea
 
-    def slug(s):
-        s = (s or "").strip()
-        s = re.sub(r"[^\w\-\.]+", "_", s, flags=re.UNICODE)
-        return s[:80] or "archivo"
-
+    # ----------------------------------------
+    # 🔹 Leer parámetros
+    # ----------------------------------------
     bloque_id = request.args.get("bloque_id", type=int)
+    mes_nombre = request.args.get("mes", type=str)
+
     if not bloque_id:
         return "No se especificó bloque.", 400
 
@@ -3458,8 +3461,24 @@ def generar_invitaciones_bloque_unico():
     if not bloque:
         return "Bloque no encontrado.", 404
 
-    # 🔹 Traemos nominaciones del bloque y ciclo
-    nominaciones = (
+    # ----------------------------------------
+    # 🔹 Si viene mes, buscar evento exacto
+    # ----------------------------------------
+    evento_filtrado = None
+    if mes_nombre:
+        evento_filtrado = EventoAsamblea.query.filter_by(
+            bloque_id=bloque_id,
+            nombre_mes=mes_nombre,
+            ciclo_id=ciclo.id
+        ).first()
+
+        if not evento_filtrado:
+            return f"No hay evento de {mes_nombre} para este bloque.", 404
+
+    # =====================================================
+    # 🔹 Traer nominaciones del bloque filtradas por mes
+    # =====================================================
+    query = (
         Nominacion.query
         .options(
             joinedload(Nominacion.maestro),
@@ -3474,15 +3493,19 @@ def generar_invitaciones_bloque_unico():
             Alumno.bloque_id == bloque.id
         )
         .order_by(Nominacion.fecha.asc())
-        .all()
     )
 
+    # 🔹 Si hay mes → filtrar por evento específico
+    if evento_filtrado:
+        query = query.filter(Nominacion.evento_id == evento_filtrado.id)
+
+    nominaciones = query.all()
+
     if not nominaciones:
-        return f"No hay nominaciones para {bloque.nombre}.", 404
+        return f"No hay nominaciones para el mes {mes_nombre} en {bloque.nombre}.", 404
 
     # =====================================================
-    # 🔹 Filtrar duplicados: si un alumno tiene EXCELENCIA,
-    # solo se exporta esa nominación
+    # 🔹 Filtrar duplicados con EXCELENCIA
     # =====================================================
     nominaciones_filtradas = []
     procesados = set()
@@ -3498,7 +3521,8 @@ def generar_invitaciones_bloque_unico():
 
         if tiene_excelencia:
             excelencia = next(
-                (x for x in nominaciones if x.alumno_id == n.alumno_id and x.valor and x.valor.nombre.upper() == "EXCELENCIA"),
+                (x for x in nominaciones
+                 if x.alumno_id == n.alumno_id and x.valor and x.valor.nombre.upper() == "EXCELENCIA"),
                 None
             )
             if excelencia:
@@ -3513,6 +3537,11 @@ def generar_invitaciones_bloque_unico():
     # =====================================================
     # 🔹 Generar ZIP totalmente en memoria
     # =====================================================
+    def slug(s):
+        s = (s or "").strip()
+        s = re.sub(r"[^\w\-\.]+", "_", s, flags=re.UNICODE)
+        return s[:80] or "archivo"
+
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
         for n in nominaciones:
@@ -3523,8 +3552,6 @@ def generar_invitaciones_bloque_unico():
                     else "invitacion colaborador 1.docx"
                 )
                 plantilla_path = os.path.join("docx_templates", plantilla)
-                if not os.path.exists(plantilla_path):
-                    return f"No se encontró la plantilla DOCX: {plantilla_path}", 500
 
                 doc = DocxTemplate(plantilla_path)
                 nominado = (
@@ -3532,45 +3559,34 @@ def generar_invitaciones_bloque_unico():
                     else n.maestro_nominado.nombre if n.maestro_nominado else ""
                 )
 
-                # =====================================================
-                # 🧠 Limpiar y reconstruir comentario si es EXCELENCIA
-                # =====================================================
+                # -------- reconstrucción de comentario excelencia --------
                 comentario_final = n.comentario or ""
                 if n.valor and n.valor.nombre.upper() == "EXCELENCIA":
-                    # Limpiar etiquetas visuales
                     comentario_final = comentario_final.replace("[EXCELENCIA-VISUAL]", "").replace("  ", " ").strip()
 
-                    # Buscar los comentarios de las nominaciones previas (los 3 que originaron la excelencia)
-                    comentarios_previos = (
+                    previos = (
                         Nominacion.query
                         .filter(
                             Nominacion.alumno_id == n.alumno_id,
                             Nominacion.ciclo_id == n.ciclo_id,
-                            Nominacion.valor_id != n.valor_id  # diferentes a EXCELENCIA
+                            Nominacion.valor_id != n.valor_id
                         )
                         .order_by(Nominacion.fecha.asc())
                         .all()
                     )
 
-                    lista_comentarios = [
+                    comentarios_texto = " · ".join([
                         (c.comentario or "").replace("[EXCELENCIA-VISUAL]", "").strip()
-                        for c in comentarios_previos if c.comentario
-                    ]
+                        for c in previos if c.comentario
+                    ])
 
-                    comentarios_texto = " · ".join(lista_comentarios) if lista_comentarios else ""
-                    valores_texto = ""
-
-                    # Detectar nombres de valores (por si no están en el texto original)
                     valores_texto = ", ".join([
-                        c.valor.nombre for c in comentarios_previos if c.valor and c.valor.nombre.upper() != "EXCELENCIA"
+                        c.valor.nombre for c in previos if c.valor and c.valor.nombre.upper() != "EXCELENCIA"
                     ])
 
                     comentario_final = f"Por sus valores de {valores_texto}. — Comentarios de los maestros: {comentarios_texto}"
 
-
-                # =====================================================
-                # 📄 Renderizar documento
-                # =====================================================
+                # -------- Render --------
                 context = {
                     "quien_nomina": n.maestro.nombre if n.maestro else "",
                     "nominado": nominado,
@@ -3592,18 +3608,17 @@ def generar_invitaciones_bloque_unico():
                 print(f"⚠️ Error generando invitación NominacionID={n.id}: {e}")
 
     zip_buffer.seek(0)
-    filename_zip = f"Invitaciones_{slug(bloque.nombre)}_{slug(ciclo.nombre)}_{time.strftime('%Y%m%d_%H%M')}.zip"
+    filename_zip = f"Invitaciones_{slug(bloque.nombre)}_{slug(mes_nombre)}_{time.strftime('%Y%m%d_%H%M')}.zip"
 
     response = make_response(zip_buffer.read())
     response.headers["Content-Type"] = "application/zip"
     response.headers["Content-Disposition"] = f"attachment; filename={filename_zip}"
     response.headers["Cache-Control"] = "no-store"
-    zip_buffer.close()
 
-    print(f"✅ Exportado bloque {bloque.nombre} ({len(nominaciones)} invitaciones generadas)")
+    zip_buffer.close()
+    print(f"✅ Exportado bloque {bloque.nombre} mes {mes_nombre} ({len(nominaciones)} invitaciones generadas)")
 
     return response
-
 
 # ======================================================
 # == Exportar concentrado general de nominaciones (Excel)
