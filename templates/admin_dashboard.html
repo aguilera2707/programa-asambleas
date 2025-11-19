@@ -74,8 +74,10 @@
 
 
 
-    <button class="btn-exportar" id="btnDescargarBloque">📄 Descargar</button>
-    <button class="btn-exportar azul" id="btnDescargarProfesores" onclick="window.location.href='/admin/dashboard/generar_invitaciones_profesores'">📘 Profesores</button>
+    <button class="btn-exportar" id="btnDescargarBloque">📄 Descargar Alumnos</button>
+    <button class="btn-exportar azul" id="btnDescargarProfesores">
+        📘 Descargar Profesores
+    </button>
     </div>
         <h2>📩 Exportar nominaciones por maestro</h2>
 
@@ -304,6 +306,17 @@ document.getElementById('select-all').addEventListener('change',e=>{
 
 document.getElementById("btnExportarExcel").addEventListener("click", () => {
     window.location.href = "/admin/dashboard/exportar_concentrado_excel";
+});
+
+document.getElementById("btnDescargarProfesores").addEventListener("click", () => {
+    const mes = document.getElementById("mes-dashboard").value;
+
+    if (!mes) {
+        alert("Selecciona un mes.");
+        return;
+    }
+
+    window.location.href = `/admin/dashboard/generar_invitaciones_profesores?mes=${mes}`;
 });
 
 

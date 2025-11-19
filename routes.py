@@ -3783,7 +3783,7 @@ def exportar_concentrado_excel():
 @admin_required
 def generar_invitaciones_profesores():
     import io, zipfile, time, os, re, gc
-    from flask import make_response
+    from flask import make_response, request
     from sqlalchemy.orm import joinedload
     from docxtpl import DocxTemplate
     from models import Nominacion, CicloEscolar
@@ -3797,7 +3797,27 @@ def generar_invitaciones_profesores():
     if not ciclo:
         return "No hay ciclo activo", 400
 
-    # 🔹 Solo profesores (n.maestro_nominado ≠ null)
+    # 🔹 Obtener mes desde el dashboard (Enero, Noviembre, etc.)
+    mes_nombre = request.args.get("mes")
+    if not mes_nombre:
+        return "No se especificó el mes.", 400
+
+    # 🔹 Filtrar por mes → necesitamos el mes_ordinal correspondiente
+    #    Ej: Enero → 2, Noviembre → 1
+    from models import EventoAsamblea
+    evento_mes = EventoAsamblea.query.filter_by(
+        ciclo_id=ciclo.id,
+        nombre_mes=mes_nombre
+    ).first()
+
+    if not evento_mes:
+        return f"No existe un evento para el mes {mes_nombre}.", 404
+
+    mes_ordinal = evento_mes.mes_ordinal
+
+    # =====================================================
+    # 🔹 Solo profesores (tipo personal) del MES indicado
+    # =====================================================
     nominaciones = (
         Nominacion.query
         .options(
@@ -3808,17 +3828,18 @@ def generar_invitaciones_profesores():
         )
         .filter(
             Nominacion.ciclo_id == ciclo.id,
-            Nominacion.tipo == "personal"
+            Nominacion.tipo == "personal",
+            Nominacion.evento_id == evento_mes.id    # 👈 FILTRAMOS SOLO ESE MES
         )
         .order_by(Nominacion.fecha.asc())
         .all()
     )
 
     if not nominaciones:
-        return "No hay nominaciones para profesores.", 404
+        return f"No hay nominaciones para profesores en {mes_nombre}.", 404
 
     # =====================================================
-    # 🔹 Generar ZIP totalmente en memoria
+    # 🔹 Generación del ZIP (idéntico al tuyo)
     # =====================================================
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -3833,8 +3854,6 @@ def generar_invitaciones_profesores():
 
                 nominado = n.maestro_nominado.nombre if n.maestro_nominado else ""
                 valor = n.valor.nombre if n.valor else ""
-
-                # 🔹 Comentario directo (sin reglas especiales)
                 comentario_final = (n.comentario or "").strip()
 
                 fecha_evento = (
@@ -3842,9 +3861,6 @@ def generar_invitaciones_profesores():
                     if n.evento and n.evento.fecha_evento else ""
                 )
 
-                # =====================================================
-                # 📄 Renderizar documento
-                # =====================================================
                 contexto = {
                     "quien_nomina": n.maestro.nombre if n.maestro else "",
                     "nominado": nominado,
@@ -3864,16 +3880,13 @@ def generar_invitaciones_profesores():
                 gc.collect()
 
             except Exception as e:
-                print(f"⚠️ Error generando invitación de profesor (ID={n.id}): {e}")
+                print(f"⚠️ Error generando invitación profesor (ID={n.id}): {e}")
 
     zip_buffer.seek(0)
-    filename_zip = (
-        f"Invitaciones_Profesores_{slug(ciclo.nombre)}_{time.strftime('%Y%m%d_%H%M')}.zip"
-    )
+    filename_zip = f"Invitaciones_Profesores_{mes_nombre}_{slug(ciclo.nombre)}_{time.strftime('%Y%m%d_%H%M')}.zip"
 
     response = make_response(zip_buffer.read())
     response.headers["Content-Type"] = "application/zip"
     response.headers["Content-Disposition"] = f"attachment; filename={filename_zip}"
     response.headers["Cache-Control"] = "no-store"
-
     return response
