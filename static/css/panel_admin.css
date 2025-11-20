@@ -373,3 +373,13 @@
     opacity: 0;
     transform: translateY(-10px);
     }
+    .admin-acciones .btn-accion.azul {
+        background-color: #1976d2;
+        color: white;
+        padding: 10px 18px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-block;
+        margin: 10px 0;
+    }

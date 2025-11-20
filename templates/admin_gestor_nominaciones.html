@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestor de Nominaciones</title>
+
+    <!-- CSS principal -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_gestor_nominaciones.css') }}">
+
+    <!-- DataTables -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.dataTables.min.css">
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
+</head>
+
+<body>
+
+<header class="admin-header">
+    <div class="header-left">
+        <h1>🗂️ Gestor de Nominaciones</h1>
+    </div>
+
+    <div class="header-right">
+        <span>{{ current_user.nombre }}</span>
+        <a href="{{ url_for('nom.panel_admin') }}" class="btn-volver">↩ Volver al panel</a>
+    </div>
+</header>
+
+<main class="contenedor">
+
+    <h2 class="titulo">Ciclo: {{ ciclo.nombre if ciclo else '—' }}</h2>
+
+    <p class="descripcion">
+        Aquí puedes ver, filtrar y eliminar nominaciones individuales o múltiples.  
+        <strong>Esta vista es ideal para limpieza de datos o correcciones.</strong>
+    </p>
+
+    <!-- BOTÓN PARA ELIMINAR SELECCIONADOS -->
+    <button id="btnEliminarSeleccionados" class="btn-eliminar-multiples" disabled>
+        🗑️ Eliminar seleccionados
+    </button>
+
+    <table id="tablaNominaciones" class="display" style="width:100%; margin-top:20px;">
+        <thead>
+            <tr>
+                <th><input type="checkbox" id="checkAll"></th>
+                <th>ID</th>
+                <th>Fecha</th>
+                <th>Mes</th>
+                <th>Tipo</th>
+                <th>Nominado</th>
+                <th>Maestro</th>
+                <th>Bloque</th>
+                <th>Valor</th>
+                <th>Comentario</th>
+                <th>Evento</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+
+        <tbody></tbody>
+    </table>
+
+</main>
+
+<script>
+// ================================
+// Cargar DataTables
+// ================================
+$(document).ready(function () {
+
+    const tabla = $('#tablaNominaciones').DataTable({
+        ajax: {
+            url: "/admin/gestor_nominaciones/data",
+            dataSrc: ""
+        },
+        pageLength: 20,
+        columns: [
+            {
+                data: "id",
+                render: id => `<input type="checkbox" class="chk-nom" value="${id}">`,
+                orderable: false
+            },
+            { data: "id" },
+            { data: "fecha" },
+            { data: "mes" },
+            { data: "tipo" },
+            { data: "nominado" },
+            { data: "maestro" },
+            { data: "bloque" },
+            { data: "valor" },
+            { data: "comentario" },
+            { data: "evento" },
+            {
+                data: "id",
+                render: id => `
+                    <button class="btn-eliminar-uno" data-id="${id}">
+                        ❌ Eliminar
+                    </button>
+                `,
+                orderable: false
+            }
+        ]
+    });
+
+    // ======================
+    // Checkbox "Seleccionar todo"
+    // ======================
+    $('#checkAll').on('change', function () {
+        $('.chk-nom').prop('checked', this.checked);
+        toggleEliminarBtn();
+    });
+
+    // Detectar clicks en checkboxes individuales
+    $('#tablaNominaciones tbody').on('change', '.chk-nom', function () {
+        toggleEliminarBtn();
+    });
+
+
+    // ======================
+    // Botón de eliminar múltiple
+    // ======================
+    function toggleEliminarBtn() {
+        const seleccionados = $('.chk-nom:checked').length;
+        $('#btnEliminarSeleccionados').prop('disabled', seleccionados === 0);
+    }
+
+    $('#btnEliminarSeleccionados').click(function () {
+        const ids = $('.chk-nom:checked').map(function () { return this.value; }).get();
+
+        if (!confirm(`¿Seguro que deseas eliminar ${ids.length} nominaciones?`)) return;
+
+        $.ajax({
+            url: "/admin/gestor_nominaciones/eliminar",
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ ids }),
+            success: function (response) {
+                alert(`✔ ${response.eliminadas} nominaciones eliminadas`);
+                tabla.ajax.reload();
+            },
+            error: function () {
+                alert("❌ Error al eliminar nominaciones");
+            }
+        });
+    });
+
+
+    // ======================
+    // Eliminar una sola nominación
+    // ======================
+    $('#tablaNominaciones tbody').on('click', '.btn-eliminar-uno', function () {
+        const id = $(this).data('id');
+
+        if (!confirm(`¿Eliminar nominación #${id}?`)) return;
+
+        $.ajax({
+            url: "/admin/gestor_nominaciones/eliminar",
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ ids: [id] }),
+            success: function () {
+                tabla.ajax.reload();
+            }
+        });
+    });
+
+});
+</script>
+
+</body>
+</html>

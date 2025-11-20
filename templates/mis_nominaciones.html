@@ -21,7 +21,10 @@
 {% if eventos_abiertos_mes %}
     <div class="estado-evento" style="background:#d4edda; color:#155724; padding:10px; border-radius:6px; margin-bottom:12px;">
         🟢 Nominaciones abiertas para <strong>{{ eventos_abiertos_mes[0].nombre_mes }}</strong> 
-        {% set bloques_abiertos = eventos_abiertos_mes | map(attribute='bloque.nombre') | list %}
+        {% set bloques_abiertos = eventos_abiertos_mes 
+            | map(attribute='bloque.nombre') 
+            | list 
+            | sort %}
         (Bloques {{ bloques_abiertos | join(', ') }}).
         Puedes editar o eliminar tus nominaciones de este mes.
     </div>

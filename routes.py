@@ -3890,3 +3890,102 @@ def generar_invitaciones_profesores():
     response.headers["Content-Disposition"] = f"attachment; filename={filename_zip}"
     response.headers["Cache-Control"] = "no-store"
     return response
+
+# ======================================================
+# 🧹 Gestor de nominaciones (NUEVA PÁGINA)
+# URL: /admin/gestor_nominaciones
+# ======================================================
+from flask import jsonify, request
+from extensions import db
+from models import Nominacion, Alumno, Maestro, Bloque, Valor, EventoAsamblea, CicloEscolar
+
+@admin_bp.route('/gestor_nominaciones')
+@login_required
+@admin_required
+def admin_gestor_nominaciones():
+    """
+    Renderiza la NUEVA página de gestión de nominaciones.
+    """
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    return render_template('admin_gestor_nominaciones.html', ciclo=ciclo)
+
+
+@admin_bp.route('/gestor_nominaciones/data')
+@login_required
+@admin_required
+def admin_gestor_nominaciones_data():
+    """
+    Devuelve todas las nominaciones del ciclo activo en JSON para DataTables.
+    """
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        return jsonify([])
+
+    nominaciones = (
+        Nominacion.query
+        .filter_by(ciclo_id=ciclo.id)
+        .options(
+            db.joinedload(Nominacion.alumno).joinedload(Alumno.bloque),
+            db.joinedload(Nominacion.maestro),
+            db.joinedload(Nominacion.maestro_nominado),
+            db.joinedload(Nominacion.valor),
+            db.joinedload(Nominacion.evento),
+        )
+        .order_by(Nominacion.fecha.desc())
+        .all()
+    )
+
+    data = []
+    for n in nominaciones:
+        tipo = n.tipo or ""
+        if tipo == "personal" and n.maestro_nominado:
+            nominado = n.maestro_nominado.nombre
+        else:
+            nominado = n.alumno.nombre if n.alumno else "—"
+
+        bloque = n.alumno.bloque.nombre if (n.alumno and n.alumno.bloque) else "—"
+        valor = n.valor.nombre if n.valor else "—"
+        maestro = n.maestro.nombre if n.maestro else "—"
+        fecha = n.fecha.strftime("%d/%m/%Y") if n.fecha else "—"
+
+        if n.evento:
+            evento_label = f"{n.evento.nombre_mes} ({n.evento.fecha_evento.strftime('%d/%m/%Y')})"
+        else:
+            evento_label = "—"
+
+        data.append({
+            "id": n.id,
+            "fecha": fecha,
+            "mes": n.evento.nombre_mes if n.evento else "—",
+            "tipo": tipo,
+            "nominado": nominado,
+            "maestro": maestro,
+            "bloque": bloque,
+            "valor": valor,
+            "comentario": (n.comentario or "").strip(),
+            "evento": evento_label
+        })
+    return jsonify(data)
+
+
+@admin_bp.route('/gestor_nominaciones/eliminar', methods=['POST'])
+@login_required
+@admin_required
+def admin_gestor_nominaciones_eliminar():
+    """
+    Elimina una o varias nominaciones mediante IDs enviados en JSON.
+    """
+    data = request.get_json(silent=True) or {}
+    ids = data.get("ids", [])
+
+    if not ids:
+        return jsonify({"success": False, "message": "No se recibieron IDs."}), 400
+
+    try:
+        Nominacion.query.filter(Nominacion.id.in_(ids)).delete(synchronize_session=False)
+        db.session.commit()
+        return jsonify({"success": True, "eliminadas": len(ids)})
+    except Exception as e:
+        db.session.rollback()
+        print("❌ Error al eliminar nominaciones:", e)
+        return jsonify({"success": False, "message": "Error interno."}), 500

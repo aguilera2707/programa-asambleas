@@ -16,6 +16,12 @@
         </div>
     </header>
 
+    <div class="admin-acciones">
+    <a href="{{ url_for('admin_bp.admin_gestor_nominaciones') }}" class="btn-accion azul">
+        🗂️ Gestor de Nominaciones
+    </a>
+    </div>
+
             <!-- Mensajes flash -->
         <div id="flash-container">
             {% with messages = get_flashed_messages(with_categories=true) %}
