@@ -3522,7 +3522,7 @@ def generar_invitaciones_bloque_unico():
         if tiene_excelencia:
             excelencia = next(
                 (x for x in nominaciones
-                 if x.alumno_id == n.alumno_id and x.valor and x.valor.nombre.upper() == "EXCELENCIA"),
+                    if x.alumno_id == n.alumno_id and x.valor and x.valor.nombre.upper() == "EXCELENCIA"),
                 None
             )
             if excelencia:
@@ -3561,30 +3561,51 @@ def generar_invitaciones_bloque_unico():
 
                 # -------- reconstrucción de comentario excelencia --------
                 comentario_final = n.comentario or ""
+                # =====================================================
+                # 🧠 Reconstrucción elegante de comentarios para EXCELENCIA
+                # =====================================================
                 if n.valor and n.valor.nombre.upper() == "EXCELENCIA":
-                    comentario_final = comentario_final.replace("[EXCELENCIA-VISUAL]", "").replace("  ", " ").strip()
 
-                    previos = (
+                    # 1. Obtener nominaciones previas (las que formaron la excelencia)
+                    nominaciones_previas = (
                         Nominacion.query
                         .filter(
                             Nominacion.alumno_id == n.alumno_id,
                             Nominacion.ciclo_id == n.ciclo_id,
-                            Nominacion.valor_id != n.valor_id
+                            Nominacion.valor_id != n.valor_id  # excluir EXCELENCIA
                         )
                         .order_by(Nominacion.fecha.asc())
                         .all()
                     )
 
-                    comentarios_texto = " · ".join([
-                        (c.comentario or "").replace("[EXCELENCIA-VISUAL]", "").strip()
-                        for c in previos if c.comentario
-                    ])
+                    # 2. Lista de valores previos (para ponerlos en la primera línea)
+                    valores_previos = [
+                        nom.valor.nombre
+                        for nom in nominaciones_previas
+                        if nom.valor and nom.valor.nombre.upper() != "EXCELENCIA"
+                    ]
 
-                    valores_texto = ", ".join([
-                        c.valor.nombre for c in previos if c.valor and c.valor.nombre.upper() != "EXCELENCIA"
-                    ])
+                    valores_texto = ", ".join(valores_previos)
 
-                    comentario_final = f"Por sus valores de {valores_texto}. — Comentarios de los maestros: {comentarios_texto}"
+                    # 3. Agrupar comentarios por maestro
+                    comentarios_por_maestro = {}
+
+                    for nom in nominaciones_previas:
+                        maestro_nombre = nom.maestro.nombre if nom.maestro else "Maestro desconocido"
+                        comentario = (nom.comentario or "").replace("[EXCELENCIA-VISUAL]", "").strip()
+
+                        if comentario:
+                            comentarios_por_maestro.setdefault(maestro_nombre, []).append(comentario)
+
+                    # 4. Construir texto final
+                    comentario_final = f"Por sus valores de {valores_texto}.\n"
+                    comentario_final += "— Comentarios de los maestros:\n"
+
+                    for maestro_nombre, comentarios in comentarios_por_maestro.items():
+                        comentario_final += f"{maestro_nombre}:\n"
+                        for c in comentarios:
+                            comentario_final += f"• {c}\n"
+                        comentario_final += ""  # espacio entre maestros
 
                 # -------- Render --------
                 context = {
