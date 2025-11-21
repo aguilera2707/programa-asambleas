@@ -1553,7 +1553,7 @@ def actualizar_alumno(id):
 def editar_usuario_vista(id):
     if current_user.rol != 'admin':
         flash("🚫 Solo los administradores pueden acceder a esta sección.", "danger")
-        return redirect(url_for('nom.principal'))
+        return redirect(url_for('admin_bp.maestros_ciclo'))
 
     usuario = Usuario.query.get_or_404(id)
     return render_template('editar_usuario.html', usuario=usuario)
@@ -1620,7 +1620,7 @@ def actualizar_maestro(id):
     maestro.correo = request.form.get('correo', maestro.correo).strip().lower()
     db.session.commit()
     flash("✅ Maestro actualizado correctamente.", "success")
-    return redirect(url_for('nom.panel_usuarios'))
+    return redirect(url_for('admin_bp.maestros_ciclo'))
 
 @admin_bp.route('/maestros/eliminar/<int:id>', methods=['POST'])
 @login_required
@@ -1628,7 +1628,7 @@ def eliminar_maestro(id):
     """Desactiva o reactiva un maestro sin eliminarlo."""
     if current_user.rol != 'admin':
         flash("🚫 Solo los administradores pueden realizar esta acción.", "danger")
-        return redirect(url_for('nom.principal'))
+        return redirect(url_for('admin_bp.maestros_ciclo'))
 
     maestro = Maestro.query.get_or_404(id)
 

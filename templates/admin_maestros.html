@@ -17,6 +17,13 @@
     </header>
 
     <main class="admin-main">
+
+        <!-- 🔹 Buscador añadido -->
+        <div style="text-align:right; margin-bottom:15px;">
+            <input type="text" id="buscador-maestros" placeholder="Buscar maestro..."
+                   style="padding:8px 12px; width:260px; border:1px solid #ccc; border-radius:6px;">
+        </div>
+
         <!-- Botones superiores -->
         <div class="acciones-superior">
             <form action="{{ url_for('admin_bp.importar_maestros_ciclo') }}" method="POST" enctype="multipart/form-data" class="form-importar">
@@ -53,8 +60,8 @@
             <tbody>
                 {% for m in maestros %}
                 <tr>
-                    <td>{{ m.nombre }}</td>
-                    <td>{{ m.correo }}</td>
+                    <td class="col-nombre">{{ m.nombre }}</td>
+                    <td class="col-correo">{{ m.correo }}</td>
                     <td>{{ ciclo.nombre }}</td>
                     <td class="acciones">
                         <a href="{{ url_for('admin_bp.editar_maestro_vista', id=m.id) }}" class="btn-accion edit" title="Editar maestro">✏️</a>
@@ -86,6 +93,31 @@
                 setTimeout(() => el.remove(), 600);
             });
         }, 3000);
+
+        // 🔍 Buscador inteligente
+        function normalizar(texto) {
+            return texto
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, ""); // Elimina acentos
+        }
+
+        document.getElementById("buscador-maestros").addEventListener("input", function () {
+            const busqueda = normalizar(this.value);
+            const filas = document.querySelectorAll(".tabla-maestros tbody tr");
+
+            filas.forEach(fila => {
+                const nombre = normalizar(fila.querySelector(".col-nombre").innerText);
+                const correo = normalizar(fila.querySelector(".col-correo").innerText);
+
+                if (nombre.includes(busqueda) || correo.includes(busqueda)) {
+                    fila.style.display = "";
+                } else {
+                    fila.style.display = "none";
+                }
+            });
+        });
     </script>
+
 </body>
 </html>
