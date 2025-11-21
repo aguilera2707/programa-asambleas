@@ -13,17 +13,19 @@
 
     <main class="contenedor">
         <form action="{{ url_for('nom.actualizar_usuario', id=usuario.id) }}" method="POST" class="form-editar">
+
             <label>Nombre:</label>
             <input type="text" name="nombre" value="{{ usuario.nombre }}" required>
 
             <label>Email:</label>
             <input type="email" name="email" value="{{ usuario.email }}" required>
 
-            <label>Rol:</label>
-            <select name="rol" required>
-                <option value="admin" {% if usuario.rol == 'admin' %}selected{% endif %}>Administrador</option>
-                <option value="profesor" {% if usuario.rol == 'profesor' %}selected{% endif %}>Profesor</option>
-            </select>
+            <!-- 🔹 Campo opcional para actualizar contraseña -->
+            <label>Nueva contraseña (opcional):</label>
+            <input type="password" name="password" placeholder="Dejar vacío para no cambiar">
+
+            <!-- Si deseas eliminar el selector de rol, déjalo así -->
+
 
             <button type="submit" class="btn-guardar">💾 Guardar cambios</button>
         </form>

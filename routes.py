@@ -1569,11 +1569,18 @@ def actualizar_usuario(id):
     usuario = Usuario.query.get_or_404(id)
     usuario.nombre = request.form.get('nombre', usuario.nombre).strip().title()
     usuario.email = request.form.get('email', usuario.email).strip().lower()
-    usuario.rol = request.form.get('rol', usuario.rol)
+    usuario.rol = 'admin'  # Fijo porque esta vista es para admins
+
+    # 🔹 Capturar la nueva contraseña
+    nueva_pass = request.form.get('password', '').strip()
+    if nueva_pass:
+        usuario.set_password(nueva_pass)
+        print(">>> Contraseña ACTUALIZADA para:", usuario.email)  # Para depurar en consola
 
     db.session.commit()
     flash(f"✅ Usuario {usuario.nombre} actualizado correctamente.", "success")
-    return redirect(url_for('nom.panel_usuarios'))
+
+    return redirect(url_for('admin_bp.admin_usuarios_por_rol', rol='admin'))
 
 
 # -------------------------------
@@ -1608,6 +1615,7 @@ def editar_maestro_vista(id):
     maestro = Maestro.query.get_or_404(id)
     return render_template('editar_profesor.html', maestro=maestro)
 
+
 @admin_bp.route('/maestros/editar/<int:id>', methods=['POST'])
 @login_required
 def actualizar_maestro(id):
@@ -1616,11 +1624,38 @@ def actualizar_maestro(id):
         return redirect(url_for('nom.panel_usuarios'))
 
     maestro = Maestro.query.get_or_404(id)
-    maestro.nombre = request.form.get('nombre', maestro.nombre).strip()
-    maestro.correo = request.form.get('correo', maestro.correo).strip().lower()
+
+    # Datos del formulario
+    nuevo_nombre = request.form.get('nombre', maestro.nombre).strip()
+    nuevo_correo = request.form.get('correo', maestro.correo).strip().lower()
+    nueva_password = request.form.get('password', '').strip()
+
+    # 🔹 Actualizar maestro
+    maestro.nombre = nuevo_nombre
+    maestro.correo = nuevo_correo
+
+    # 🔹 Buscar el usuario correspondiente
+    usuario = Usuario.query.filter_by(email=maestro.correo).first()
+
+    if usuario:
+        usuario.nombre = nuevo_nombre
+
+        # 🔹 Si el correo cambió, actualizar también en Usuario
+        if usuario.email != nuevo_correo:
+            usuario.email = nuevo_correo
+
+        # 🔹 Si el admin escribió una nueva contraseña → actualizarla
+        if nueva_password:
+            usuario.set_password(nueva_password)
+
+    else:
+        flash("⚠️ Advertencia: este maestro no tiene un usuario asociado.", "warning")
+
     db.session.commit()
     flash("✅ Maestro actualizado correctamente.", "success")
+
     return redirect(url_for('admin_bp.maestros_ciclo'))
+
 
 @admin_bp.route('/maestros/eliminar/<int:id>', methods=['POST'])
 @login_required
