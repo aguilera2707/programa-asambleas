@@ -100,16 +100,20 @@
             </thead>
             <tbody>
                 {% for item in alumnos %}
-                {% set ns = namespace(tiene_excelencia_global=false, total_nominaciones=0) %}
-                
-                {# 🔹 Contamos todas las nominaciones del alumno #}
+                {% set ns = namespace(tiene_excelencia_mes=false, total_nominaciones=0) %}
+
+                {# 🔹 Contar nominaciones del ciclo (para avisos) #}
                 {% for lista_valores in item.valores.values() %}
-                    {% for v in lista_valores %}
-                        {% if v.valor == "EXCELENCIA" %}
-                            {% set ns.tiene_excelencia_global = true %}
-                        {% endif %}
-                        {% set ns.total_nominaciones = ns.total_nominaciones + 1 %}
-                    {% endfor %}
+                    {% set ns.total_nominaciones = ns.total_nominaciones + lista_valores|length %}
+                {% endfor %}
+
+                {# 🔹 Revisar excelencia SOLO en el mes actual #}
+                {% set valores_mes_actual = item.valores.get(evento_abierto.mes_ordinal|string, []) %}
+
+                {% for v in valores_mes_actual %}
+                    {% if v.valor == "EXCELENCIA" %}
+                        {% set ns.tiene_excelencia_mes = true %}
+                    {% endif %}
                 {% endfor %}
 
                 <tr>
@@ -160,7 +164,7 @@
                     <td>
                         {% if mes_actual %}
                             {% if evento_abierto and evento_abierto.mes_ordinal == mes_actual %}
-                                {% if ns.tiene_excelencia_global %}
+                                {% if ns.tiene_excelencia_mes %}
                                     <button class="btn-nominar" disabled title="No se puede nominar a un alumno con grado EXCELENCIA.">Nominar</button>
                                 {% elif ns_global.total_alumnos_nominados_mes >= max_permitido %}
                                     <button class="btn-nominar" disabled title="Se alcanzó el límite de nominaciones para este mes.">Nominar</button>

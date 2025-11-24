@@ -18,10 +18,10 @@
 
     <main class="admin-main">
 
-        <!-- 🔹 Buscador añadido -->
+        <!-- 🔹 Buscador (solo afecta a maestros activos) -->
         <div style="text-align:right; margin-bottom:15px;">
             <input type="text" id="buscador-maestros" placeholder="Buscar maestro..."
-                   style="padding:8px 12px; width:260px; border:1px solid #ccc; border-radius:6px;">
+                style="padding:8px 12px; width:260px; border:1px solid #ccc; border-radius:6px;">
         </div>
 
         <!-- Botones superiores -->
@@ -45,10 +45,13 @@
             {% endwith %}
         </div>
 
-        <!-- Tabla de maestros -->
         {% if ciclo %}
-        <h2 class="titulo-seccion">Listado de maestros</h2>
-        <table class="tabla-maestros">
+
+        <!-- ====================================================== -->
+        <!-- 🔹 TABLA 1: MAESTROS ACTIVOS -->
+        <!-- ====================================================== -->
+        <h2 class="titulo-seccion">Maestros activos</h2>
+        <table class="tabla-maestros" id="tabla-activos">
             <thead>
                 <tr>
                     <th>Nombre</th>
@@ -58,63 +61,99 @@
                 </tr>
             </thead>
             <tbody>
-                {% for m in maestros %}
+                {% for m in maestros_activos %}
                 <tr>
-                    <td class="col-nombre">{{ m.nombre }}</td>
+                    <td class="col-nombre">{{ loop.index }}. {{ m.nombre }}</td>
                     <td class="col-correo">{{ m.correo }}</td>
                     <td>{{ ciclo.nombre }}</td>
                     <td class="acciones">
-                        <a href="{{ url_for('admin_bp.editar_maestro_vista', id=m.id) }}" class="btn-accion edit" title="Editar maestro">✏️</a>
+                        <a href="{{ url_for('admin_bp.editar_maestro_vista', id=m.id) }}" class="btn-accion edit">✏️</a>
+
+                        <!-- Botón DESACTIVAR -->
                         <form action="{{ url_for('admin_bp.eliminar_maestro', id=m.id) }}" method="POST" style="display:inline;">
-                            {% if m.activo %}
-                                <button type="submit" class="btn-accion delete" title="Desactivar maestro">🚫</button>
-                            {% else %}
-                                <button type="submit" class="btn-accion activate" title="Activar maestro">✅</button>
-                            {% endif %}
+                            <button type="submit" class="btn-accion delete" title="Desactivar maestro">🚫</button>
                         </form>
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="4" class="sin-datos">No hay maestros registrados aún.</td></tr>
+                <tr><td colspan="4" class="sin-datos">No hay maestros activos.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
+
+
+        <!-- ====================================================== -->
+        <!-- 🔹 TABLA 2: MAESTROS INACTIVOS -->
+        <!-- ====================================================== -->
+        <h2 class="titulo-seccion" style="margin-top:40px;">Maestros inactivos</h2>
+
+        <table class="tabla-maestros" id="tabla-inactivos">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Correo</th>
+                    <th>Ciclo</th>
+                    <th style="text-align:center;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in maestros_inactivos %}
+                <tr style="opacity:0.7;">
+                    <td>{{ loop.index }}. {{ m.nombre }}</td>
+                    <td>{{ m.correo }}</td>
+                    <td>{{ ciclo.nombre }}</td>
+                    <td class="acciones">
+
+                        <!-- Botón ACTIVAR -->
+                        <form action="{{ url_for('admin_bp.eliminar_maestro', id=m.id) }}" method="POST" style="display:inline;">
+                            <button type="submit" class="btn-accion activate" title="Activar maestro">✅</button>
+                        </form>
+
+                        <!-- Botón ELIMINAR DEFINITIVO -->
+                        <form action="{{ url_for('admin_bp.borrar_maestro_definitivo', id=m.id) }}" 
+                                method="POST" style="display:inline;"
+                                onsubmit="return confirm('¿Eliminar definitivamente este maestro? Esta acción no se puede deshacer.');">
+                            <button type="submit" class="btn-accion delete" title="Eliminar definitivamente">🗑️</button>
+                        </form>
+
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="sin-datos">No hay maestros inactivos.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
         {% else %}
             <p class="aviso">⚠️ No hay un ciclo activo. Activa un ciclo antes de importar maestros.</p>
         {% endif %}
     </main>
 
     <script>
-        // Animación para los mensajes flash
+        // Animación sweet fade-out para flash
         setTimeout(() => {
             document.querySelectorAll('.flash').forEach(el => {
                 el.style.opacity = '0';
-                el.style.transform = 'translateY(-10px)';
                 setTimeout(() => el.remove(), 600);
             });
         }, 3000);
 
-        // 🔍 Buscador inteligente
+        // ===========================
+        // 🔍 Buscador (AFECTA SOLO ACTIVOS)
+        // ===========================
         function normalizar(texto) {
-            return texto
-                .toLowerCase()
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, ""); // Elimina acentos
+            return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         }
 
         document.getElementById("buscador-maestros").addEventListener("input", function () {
             const busqueda = normalizar(this.value);
-            const filas = document.querySelectorAll(".tabla-maestros tbody tr");
+            const filas = document.querySelectorAll("#tabla-activos tbody tr");
 
             filas.forEach(fila => {
                 const nombre = normalizar(fila.querySelector(".col-nombre").innerText);
                 const correo = normalizar(fila.querySelector(".col-correo").innerText);
 
-                if (nombre.includes(busqueda) || correo.includes(busqueda)) {
-                    fila.style.display = "";
-                } else {
-                    fila.style.display = "none";
-                }
+                fila.style.display = (nombre.includes(busqueda) || correo.includes(busqueda)) ? "" : "none";
             });
         });
     </script>

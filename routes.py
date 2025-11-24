@@ -594,14 +594,34 @@ def importar_maestros_ciclo():
 # -------------------------------
 @admin_bp.route('/maestros')
 @login_required
+@admin_required
 def maestros_ciclo():
-    if current_user.rol != 'admin':
-        flash("🚫 Solo los administradores pueden acceder.", "danger")
-        return redirect(url_for('nom.principal'))
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
 
-    ciclo = CicloEscolar.query.filter_by(activo=True).first()
-    maestros = Maestro.query.filter_by(ciclo_id=ciclo.id).all() if ciclo else []
-    return render_template('admin_maestros.html', maestros=maestros, ciclo=ciclo)
+    if not ciclo_activo:
+        flash("⚠️ No hay un ciclo activo.", "warning")
+        return redirect(url_for('admin_bp.gestionar_ciclos'))
+
+    # Separar maestros activos e inactivos
+    maestros_activos = Maestro.query.filter_by(ciclo_id=ciclo_activo.id, activo=True).order_by(Maestro.nombre.asc()).all()
+    maestros_inactivos = Maestro.query.filter_by(ciclo_id=ciclo_activo.id, activo=False).order_by(Maestro.nombre.asc()).all()
+
+    return render_template(
+        'admin_maestros.html',
+        ciclo=ciclo_activo,
+        maestros_activos=maestros_activos,
+        maestros_inactivos=maestros_inactivos
+    )
+
+@admin_bp.route('/maestros/borrar/<int:id>', methods=['POST'])
+@login_required
+def borrar_maestro_definitivo(id):
+    maestro = Maestro.query.get_or_404(id)
+    db.session.delete(maestro)
+    db.session.commit()
+    flash("🗑️ Maestro eliminado definitivamente.", "success")
+    return redirect(url_for('admin_bp.maestros_ciclo'))
+
 
 # -------------------------------
 # 🔹 Listado e importación de alumnos del ciclo activo
@@ -1559,28 +1579,24 @@ def editar_usuario_vista(id):
     return render_template('editar_usuario.html', usuario=usuario)
 
 
-@nom.route('/admin/usuarios/editar/<int:id>', methods=['POST'])
+@nom.route('/usuarios/editar/<int:id>', methods=['POST'])
 @login_required
 def actualizar_usuario(id):
-    if current_user.rol != 'admin':
-        flash("🚫 No autorizado.", "danger")
-        return redirect(url_for('nom.principal'))
-
     usuario = Usuario.query.get_or_404(id)
-    usuario.nombre = request.form.get('nombre', usuario.nombre).strip().title()
-    usuario.email = request.form.get('email', usuario.email).strip().lower()
-    usuario.rol = 'admin'  # Fijo porque esta vista es para admins
 
-    # 🔹 Capturar la nueva contraseña
-    nueva_pass = request.form.get('password', '').strip()
+    usuario.nombre = request.form.get('nombre', usuario.nombre)
+    usuario.email = request.form.get('email', usuario.email)
+
+    nueva_pass = request.form.get('nueva_password', '').strip()
+
     if nueva_pass:
-        usuario.set_password(nueva_pass)
-        print(">>> Contraseña ACTUALIZADA para:", usuario.email)  # Para depurar en consola
+        from werkzeug.security import generate_password_hash
+        usuario.password_hash = generate_password_hash(nueva_pass)   # 🔥 ESTA ES LA CORRECCIÓN
 
     db.session.commit()
-    flash(f"✅ Usuario {usuario.nombre} actualizado correctamente.", "success")
 
-    return redirect(url_for('admin_bp.admin_usuarios_por_rol', rol='admin'))
+    flash("✔ Usuario actualizado correctamente", "success")
+    return redirect(url_for('admin_bp.usuarios_admin'))
 
 
 # -------------------------------
@@ -1621,39 +1637,53 @@ def editar_maestro_vista(id):
 def actualizar_maestro(id):
     if current_user.rol != 'admin':
         flash("🚫 Solo los administradores.", "danger")
-        return redirect(url_for('nom.panel_usuarios'))
+        return redirect(url_for('nom.panel_admin'))
 
     maestro = Maestro.query.get_or_404(id)
 
-    # Datos del formulario
     nuevo_nombre = request.form.get('nombre', maestro.nombre).strip()
     nuevo_correo = request.form.get('correo', maestro.correo).strip().lower()
-    nueva_password = request.form.get('password', '').strip()
+    nueva_pass = request.form.get('nueva_password', '').strip()
 
-    # 🔹 Actualizar maestro
+    # 1) Validar si el correo ya existe en otro maestro
+    correo_en_uso = Maestro.query.filter(
+        Maestro.correo == nuevo_correo,
+        Maestro.id != maestro.id
+    ).first()
+
+    if correo_en_uso:
+        flash("⚠️ Este correo ya está registrado con otro maestro.", "warning")
+        return redirect(url_for('admin_bp.editar_maestro_vista', id=id))
+
+    # 2) Buscar usuario vinculado por correo anterior
+    usuario = Usuario.query.filter_by(email=maestro.correo).first()
+
+    # Si no existe usuario → crearlo
+    if not usuario:
+        usuario = Usuario(
+            nombre=nuevo_nombre,
+            email=nuevo_correo,
+            rol='profesor'
+        )
+        from werkzeug.security import generate_password_hash
+        usuario.password_hash = generate_password_hash('123456')   # 🔥 ESTA ES LA CORRECCIÓN
+        db.session.add(usuario)
+
+    # 3) Actualizar maestro
     maestro.nombre = nuevo_nombre
     maestro.correo = nuevo_correo
 
-    # 🔹 Buscar el usuario correspondiente
-    usuario = Usuario.query.filter_by(email=maestro.correo).first()
+    # 4) Actualizar usuario
+    usuario.nombre = nuevo_nombre
+    usuario.email = nuevo_correo
 
-    if usuario:
-        usuario.nombre = nuevo_nombre
-
-        # 🔹 Si el correo cambió, actualizar también en Usuario
-        if usuario.email != nuevo_correo:
-            usuario.email = nuevo_correo
-
-        # 🔹 Si el admin escribió una nueva contraseña → actualizarla
-        if nueva_password:
-            usuario.set_password(nueva_password)
-
-    else:
-        flash("⚠️ Advertencia: este maestro no tiene un usuario asociado.", "warning")
+    if nueva_pass:
+        from werkzeug.security import generate_password_hash
+        usuario.password_hash = generate_password_hash(nueva_pass)  # 🔥 ESTA ES LA CORRECCIÓN
 
     db.session.commit()
-    flash("✅ Maestro actualizado correctamente.", "success")
 
+    flash("✅ Maestro y usuario actualizado correctamente.", "success")
     return redirect(url_for('admin_bp.maestros_ciclo'))
 
 
@@ -2234,19 +2264,21 @@ def nominar_alumno_individual(alumno_id):
             flash("⚠️ Debes seleccionar un valor.", "warning")
             return redirect(request.url)
 
-        # 🚫 Bloquear si el alumno ya tiene EXCELENCIA
-        tiene_excelencia = (
+        # 🚫 Bloquear EXCELENCIA SOLO en el evento (mes) actual
+        tiene_excelencia_en_mes = (
             Nominacion.query
             .join(Valor)
             .filter(
                 Nominacion.alumno_id == alumno.id,
                 Nominacion.ciclo_id == ciclo_activo.id,
-                Valor.nombre == "EXCELENCIA"
+                Nominacion.evento_id == evento_abierto.id,   # 👈 FILTRO CLAVE
+                Valor.nombre.ilike("EXCELENCIA")
             )
             .first()
         )
-        if tiene_excelencia:
-            flash("🏆 Este alumno ya alcanzó el valor máximo EXCELENCIA y no puede recibir más nominaciones.", "warning")
+
+        if tiene_excelencia_en_mes:
+            flash("🏆 Este alumno ya alcanzó EXCELENCIA en este mes y no puede recibir más nominaciones aquí.", "warning")
             return redirect(url_for(
                 'nom.matriz_grupo_maestro',
                 bloque_id=alumno.bloque_id,
