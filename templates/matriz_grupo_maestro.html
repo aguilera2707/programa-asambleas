@@ -50,14 +50,37 @@
     {% endif %}
 
     {# 🔹 Ajuste automático según nivel educativo #}
+
+    {# Kinder = 8 #}
     {% if 'K' in grupo or 'K' in grado %}
         {% set max_permitido = 8 %}
+
+    {# Secundaria = 11 #}
     {% elif 'SEC' in grado or 'SEC' in grupo or 'Sec' in grado or 'Secundaria' in grado %}
         {% set max_permitido = 11 %}
-    {% elif grado|int <= 6 %}
-        {% set max_permitido = 8 %}
+
     {% else %}
-        {% set max_permitido = 8 %}
+        {# ---- PRIMARIA ---- #}
+
+        {# Extraemos solo el número del grado de forma segura #}
+        {% set grado_str = grado.split('-')[0].strip() %}
+        {% set grado_num = 0 %}
+        {% if grado_str.isdigit() %}
+            {% set grado_num = grado_str | int %}
+        {% endif %}
+
+        {# Primaria alta 4°, 5°, 6° = 11 #}
+        {% if grado_num >= 4 and grado_num <= 6 %}
+            {% set max_permitido = 11 %}
+
+        {# Primaria baja 1°, 2°, 3° = 8 #}
+        {% elif grado_num >= 1 and grado_num <= 3 %}
+            {% set max_permitido = 8 %}
+
+        {% else %}
+            {# Default seguro #}
+            {% set max_permitido = 8 %}
+        {% endif %}
     {% endif %}
 
     <section class="info-panel">

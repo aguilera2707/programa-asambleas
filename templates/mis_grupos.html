@@ -32,13 +32,27 @@
 
         {% for grupo, alumnos in grupos.items() %}
 
-            {% if 'K' in grupo or 'k' in grupo %}
-                {% set max_permitido = 8 %}
-            {% elif 'SEC' in grupo or 'Sec' in grupo or 'sec' in grupo %}
+        {% if 'K' in grupo or 'k' in grupo %}
+            {% set max_permitido = 8 %}
+
+        {% elif 'SEC' in grupo or 'Sec' in grupo or 'sec' in grupo %}
+            {% set max_permitido = 11 %}
+
+        {% else %}
+            {# Primaria #}
+
+            {% set grado_str = grupo.split('-')[0].strip() %}
+            {% set grado_num = 0 %}
+            {% if grado_str.isdigit() %}
+                {% set grado_num = grado_str | int %}
+            {% endif %}
+
+            {% if grado_num >= 4 and grado_num <= 6 %}
                 {% set max_permitido = 11 %}
             {% else %}
                 {% set max_permitido = 8 %}
             {% endif %}
+        {% endif %}
 
             {% set total_nominados = alumnos | selectattr('tiene_nominaciones_mes') | list | length %}
 

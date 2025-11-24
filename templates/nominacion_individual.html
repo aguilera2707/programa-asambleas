@@ -1,81 +1,295 @@
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
+<!DOCTYPE html>
+<html lang="es">
+<head>
     <meta charset="UTF-8">
     <title>Nominar alumno</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/nominacion_individual.css') }}">
-    </head>
-    <body>
+    <style>
+        .comentarios-section {
+            margin-top: 10px;
+        }
+        .select-pred, #valor_select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 8px;
+        }
+        #comentario {
+            width: 100%;
+            padding: 8px;
+            resize: none;
+        }
+        .contador {
+            text-align: right;
+            font-size: 12px;
+            color: #444;
+        }
+    </style>
+</head>
 
-    <div class="contenedor-formulario">
-        <h2>Nominar a {{ alumno.nombre }} ({{ alumno.grado }}{{ alumno.grupo }})</h2>
+<body>
 
-        <h4>Valores ya asignados:</h4>
-        {% if valores_asignados %}
+<div class="contenedor-formulario">
+    <h2>Nominar a {{ alumno.nombre }} ({{ alumno.grado }}{{ alumno.grupo }})</h2>
+
+    <h4>Valores ya asignados:</h4>
+    {% if valores_asignados %}
         <ul>
             {% for n in valores_asignados %}
-            <li>✅ {{ n.valor.nombre }} — {{ n.maestro.nombre }}</li>
+                <li>✅ {{ n.valor.nombre }} — {{ n.maestro.nombre }}</li>
             {% endfor %}
         </ul>
-        {% else %}
+    {% else %}
         <p>Sin valores previos.</p>
-        {% endif %}
+    {% endif %}
 
-        <form method="POST">
+    <form method="POST">
+
+        <!-- VALOR -->
         <label>Selecciona un nuevo valor:</label>
-        <select name="valor_id" required>
+        <select name="valor_id" id="valor_select" required>
             <option value="">-- Selecciona --</option>
             {% for v in valores_disponibles %}
-            <option value="{{ v.id }}">{{ v.nombre }}</option>
+                <option value="{{ v.id }}">{{ v.nombre }}</option>
             {% endfor %}
         </select>
 
-        <label>Comentario (opcional):</label>
-        <textarea name="comentario" rows="3" placeholder="Motivo o felicitación..."></textarea>
+        <!-- COMENTARIOS -->
+        <label>Comentario:</label>
+
+        <div class="comentarios-section">
+
+            <select id="comentario_pred" class="select-pred">
+                <option value="">-- Usar comentario predeterminado --</option>
+            </select>
+
+            <small id="ayudaPred" style="color:#666; font-size:13px; display:none;">
+                ✔ Comentario sugerido cargado (puedes editarlo).
+            </small>
+
+            <textarea 
+                name="comentario" 
+                id="comentario" 
+                rows="3" 
+                maxlength="200"
+                placeholder="Escribe tu comentario (máx. 200 caracteres)..."></textarea>
+
+            <div class="contador">
+                <small><span id="charCount">0</span>/200 caracteres</small>
+            </div>
+        </div>
 
         <button type="submit" class="btn-filtrar">Registrar nominación</button>
-        <a href="{{ url_for('nom.matriz_grupo_maestro', bloque_id=alumno.bloque_id, grado=alumno.grado, grupo=alumno.grupo) }}" class="btn-volver">← Volver al grupo</a>
-        </form>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script>
-    document.addEventListener("DOMContentLoaded", () => {
+        <a href="{{ url_for('nom.matriz_grupo_maestro', bloque_id=alumno.bloque_id, grado=alumno.grado, grupo=alumno.grupo) }}" class="btn-volver">
+            ← Volver al grupo
+        </a>
+    </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    // ===============================
+    // 1. Comentarios predeterminados EXACTOS (sin cambios)
+    // ===============================
+    const comentariosPorValor = {
+        "HONESTIDAD": [
+            "Reconoce sus errores y aprende de ellos.",
+            "Devuelve los objetos que encuentra para que sean devueltos a sus dueños.",
+            "Dice la verdad en todo momento.",
+            "Si se le calificó equivocadamente, se acerca para que se le corrija, aunque esto le reste puntos.",
+            "Evita engañar a los demás."
+        ],
+        "RESPONSABILIDAD": [
+            "Realiza sus trabajos en tiempo y forma.",
+            "Cuida sus materiales y los mantiene ordenados.",
+            "En trabajos en equipo, realiza lo que le corresponde y contribuye con lo que puede.",
+            "Cumple los acuerdos en los que se compromete.",
+            "Trae los materiales que se le piden o necesita."
+        ],
+        "RESPETO": [
+            "Trata a las personas con las que convive de forma correcta.",
+            "Llama a todos por su nombre.",
+            "Espera su turno para hablar, evitando interrumpir a los demás.",
+            "Practica las reglas generales de la escuela.",
+            "Se autorregula cuando hay un conflicto."
+        ],
+        "TOLERANCIA": [
+            "Conserva la calma cuando existe un desacuerdo con otra persona.",
+            "Reconoce que los demás pueden tener preferencias o gustos diferentes y que eso enriquece la convivencia.",
+            "Escucha las opiniones de los demás y las respeta, aunque no concuerden con las suyas.",
+            "Se muestra amable con estudiantes cuya conducta o forma de ser es marcadamente diferente."
+        ],
+        "EMPATIA": [
+            "Se interesa por las emociones de los demás y trata de ayudarlos a sentirse mejor.",
+            "Comparte sus pertenencias cuando alguien lo necesita.",
+            "Apoya a los estudiantes que requieren por alguna condición particular.",
+            "Cuando observa que alguien está solo/a, lo invita a pasar tiempo juntos o lo integra a su grupo de amigos/as.",
+            "Lleva o acompaña a la enfermería a quien se lastima o siente mal."
+        ],
+        "EXCELENCIA": [
+            "Practica varios valores del colegio de forma constante.",
+            "Realiza todo lo que se le pide con entusiasmo y buena actitud.",
+            "Se distingue entre sus pares por comportarse de forma amable y considerada.",
+            "Da su mejor esfuerzo en todo lo que realiza."
+        ],
+        "PERSEVERANCIA": [
+            "Se esfuerza constantemente en la realización de sus trabajos y ha logrado avances.",
+            "Trata de mejorar su conducta y lo ha logrado.",
+            "Cuando algo no le sale, lo intenta tantas veces como sea necesario hasta que lo logra.",
+            "Cuando no comprende algo, se acerca para que se le explique.",
+            "Pide ayuda para realizar algo que se le dificulta y muestra mucho interés en aprender ha hacerlo por sí mismo."
+        ],
+        "JUSTICIA": [
+            "Trata a todos como le gusta que lo traten.",
+            "Incluye en los juegos a todas las personas que desean participar.",
+            "Resuelve los conflictos buscando que la solución sea equitativa para todos.",
+            "Evita tomar partido por sus amigos cuando hay un conflicto entre varios estudiantes y señala lo que es correcto.",
+            "Cuando trae algo para compartir, les invita a todos."
+        ],
+        "AMABILIDAD": [
+            "Utiliza sus buenos modales de forma constante.",
+            "Dice las palabras mágicas como 'gracias', 'por favor', 'disculpa', '¿puedo?' de forma constante.",
+            "Ayuda a los demás abriendo la puerta para que pase o levantando lo que se haya caído.",
+            "Saluda y se despide todos los días.",
+            "Trata de forma cortés a sus compañeros de forma constante."
+        ],
+        "GENEROSIDAD": [
+            "Participa en las donaciones que organiza la escuela.",
+            "Comparte con sus compañeros lo que tiene.",
+            "Dedica tiempo a explicar a un compañero algo que a él/ella se le facilita.",
+            "Trae frecuentemente cosas para compartir con sus compañeros o amigos."
+        ],
+        "DEPORTIVISMO": [
+            "Reconoce cuando ha perdido y felicita a su oponente.",
+            "Juega de forma limpia y se mantiene en calma cuando está perdiendo.",
+            "Cuando gana se comporta de forma amable con quien perdió, evitando burlarse.",
+            "Utiliza frases como 'bien jugado' o 'lo hiciste muy bien' cuando gana o pierde.",
+            "En concursos o actividades del salón, mantiene la calma si no logra ganar o conseguir el motivador."
+        ]
+    };
+
+    // ===============================
+    // 2. Normalización de acentos
+    // ===============================
+    function normalizar(str) {
+        return str
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toUpperCase()
+            .trim();
+    }
+
+    const selectValor = document.getElementById("valor_select");
+    const selectPred = document.getElementById("comentario_pred");
+    const textarea = document.getElementById("comentario");
+    const charCount = document.getElementById("charCount");
+    const ayudaPred = document.getElementById("ayudaPred");
+
+    // ===============================
+    // Cargar comentarios sugeridos
+    // ===============================
+    selectValor.addEventListener("change", () => {
+        const valorSel = selectValor.options[selectValor.selectedIndex].text;
+        const clave = normalizar(valorSel);
+
+        selectPred.innerHTML = `<option value="">-- Usar comentario predeterminado --</option>`;
+        textarea.value = "";
+        ayudaPred.style.display = "none";
+
+        if (comentariosPorValor[clave]) {
+            comentariosPorValor[clave].forEach(c => {
+                let opt = document.createElement("option");
+                opt.value = c;
+                opt.textContent = c;
+                selectPred.appendChild(opt);
+            });
+        }
+
+        charCount.textContent = "0";
+    });
+
+    // Si elige un predeterminado
+    selectPred.addEventListener("change", () => {
+        if (selectPred.value !== "") {
+            textarea.value = selectPred.value;
+            ayudaPred.style.display = "inline";
+        } else {
+            textarea.value = "";
+            ayudaPred.style.display = "none";
+        }
+        charCount.textContent = textarea.value.length;
+    });
+
+    // Contador
+    textarea.addEventListener("input", () => {
+        charCount.textContent = textarea.value.length;
+        if (textarea.value !== selectPred.value) {
+            selectPred.value = "";
+            ayudaPred.style.display = "none";
+        }
+    });
+
+    // ===============================
+    // 3. Vista previa + confirmación
+    // ===============================
     const form = document.querySelector("form");
 
     form.addEventListener("submit", function(e) {
         e.preventDefault();
 
-        const selectValor = form.querySelector("select[name='valor_id']");
         const valorSeleccionado = selectValor.options[selectValor.selectedIndex].text;
         const alumno = "{{ alumno.nombre }}";
 
         if (!selectValor.value) {
-        Swal.fire({
-            icon: "warning",
-            title: "Valor no seleccionado",
-            text: "Debes elegir un valor antes de nominar.",
-            confirmButtonColor: "#800000"
-        });
-        return;
+            Swal.fire({
+                icon: "warning",
+                title: "Valor no seleccionado",
+                text: "Debes elegir un valor antes de nominar.",
+                confirmButtonColor: "#800000"
+            });
+            return;
         }
 
+        if (textarea.value.trim().length === 0) {
+            Swal.fire({
+                icon: "warning",
+                title: "Comentario requerido",
+                text: "Debes escribir o seleccionar un comentario.",
+                confirmButtonColor: "#800000"
+            });
+            return;
+        }
+
+        // Vista previa personalizada
         Swal.fire({
-        title: "Confirmar nominación",
-        html: `¿Deseas nominar a <b>${alumno}</b> por el valor <b>${valorSeleccionado}</b>?`,
-        icon: "question",
-        showCancelButton: true,
-        confirmButtonText: "Sí, confirmar",
-        cancelButtonText: "Cancelar",
-        confirmButtonColor: "#800000",
-        cancelButtonColor: "#aaa"
+            title: "Confirmar nominación",
+            html: `
+                <p>Nominar a <b>${alumno}</b> por el valor:</p>
+                <h3 style="color:#800000;">${valorSeleccionado}</h3>
+                <hr>
+                <p style="text-align:left;"><b>Comentario:</b></p>
+                <div style="border:1px solid #ccc; padding:10px; border-radius:8px; text-align:left; background:#fafafa;">
+                    ${textarea.value}
+                </div>
+            `,
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Confirmar",
+            cancelButtonText: "Cancelar",
+            confirmButtonColor: "#800000",
+            cancelButtonColor: "#aaa"
         }).then((result) => {
-        if (result.isConfirmed) {
-            form.submit();
-        }
+            if (result.isConfirmed) {
+                form.submit();
+            }
         });
-    });
-    });
-    </script>
 
-    </body>
-    </html>
+    });
+
+});
+</script>
+
+</body>
+</html>
