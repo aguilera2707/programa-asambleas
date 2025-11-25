@@ -1584,19 +1584,27 @@ def editar_usuario_vista(id):
 def actualizar_usuario(id):
     usuario = Usuario.query.get_or_404(id)
 
-    usuario.nombre = request.form.get('nombre', usuario.nombre)
-    usuario.email = request.form.get('email', usuario.email)
+    # Actualizar nombre y email
+    usuario.nombre = request.form.get('nombre', usuario.nombre).strip()
+    usuario.email = request.form.get('email', usuario.email).strip().lower()
 
-    nueva_pass = request.form.get('nueva_password', '').strip()
+    # Actualizar rol
+    usuario.rol = request.form.get('rol', usuario.rol)
+
+    # Contraseña nueva (campo="password" desde tu HTML)
+    nueva_pass = request.form.get('password', '').strip()
 
     if nueva_pass:
         from werkzeug.security import generate_password_hash
-        usuario.password_hash = generate_password_hash(nueva_pass)   # 🔥 ESTA ES LA CORRECCIÓN
+        usuario.password_hash = generate_password_hash(nueva_pass)
 
     db.session.commit()
 
     flash("✔ Usuario actualizado correctamente", "success")
-    return redirect(url_for('admin_bp.usuarios_admin'))
+
+    # 🔥 Redirección correcta (esta ruta exige rol=)
+    return redirect(url_for('admin_bp.admin_usuarios_por_rol', rol=usuario.rol))
+
 
 
 # -------------------------------
