@@ -21,6 +21,16 @@
     </div>
 </header>
 
+    <div id="flash-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
     <main class="admin-main">
 
         <!-- 🔹 Contenedor para mensajes flash -->
@@ -100,6 +110,17 @@
                 setTimeout(() => contenedor.innerHTML = '', 3500);
             }
         });
+
+            // 🔥 Ocultar automáticamente mensajes flash después de 3 segundos
+    setTimeout(() => {
+        document.querySelectorAll('.flash').forEach(el => {
+            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(-10px)';
+            setTimeout(() => el.remove(), 600);
+        });
+    }, 3000);
+
     </script>
 
 </body>

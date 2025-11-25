@@ -1603,7 +1603,7 @@ def actualizar_usuario(id):
     flash("✔ Usuario actualizado correctamente", "success")
 
     # 🔥 Redirección correcta (esta ruta exige rol=)
-    return redirect(url_for('admin_bp.admin_usuarios_por_rol', rol=usuario.rol))
+    return redirect(url_for('admin_bp.admin_usuarios_por_rol', rol='admin'))
 
 
 
