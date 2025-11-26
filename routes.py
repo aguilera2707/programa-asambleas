@@ -2714,25 +2714,58 @@ def detectar_nivel(grado):
 
     return "Primaria"
 
-# Muestra los grupos disponibles dentro de un grado
+# Grupos por grado con separación por nivel
 @nom.route('/bloque/<int:bloque_id>/grado/<grado>')
 @login_required
 def grupos_por_grado(bloque_id, grado):
     ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
     if not ciclo_activo:
         flash("⚠️ No hay ciclo activo.", "warning")
-        return redirect(url_for('nom.principal'))
+        return redirect(url_for('nom.inicio_rapido'))
 
-    grupos = (
-        db.session.query(Alumno.grupo)
+    # Obtener todos los alumnos del grado dentro del bloque
+    alumnos = (
+        Alumno.query
         .filter_by(ciclo_id=ciclo_activo.id, bloque_id=bloque_id, grado=grado)
-        .distinct()
         .order_by(Alumno.grupo.asc())
         .all()
     )
-    grupos = [g[0] for g in grupos]
-    bloque = Bloque.query.get_or_404(bloque_id)
-    return render_template('grupos_por_grado.html', bloque=bloque, grado=grado, grupos=grupos)
+
+    if not alumnos:
+        return render_template(
+            'grupos_por_grado.html',
+            bloque=Bloque.query.get_or_404(bloque_id),
+            grado=grado,
+            niveles_dict={}
+        )
+
+    # Construir diccionario nivel → grupos únicos
+    niveles_dict = {}
+
+    for alumno in alumnos:
+        nivel = alumno.nivel.strip()
+        grupo = alumno.grupo.strip()
+
+        if nivel not in niveles_dict:
+            niveles_dict[nivel] = []
+
+        if grupo not in niveles_dict[nivel]:
+            niveles_dict[nivel].append(grupo)
+
+    # Ordenar niveles en el orden lógico Kinder → Primaria → Secundaria
+    orden_logico = ["Kinder", "Primaria", "Secundaria"]
+    niveles_dict_ordenado = {
+        nivel: niveles_dict[nivel]
+        for nivel in orden_logico
+        if nivel in niveles_dict
+    }
+
+    return render_template(
+        'grupos_por_grado.html',
+        bloque=Bloque.query.get_or_404(bloque_id),
+        grado=grado,
+        niveles_dict=niveles_dict_ordenado
+    )
 
 # Vista temporal para mostrar alumnos de ese grupo
 @nom.route('/bloque/<int:bloque_id>/grado/<grado>/grupo/<grupo>')
