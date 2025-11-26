@@ -59,11 +59,16 @@
             </form>
         </div>
 
-
-        <!-- 🔹 Tabla -->
+        <!-- 🔹 Título -->
         <h2 class="subtitulo">Listado de alumnos</h2>
 
-        <table class="tabla">
+        <!-- 🔍 Buscador agregado -->
+        <div class="buscador-alumnos">
+            <input type="text" id="searchInput" placeholder="🔍 Buscar alumno..." />
+        </div>
+
+        <!-- 🔹 Tabla -->
+        <table class="tabla" id="tablaAlumnos">
             <thead>
                 <tr>
                     <th>Nombre</th>
@@ -144,6 +149,33 @@
                 });
         });
     });
+
+    // 🔍 Buscador avanzado en vivo (ignora acentos, mayúsculas, espacios)
+    function normalizarTexto(texto) {
+        return texto
+            .normalize("NFD")                    // separa letra + acento
+            .replace(/[\u0300-\u036f]/g, "")     // elimina acentos
+            .replace(/\s+/g, "")                 // elimina espacios
+            .replace(/[^a-zA-Z0-9]/g, "")        // elimina caracteres especiales
+            .toLowerCase();
+    }
+
+    document.getElementById('searchInput').addEventListener('keyup', function() {
+        let filtro = normalizarTexto(this.value);
+        let filas = document.querySelectorAll('#tablaAlumnos tbody tr');
+
+        filas.forEach(fila => {
+            let nombreCrudo = fila.querySelector('td:nth-child(1)').textContent;
+            let nombreNormalizado = normalizarTexto(nombreCrudo);
+
+            if (nombreNormalizado.includes(filtro)) {
+                fila.style.display = '';
+            } else {
+                fila.style.display = 'none';
+            }
+        });
+    });
 </script>
+
 </body>
 </html>

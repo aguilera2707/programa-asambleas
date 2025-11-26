@@ -1,0 +1,121 @@
+/* Para evitar el marco blanco arriba */
+html, body {
+    margin: 0;
+    padding: 0;
+}
+
+/* Contenedor principal */
+.contenedor-crear {
+    max-width: 700px;
+    margin: 40px auto;
+    padding: 10px;
+}
+
+/* Tarjeta */
+.form-card {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    border: 2px solid #a00000;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* Títulos */
+.titulo-form {
+    font-size: 22px;
+    font-weight: bold;
+    margin-bottom: 25px;
+    color: #a00000;
+}
+
+/* Flash messages */
+.flash-container {
+    margin-bottom: 20px;
+}
+
+.flash {
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-weight: bold;
+    transition: 0.4s;
+}
+
+.flash-success {
+    background: #d1ffd1;
+    color: #056105;
+}
+
+.flash-warning {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.flash-danger {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Campos */
+.formulario .campo {
+    margin-bottom: 22px;
+    display: flex;
+    flex-direction: column;
+}
+
+.formulario label {
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+
+/* Inputs y selects */
+.formulario input,
+.formulario select {
+    padding: 10px;
+    border: 2px solid #a00000;
+    border-radius: 6px;
+    font-size: 15px;
+    background-color: #fff;
+}
+
+.formulario input[readonly] {
+    background: #f5f5f5;
+    font-weight: 600;
+    cursor: not-allowed;
+}
+
+.formulario input:focus,
+.formulario select:focus {
+    outline: none;
+    border-color: #cc0000;
+    box-shadow: 0 0 4px rgba(160,0,0,0.4);
+}
+
+/* Botón */
+.btn-crear {
+    background: #a00000;
+    color: white;
+    padding: 14px 18px;
+    width: 100%;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 17px;
+    transition: 0.25s ease;
+    font-weight: bold;
+}
+
+.btn-crear:hover {
+    background: #7d0000;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .form-card {
+        padding: 20px;
+    }
+
+    .btn-crear {
+        font-size: 16px;
+    }
+}

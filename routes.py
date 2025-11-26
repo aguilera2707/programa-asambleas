@@ -2622,39 +2622,97 @@ def nuevo_maestro():
     return render_template('crear_maestro.html')
 
 
-@admin_bp.route('/alumnos/crear', methods=['GET', 'POST'])
+@admin_bp.route('/admin/alumnos/crear', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def crear_alumno_manual():
+
     ciclo = CicloEscolar.query.filter_by(activo=True).first()
-    bloques = Bloque.query.filter_by(ciclo_id=ciclo.id).all() if ciclo else []
+    if not ciclo:
+        flash("No hay un ciclo activo.", "danger")
+        return redirect(url_for('admin_bp.alumnos_ciclo'))
+
+    grados = sorted({a.grado for a in Alumno.query.filter_by(ciclo_id=ciclo.id).all()})
+    grupos = sorted({a.grupo for a in Alumno.query.filter_by(ciclo_id=ciclo.id).all()})
+    alumnos_db = Alumno.query.filter_by(ciclo_id=ciclo.id).all()
 
     if request.method == 'POST':
-        nombre = request.form.get('nombre')
-        grado = request.form.get('grado')
-        grupo = request.form.get('grupo')
-        nivel = request.form.get('nivel')
-        bloque_id = request.form.get('bloque_id')
+        nombre = request.form.get('nombre').strip()
+        grado = request.form.get('grado').strip()
+        grupo = request.form.get('grupo').strip()
+        nivel = request.form.get('nivel').strip()
 
-        if not all([nombre, grado, grupo, nivel, bloque_id]):
-            flash("⚠️ Todos los campos son obligatorios.", "warning")
+        if not nombre or not grado or not grupo or not nivel:
+            flash("Todos los campos son obligatorios.", "warning")
             return redirect(url_for('admin_bp.crear_alumno_manual'))
 
+        # 🔍 Validación de duplicado
+        dup = Alumno.query.filter_by(
+            ciclo_id=ciclo.id,
+            grado=grado,
+            grupo=grupo,
+            nombre=nombre.upper()
+        ).first()
+
+        if dup:
+            flash("⚠️ Ya existe un alumno con ese nombre, grado y grupo en este ciclo.", "warning")
+            return redirect(url_for('admin_bp.crear_alumno_manual'))
+
+        # 🔍 AUTOASIGNAR BLOQUE (lógica correcta)
+        alumno_referencia = Alumno.query.filter_by(
+            ciclo_id=ciclo.id,
+            nivel=nivel
+        ).first()
+
+        if not alumno_referencia:
+            flash("⚠️ No se encontró ningún alumno de este nivel para determinar su bloque. "
+                  "Por favor importa primero alumnos o configura los bloques.", "danger")
+            return redirect(url_for('admin_bp.crear_alumno_manual'))
+
+        bloque_id = alumno_referencia.bloque_id
+
+        # Crear alumno
         nuevo = Alumno(
-            nombre=nombre,
+            nombre=nombre.upper(),
             grado=grado,
             grupo=grupo,
             nivel=nivel,
-            bloque_id=bloque_id,
-            ciclo_id=ciclo.id
+            ciclo_id=ciclo.id,
+            bloque_id=bloque_id
         )
+
         db.session.add(nuevo)
         db.session.commit()
-        flash(f"✅ Alumno {nombre} registrado correctamente.", "success")
-        return redirect(url_for('admin_bp.maestros_ciclo'))
 
-    return render_template('crear_alumno.html', ciclo=ciclo, bloques=bloques)
+        flash("Alumno creado correctamente.", "success")
+        return redirect(url_for('admin_bp.alumnos_ciclo'))
 
+    return render_template(
+        'crear_alumno.html',
+        ciclo=ciclo,
+        grados=grados,
+        grupos=grupos,
+        alumnos_db=alumnos_db
+    )
+
+
+    
+def detectar_nivel(grado):
+    g = grado.upper().strip()
+
+    if g.startswith("K") or g.startswith("PP"):
+        return "Kinder"
+
+    if g.startswith("01") or g.startswith("02") or g.startswith("03"):
+        return "Primaria"
+
+    if g.startswith("04") or g.startswith("05") or g.startswith("06"):
+        return "Primaria"
+
+    if g.startswith("SEC") or g.startswith("1") or g.startswith("2") or g.startswith("3"):
+        return "Secundaria"
+
+    return "Primaria"
 
 # Muestra los grupos disponibles dentro de un grado
 @nom.route('/bloque/<int:bloque_id>/grado/<grado>')

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Crear alumno</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/crear_alumno.css') }}">
+</head>
+<body>
+
+<!-- 🔹 Header institucional -->
+<header class="admin-header">
+    <div class="header-left">
+        <h1>➕ Crear alumno</h1>
+    </div>
+
+    <div class="header-right">
+        <span>{{ current_user.nombre }}</span>
+        <a href="{{ url_for('admin_bp.alumnos_ciclo') }}" class="btn-volver">↩ Volver</a>
+    </div>
+</header>
+
+<main class="contenedor-crear">
+    <section class="form-card">
+
+        <h2 class="titulo-form">Datos del alumno</h2>
+
+        <!-- 🧾 Mensajes flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('admin_bp.crear_alumno_manual') }}" method="POST" class="formulario">
+
+            <div class="campo">
+                <label for="nombre">Nombre completo:</label>
+                <input type="text" name="nombre" id="nombre" required placeholder="Ej. Ana Sofía Méndez López">
+            </div>
+
+            <div class="campo">
+                <label for="grado">Grado:</label>
+                <select name="grado" id="grado" required>
+                    <option value="">Selecciona</option>
+                    {% for g in grados %}
+                        <option value="{{ g }}">{{ g }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="grupo">Grupo:</label>
+                <select name="grupo" id="grupo" required>
+                    <option value="">Selecciona</option>
+                    {% for grupo in grupos %}
+                        <option value="{{ grupo }}">{{ grupo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Nivel detectado -->
+            <div class="campo">
+                <label>Nivel detectado:</label>
+                <input type="text" id="nivel_detectado" readonly placeholder="Selecciona el grupo">
+            </div>
+
+            <!-- Valor real que se enviará -->
+            <input type="hidden" name="nivel" id="nivel">
+
+            <!-- Bloque autoasignado -->
+            <input type="hidden" name="bloque_id" id="bloque_id">
+
+            <button type="submit" class="btn-crear">Guardar alumno</button>
+        </form>
+    </section>
+</main>
+
+<script>
+
+    // --- Detectar nivel por prefijo ---
+    function detectarNivelPorGrupo(grupo) {
+        let g = grupo.toUpperCase().trim();
+
+        if (g.startsWith("K") || g.startsWith("PP")) return "Kinder";
+        if (g.startsWith("P")) return "Primaria";
+        if (g.startsWith("SEC")) return "Secundaria";
+
+        return "";
+    }
+
+    // --- Filtrar grupos según grado ---
+
+    const nombreInput = document.getElementById("nombre");
+    const gradoInput = document.getElementById("grado");
+    const grupoInput = document.getElementById("grupo");
+
+    // preparamos lista de alumnos ya existentes (desde Jinja)
+    const alumnosExistentes = [
+        {% for a in alumnos_db %}
+            {
+                nombre: "{{ a.nombre }}",
+                grado: "{{ a.grado }}",
+                grupo: "{{ a.grupo }}"
+            },
+        {% endfor %}
+    ];
+
+    function existeDuplicado(nombre, grado, grupo) {
+        return alumnosExistentes.some(a =>
+            a.nombre.toUpperCase() === nombre.toUpperCase() &&
+            a.grado === grado &&
+            a.grupo === grupo
+        );
+    }
+
+    document.querySelector(".formulario").addEventListener("submit", e => {
+        const nombre = nombreInput.value.trim();
+        const grado = gradoInput.value;
+        const grupo = grupoInput.value;
+
+        if (existeDuplicado(nombre, grado, grupo)) {
+            e.preventDefault();
+            alert("⚠️ Ya existe un alumno con ese nombre, grado y grupo.");
+        }
+    });
+
+
+    const gradoSelect = document.getElementById("grado");
+    const grupoSelect = document.getElementById("grupo");
+
+    const gruposOriginales = [...grupoSelect.options].map(opt => opt.value);
+
+    gradoSelect.addEventListener("change", function () {
+        const gradoSeleccionado = this.value.substring(0, 2); // "01", "02", etc
+
+        grupoSelect.innerHTML = ""; // limpiar
+
+        // Agregar opción por defecto
+        const optDefault = document.createElement("option");
+        optDefault.textContent = "Selecciona";
+        optDefault.value = "";
+        grupoSelect.appendChild(optDefault);
+
+        gruposOriginales.forEach(grupo => {
+            if (!grupo) return;
+
+            // Obtener número del grupo (K1/P1/SEC1 → 1)
+            const match = grupo.match(/\d+/);
+            if (!match) return;
+
+            const numeroGrupo = match[0].padStart(2, '0'); // "1" → "01"
+
+            if (numeroGrupo === gradoSeleccionado) {
+                const opt = document.createElement("option");
+                opt.value = grupo;
+                opt.textContent = grupo;
+                grupoSelect.appendChild(opt);
+            }
+        });
+    });
+
+    // --- Detectar nivel cuando el usuario elige grupo ---
+    grupoSelect.addEventListener("change", function () {
+        const nivel = detectarNivelPorGrupo(this.value);
+        if (nivel !== "") {
+            document.getElementById("nivel_detectado").value = nivel;
+            document.getElementById("nivel").value = nivel;
+        }
+    });
+
+    // --- Desvanecer flash ---
+    setTimeout(() => {
+        document.querySelectorAll('.flash').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(-8px)';
+            setTimeout(() => el.remove(), 500);
+        });
+    }, 3000);
+</script>
+
+
+</body>
+</html>
