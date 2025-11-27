@@ -369,3 +369,29 @@ body {
     transform: translateY(-2px);
     box-shadow: 0 6px 12px rgba(0,0,0,0.2);
 }
+
+
+
+/* Contenedor del botón */
+.orden-container {
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+/* Botón de ordenamiento */
+.btn-ordenar {
+    background-color: #7b0000;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.btn-ordenar:hover {
+    background-color: #a30000;
+    transform: translateY(-2px);
+}
