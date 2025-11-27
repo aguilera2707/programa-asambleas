@@ -152,31 +152,55 @@
                     </td>
 
                     {% for evento in eventos %}
-                    <td>
-                        {% if item.valores[evento.mes_ordinal|string] %}
-                            {% set valores_mes = item.valores[evento.mes_ordinal|string] %}
-                            {% if valores_mes|length == 1 and valores_mes[0].valor == "EXCELENCIA" %}
-                                {% set v = valores_mes[0] %}
-                                <span class="punto dorado" 
-                                        title="{{ v.valor }} 🏅{% if v.maestro %} — {{ v.maestro }}{% endif %}{% if v.fecha %} ({{ v.fecha }}){% endif %}">
-                                </span>
-                            {% elif valores_mes|length >= 3 %}
-                                {% set valores_unicos = valores_mes|unique(attribute='valor') %}
-                                {% set nombres_valores = valores_unicos | map(attribute='valor') | join(', ') %}
-                                <span class="punto dorado" 
-                                        title="EXCELENCIA 🏅 — Obtenida por tres nominaciones previas: {{ nombres_valores }}">
-                                </span>
-                            {% else %}
-                                {% for v in valores_mes|unique(attribute='valor') %}
-                                    <span class="punto verde" 
-                                            title="{{ v.valor }}{% if v.maestro %} — {{ v.maestro }}{% endif %}{% if v.fecha %} ({{ v.fecha }}){% endif %}">
-                                    </span>
-                                {% endfor %}
-                            {% endif %}
-                        {% else %}
-                            <span class="punto gris"></span>
-                        {% endif %}
-                    </td>
+            <td>
+                {% if item.valores[evento.mes_ordinal|string] %}
+                    {% set valores_mes = item.valores[evento.mes_ordinal|string] %}
+
+                    {# extraer solo los nombres de los valores #}
+                    {% set nombres_valores = valores_mes | map(attribute='valor') | list %}
+                    {% set valores_unicos = nombres_valores | unique | list %}
+
+                    {# CASO 1: Si hay EXCELENCIA → punto dorado, mostrando historial completo #}
+                    {% if 'EXCELENCIA' in valores_unicos %}
+                        {% set excelencia = valores_mes | selectattr('valor', 'equalto', 'EXCELENCIA') | list | first %}
+                        
+                        {% set otros = valores_mes | rejectattr('valor', 'equalto', 'EXCELENCIA') | list %}
+
+                        <span class="punto dorado"
+                            title="
+                    EXCELENCIA 🏅 — {{ excelencia.maestro }} ({{ excelencia.fecha }})
+
+                    {% if otros|length > 0 %}
+                    Nominaciones previas:
+                    {% for n in otros %}
+                    • {{ n.valor }} — {{ n.maestro }} ({{ n.fecha }})
+                    {% endfor %}
+                    {% endif %}
+                            ">
+                        </span>
+
+                    {# CASO 2: Si hay 3 valores distintos → excelencia automática #}
+                    {% elif valores_unicos|length >= 3 %}
+                        <span class="punto dorado"
+                            title="EXCELENCIA 🏅 — Obtenida por tres nominaciones previas: {{ valores_unicos | join(', ') }}">
+                        </span>
+
+                    {# CASO 3: valores normales → verdes #}
+                    {% else %}
+                        {% for nombre in valores_unicos %}
+                        {% set v = valores_mes | selectattr('valor', 'equalto', nombre) | list | first %}
+                        <span class="punto verde"
+                            title="{{ nombre }}{% if v.maestro %} — {{ v.maestro }}{% endif %}{% if v.fecha %} ({{ v.fecha }}){% endif %}">
+                        </span>
+                        {% endfor %}
+                    {% endif %}
+
+                {% else %}
+                    <span class="punto gris"></span>
+                {% endif %}
+            </td>
+
+
                     {% endfor %}
 
                     <!-- 🔸 Avisos -->
