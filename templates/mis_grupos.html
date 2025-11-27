@@ -34,19 +34,14 @@
 
         {% if 'K' in grupo or 'k' in grupo %}
             {% set max_permitido = 8 %}
-
         {% elif 'SEC' in grupo or 'Sec' in grupo or 'sec' in grupo %}
             {% set max_permitido = 11 %}
-
         {% else %}
-            {# Primaria #}
-
             {% set grado_str = grupo.split('-')[0].strip() %}
             {% set grado_num = 0 %}
             {% if grado_str.isdigit() %}
                 {% set grado_num = grado_str | int %}
             {% endif %}
-
             {% if grado_num >= 4 and grado_num <= 6 %}
                 {% set max_permitido = 11 %}
             {% else %}
@@ -54,61 +49,138 @@
             {% endif %}
         {% endif %}
 
-            {% set total_nominados = alumnos | selectattr('tiene_nominaciones_mes') | list | length %}
+        {% set total_nominados = alumnos | selectattr('tiene_nominaciones_mes') | list | length %}
 
-            <section class="grupo-section">
-                <h3>{{ grupo }}</h3>
-                <p class="contador-limite">
-                    👥 Alumnos nominados en {{ grupo.split()[-1] }}: {{ total_nominados }} / {{ max_permitido }}
-                    {% if total_nominados >= max_permitido %}
-                        <span>— Límite alcanzado</span>
-                    {% endif %}
-                </p>
+        <section class="grupo-section">
+            <h3>{{ grupo }}</h3>
 
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Nombre del alumno</th>
-                            <th style="width: 120px;">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for alumno in alumnos %}
-                        <tr class="fila-alumno">
-                            <td class="nombre">{{ alumno.numero }}. {{ alumno.nombre }}</td>
-                            <td>
-                                {% if alumno.tiene_excelencia %}
-                                    <button class="btn-nominar" disabled
-                                        title="No se puede nominar a un alumno con grado EXCELENCIA.">
-                                        Nominar
-                                    </button>
-                                {% elif total_nominados >= max_permitido %}
-                                    <button class="btn-nominar" disabled
-                                        title="Se alcanzó el límite de nominaciones para este grupo.">
-                                        Nominar
-                                    </button>
-                                {% else %}
-                                    <a href="{{ url_for('nom.nominar_alumno_individual', alumno_id=alumno.id) }}"
-                                        class="btn-nominar">Nominar</a>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </section>
+            <p class="contador-limite">
+                👥 Alumnos nominados en {{ grupo.split()[-1] }}: {{ total_nominados }} / {{ max_permitido }}
+                {% if total_nominados >= max_permitido %}
+                    <span>— Límite alcanzado</span>
+                {% endif %}
+            </p>
+
+            <!-- 🔤 Botón ordenar -->
+            <button class="btn-ordenar-grupo"
+                    data-grupo="{{ loop.index }}">
+                🔤 Ordenar por apellido
+            </button>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nombre del alumno</th>
+                        <th style="width: 120px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-grupo-{{ loop.index }}">
+                    {% for alumno in alumnos %}
+                    <tr class="fila-alumno">
+                        <td class="nombre">{{ alumno.numero }}. {{ alumno.nombre }}</td>
+                        <td>
+                            {% if alumno.tiene_excelencia %}
+                                <button class="btn-nominar" disabled
+                                    title="No se puede nominar a un alumno con grado EXCELENCIA.">
+                                    Nominar
+                                </button>
+                            {% elif total_nominados >= max_permitido %}
+                                <button class="btn-nominar" disabled
+                                    title="Se alcanzó el límite de nominaciones para este grupo.">
+                                    Nominar
+                                </button>
+                            {% else %}
+                                <a href="{{ url_for('nom.nominar_alumno_individual', alumno_id=alumno.id) }}"
+                                    class="btn-nominar">Nominar</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
         {% else %}
             <p class="sin-datos">⚠️ No tienes grupos asignados en este ciclo.</p>
         {% endfor %}
     </main>
 
-    <!-- 🔍 Buscador dinámico mejorado -->
+    <!-- 🔍 Buscador y Ordenamiento -->
     <script>
+
+    function extraerApellido(nombre) {
+        nombre = nombre.replace(/^\d+\.\s*/, "").trim();
+        const partes = nombre.split(" ");
+        if (partes.length === 1) return partes[0].toLowerCase();
+        return partes.slice(-2).join(" ").toLowerCase();
+    }
+
+    function renumerarFilas(filas) {
+        let c = 1;
+        filas.forEach(fila => {
+            const celda = fila.querySelector(".nombre");
+            if (!celda) return;
+            let nombrePlano = celda.innerText.replace(/^\d+\.\s*/, "").trim();
+            celda.innerText = `${c}. ${nombrePlano}`;
+            c++;
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+
+        document.querySelectorAll(".btn-ordenar-grupo").forEach(boton => {
+
+            const idGrupo = boton.dataset.grupo;
+            const tabla = document.getElementById("tabla-grupo-" + idGrupo);
+
+            // 🔒 Guardar orden original al cargar la página
+            const filasOriginales = tabla.querySelectorAll("tr");
+            let contador = 1;
+            filasOriginales.forEach(fila => {
+                fila.dataset.ordenOriginal = contador; // ej 1,2,3,4...
+                contador++;
+            });
+
+            boton.dataset.apellido = "false";
+
+            boton.addEventListener("click", () => {
+                const filas = Array.from(tabla.querySelectorAll("tr"));
+                const usaApellido = boton.dataset.apellido === "true";
+
+                if (!usaApellido) {
+                    // 🔤 Ordenar por apellido
+                    filas.sort((a, b) => {
+                        const nomA = a.querySelector(".nombre").innerText;
+                        const nomB = b.querySelector(".nombre").innerText;
+                        return extraerApellido(nomA).localeCompare(extraerApellido(nomB));
+                    });
+                    boton.innerText = "↩ Ordenar por nombre";
+                    boton.dataset.apellido = "true";
+
+                } else {
+                    // ↩ Restaurar al orden original exacto
+                    filas.sort((a, b) => {
+                        return parseInt(a.dataset.ordenOriginal) - parseInt(b.dataset.ordenOriginal);
+                    });
+                    boton.innerText = "🔤 Ordenar por apellido";
+                    boton.dataset.apellido = "false";
+                }
+
+                // 🔁 Reinsertar filas en el nuevo orden
+                filas.forEach(f => tabla.appendChild(f));
+
+                // 🔢 Renumerar visualmente
+                renumerarFilas(filas);
+            });
+
+        });
+
+    });
+
+
+
+    // 🔍 FILTRO GLOBAL
     function normalizarTexto(texto) {
-        return texto
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "");
+        return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -125,26 +197,16 @@
 
                 filas.forEach(fila => {
                     const textoFila = normalizarTexto(fila.textContent);
-                    if (textoFila.includes(termino)) {
-                        fila.style.display = "";
-                        coincidenciasGrupo++;
-                    } else {
-                        fila.style.display = "none";
-                    }
+                    fila.style.display = textoFila.includes(termino) ? "" : "none";
+                    if (textoFila.includes(termino)) coincidenciasGrupo++;
                 });
 
-                // 🔹 Mostrar u ocultar grupo completo
-                if (termino === "") {
-                    seccion.style.display = "";
-                } else if (coincidenciasGrupo > 0) {
-                    seccion.style.display = "";
-                    coincidenciasTotales += coincidenciasGrupo;
-                } else {
-                    seccion.style.display = "none";
-                }
+                seccion.style.display =
+                    (termino === "" || coincidenciasGrupo > 0) ? "" : "none";
+
+                coincidenciasTotales += coincidenciasGrupo;
             });
 
-            // ⚠️ Mostrar aviso si no hay coincidencias
             const aviso = document.getElementById("sin-resultados");
             if (termino !== "" && coincidenciasTotales === 0) {
                 if (!aviso) {
@@ -162,6 +224,7 @@
             }
         });
     });
+
     </script>
 
 </body>
