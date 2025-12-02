@@ -3661,7 +3661,6 @@ def generar_invitaciones_bloque_unico():
         .order_by(Nominacion.fecha.asc())
     )
 
-    # 🔹 Si hay mes → filtrar por evento específico
     if evento_filtrado:
         query = query.filter(Nominacion.evento_id == evento_filtrado.id)
 
@@ -3701,7 +3700,14 @@ def generar_invitaciones_bloque_unico():
     nominaciones = nominaciones_filtradas
 
     # =====================================================
-    # 🔹 Generar ZIP totalmente en memoria
+    # 🔹 Función para dividir en lotes
+    # =====================================================
+    def chunks(lista, n):
+        for i in range(0, len(lista), n):
+            yield lista[i:i+n]
+
+    # =====================================================
+    # 🔹 Generar ZIP totalmente en memoria (CON CHUNKING)
     # =====================================================
     def slug(s):
         s = (s or "").strip()
@@ -3709,90 +3715,90 @@ def generar_invitaciones_bloque_unico():
         return s[:80] or "archivo"
 
     zip_buffer = io.BytesIO()
+
     with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for n in nominaciones:
-            try:
-                tipo = (n.tipo or "alumno").strip().lower()
-                plantilla = (
-                    "formato_asamblea.docx" if tipo == "alumno"
-                    else "invitacion colaborador 1.docx"
-                )
-                plantilla_path = os.path.join("docx_templates", plantilla)
 
-                doc = DocxTemplate(plantilla_path)
-                nominado = (
-                    n.alumno.nombre if tipo == "alumno"
-                    else n.maestro_nominado.nombre if n.maestro_nominado else ""
-                )
+        # 🔥 Procesar en bloques de 8 para no reventar el worker
+        for lote in chunks(nominaciones, 8):
+            gc.collect()
 
-                # -------- reconstrucción de comentario excelencia --------
-                comentario_final = n.comentario or ""
-                # =====================================================
-                # 🧠 Reconstrucción elegante de comentarios para EXCELENCIA
-                # =====================================================
-                if n.valor and n.valor.nombre.upper() == "EXCELENCIA":
+            for n in lote:
+                try:
+                    tipo = (n.tipo or "alumno").strip().lower()
+                    plantilla = (
+                        "formato_asamblea.docx" if tipo == "alumno"
+                        else "invitacion colaborador 1.docx"
+                    )
+                    plantilla_path = os.path.join("docx_templates", plantilla)
 
-                    # 1. Obtener nominaciones previas (las que formaron la excelencia)
-                    nominaciones_previas = (
-                        Nominacion.query
-                        .filter(
-                            Nominacion.alumno_id == n.alumno_id,
-                            Nominacion.ciclo_id == n.ciclo_id,
-                            Nominacion.valor_id != n.valor_id  # excluir EXCELENCIA
-                        )
-                        .order_by(Nominacion.fecha.asc())
-                        .all()
+                    doc = DocxTemplate(plantilla_path)
+                    nominado = (
+                        n.alumno.nombre if tipo == "alumno"
+                        else n.maestro_nominado.nombre if n.maestro_nominado else ""
                     )
 
-                    # 2. Lista de valores previos (para ponerlos en la primera línea)
-                    valores_previos = [
-                        nom.valor.nombre
-                        for nom in nominaciones_previas
-                        if nom.valor and nom.valor.nombre.upper() != "EXCELENCIA"
-                    ]
+                    # -------- reconstrucción de comentario excelencia --------
+                    comentario_final = n.comentario or ""
 
-                    valores_texto = ", ".join(valores_previos)
+                    if n.valor and n.valor.nombre.upper() == "EXCELENCIA":
 
-                    # 3. Agrupar comentarios por maestro
-                    comentarios_por_maestro = {}
+                        nominaciones_previas = (
+                            Nominacion.query
+                            .filter(
+                                Nominacion.alumno_id == n.alumno_id,
+                                Nominacion.ciclo_id == n.ciclo_id,
+                                Nominacion.valor_id != n.valor_id
+                            )
+                            .order_by(Nominacion.fecha.asc())
+                            .all()
+                        )
 
-                    for nom in nominaciones_previas:
-                        maestro_nombre = nom.maestro.nombre if nom.maestro else "Maestro desconocido"
-                        comentario = (nom.comentario or "").replace("[EXCELENCIA-VISUAL]", "").strip()
+                        valores_previos = [
+                            nom.valor.nombre
+                            for nom in nominaciones_previas
+                            if nom.valor and nom.valor.nombre.upper() != "EXCELENCIA"
+                        ]
 
-                        if comentario:
-                            comentarios_por_maestro.setdefault(maestro_nombre, []).append(comentario)
+                        valores_texto = ", ".join(valores_previos)
 
-                    # 4. Construir texto final
-                    comentario_final = f"Por sus valores de {valores_texto}.\n"
-                    comentario_final += "— Comentarios de los maestros:\n"
+                        comentarios_por_maestro = {}
 
-                    for maestro_nombre, comentarios in comentarios_por_maestro.items():
-                        comentario_final += f"{maestro_nombre}:\n"
-                        for c in comentarios:
-                            comentario_final += f"• {c}\n"
-                        comentario_final += ""  # espacio entre maestros
+                        for nom in nominaciones_previas:
+                            maestro_nombre = nom.maestro.nombre if nom.maestro else "Maestro desconocido"
+                            comentario = (nom.comentario or "").replace("[EXCELENCIA-VISUAL]", "").strip()
 
-                # -------- Render --------
-                context = {
-                    "quien_nomina": n.maestro.nombre if n.maestro else "",
-                    "nominado": nominado,
-                    "valor": n.valor.nombre if n.valor else "",
-                    "fecha_evento": n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else "",
-                    "texto_adicional": comentario_final,
-                }
+                            if comentario:
+                                comentarios_por_maestro.setdefault(maestro_nombre, []).append(comentario)
 
-                doc_io = io.BytesIO()
-                doc.render(context)
-                doc.save(doc_io)
-                doc_io.seek(0)
+                        comentario_final = f"Por sus valores de {valores_texto}.\n"
+                        comentario_final += "— Comentarios de los maestros:\n"
 
-                filename = f"{slug(nominado)}_{slug(tipo)}_{slug(n.valor.nombre if n.valor else 'SinValor')}.docx"
-                zf.writestr(filename, doc_io.read())
-                doc_io.close()
-                gc.collect()
-            except Exception as e:
-                print(f"⚠️ Error generando invitación NominacionID={n.id}: {e}")
+                        for maestro_nombre, comentarios in comentarios_por_maestro.items():
+                            comentario_final += f"{maestro_nombre}:\n"
+                            for c in comentarios:
+                                comentario_final += f"• {c}\n"
+
+                    # -------- Render --------
+                    context = {
+                        "quien_nomina": n.maestro.nombre if n.maestro else "",
+                        "nominado": nominado,
+                        "valor": n.valor.nombre if n.valor else "",
+                        "fecha_evento": n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else "",
+                        "texto_adicional": comentario_final,
+                    }
+
+                    doc_io = io.BytesIO()
+                    doc.render(context)
+                    doc.save(doc_io)
+                    doc_io.seek(0)
+
+                    filename = f"{slug(nominado)}_{slug(tipo)}_{slug(n.valor.nombre if n.valor else 'SinValor')}.docx"
+                    zf.writestr(filename, doc_io.read())
+                    doc_io.close()
+                    gc.collect()
+
+                except Exception as e:
+                    print(f"⚠️ Error generando invitación NominacionID={n.id}: {e}")
 
     zip_buffer.seek(0)
     filename_zip = f"Invitaciones_{slug(bloque.nombre)}_{slug(mes_nombre)}_{time.strftime('%Y%m%d_%H%M')}.zip"
