@@ -3745,21 +3745,21 @@ def generar_invitaciones_bloque_unico():
         return s[:80] or "archivo"
 
     # =====================================================
-    # 🔹 ZIP MAESTRO
+    # 🔹 ZIP MAESTRO (SIN COMPRESIÓN — CRÍTICO)
     # =====================================================
     zip_maestro_buffer = io.BytesIO()
 
-    with zipfile.ZipFile(zip_maestro_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zip_maestro:
+    with zipfile.ZipFile(zip_maestro_buffer, mode="w", compression=zipfile.ZIP_STORED) as zip_maestro:
 
         lote_num = 1
 
-        # 🔥 Procesar en bloques de 20 ZIPs pequeños dentro del ZIP maestro
         for lote in chunks(nominaciones, 20):
             gc.collect()
 
-            # Crear ZIP del lote
             zip_lote_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_lote_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+
+            # 🔥 ZIP por lote sin compresión
+            with zipfile.ZipFile(zip_lote_buffer, mode="w", compression=zipfile.ZIP_STORED) as zf:
 
                 for n in lote:
                     try:
@@ -3779,7 +3779,6 @@ def generar_invitaciones_bloque_unico():
 
                         comentario_final = n.comentario or ""
 
-                        # -------- reconstrucción EXCELENCIA --------
                         if n.valor and n.valor.nombre.upper() == "EXCELENCIA":
                             nominaciones_previas = nominaciones_previas_por_alumno.get(n.alumno_id, [])
 
@@ -3808,7 +3807,6 @@ def generar_invitaciones_bloque_unico():
                                 for c in comentarios:
                                     comentario_final += f"• {c}\n"
 
-                        # -------- Render --------
                         context = {
                             "quien_nomina": n.maestro.nombre if n.maestro else "",
                             "nominado": nominado,
@@ -3823,14 +3821,13 @@ def generar_invitaciones_bloque_unico():
                         doc_io.seek(0)
 
                         filename = f"{slug(nominado)}_{slug(tipo)}_{slug(n.valor.nombre if n.valor else 'SinValor')}.docx"
-                        zf.writestr(filename, doc_io.read())
+                        zf.writestr(filename, doc_io.read())    # SIN COMPRESIÓN
                         doc_io.close()
                         gc.collect()
 
                     except Exception as e:
                         print(f"⚠️ Error generando invitación NominacionID={n.id}: {e}")
 
-            # Agregar ZIP de lote al ZIP maestro
             zip_lote_buffer.seek(0)
             zip_maestro.writestr(f"lote_{lote_num}.zip", zip_lote_buffer.read())
             lote_num += 1
