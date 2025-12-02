@@ -220,7 +220,14 @@ async function cargarDashboard(mes=null){
                 }
             }
         });
-        const porDiaOrdenado = [...data.por_dia].sort((a,b)=> new Date(a.fecha) - new Date(b.fecha));
+    function convertirFechaISO(fecha){
+            const [d,m,y] = fecha.split("/");
+            return `${y}-${m}-${d}`;
+            }
+
+            const porDiaOrdenado = [...data.por_dia].sort((a,b)=> 
+                new Date(convertirFechaISO(a.fecha)) - new Date(convertirFechaISO(b.fecha))
+            );
         chartDia=new Chart(document.getElementById('chart_dia'),{
             type:'line',
             data:{
