@@ -3642,25 +3642,29 @@ def generar_invitaciones_bloque_unico():
             return f"No hay evento de {mes_nombre} para este bloque.", 404
 
     # =====================================================
-    # 🔹 Traer nominaciones (modo streaming)
+    # 🔹 Traer nominaciones del bloque filtradas por mes
     # =====================================================
     query = (
         Nominacion.query
+        .options(
+            joinedload(Nominacion.maestro),
+            joinedload(Nominacion.alumno),
+            joinedload(Nominacion.maestro_nominado),
+            joinedload(Nominacion.valor),
+            joinedload(Nominacion.evento),
+        )
         .join(Alumno, Alumno.id == Nominacion.alumno_id)
         .filter(
             Nominacion.ciclo_id == ciclo.id,
             Alumno.bloque_id == bloque.id
         )
         .order_by(Nominacion.fecha.asc())
-        .yield_per(5)                  # 🔥 Stream de 5 en 5
-        .enable_eagerloads(False)      # 🔥 NO cargar joins en memoria
     )
 
     if evento_filtrado:
         query = query.filter(Nominacion.evento_id == evento_filtrado.id)
 
-    # Convertir a lista ligera
-    nominaciones = list(query)
+    nominaciones = query.all()
 
     if not nominaciones:
         return f"No hay nominaciones para el mes {mes_nombre} en {bloque.nombre}.", 404
@@ -3696,115 +3700,151 @@ def generar_invitaciones_bloque_unico():
     nominaciones = nominaciones_filtradas
 
     # =====================================================
-    # 🔹 Función para dividir en lotes (chunking)
+    # 🔹 Pre-cargar nominaciones previas para EXCELENCIA (optimizado)
+    # =====================================================
+    alumnos_excelencia_ids = [
+        n.alumno_id
+        for n in nominaciones
+        if n.valor and n.valor.nombre.upper() == "EXCELENCIA"
+    ]
+
+    nominaciones_previas_por_alumno = {}
+
+    if alumnos_excelencia_ids:
+        nominaciones_previas_q = (
+            Nominacion.query
+            .options(joinedload(Nominacion.maestro), joinedload(Nominacion.valor))
+            .filter(
+                Nominacion.alumno_id.in_(alumnos_excelencia_ids),
+                Nominacion.ciclo_id == ciclo.id,
+            )
+            .order_by(Nominacion.fecha.asc())
+        )
+
+        nominaciones_previas_all = nominaciones_previas_q.all()
+
+        for nom in nominaciones_previas_all:
+            if nom.valor and nom.valor.nombre.upper() == "EXCELENCIA":
+                continue
+
+            nominaciones_previas_por_alumno.setdefault(nom.alumno_id, []).append(nom)
+
+    # =====================================================
+    # 🔹 Chunk helper
     # =====================================================
     def chunks(lista, n):
         for i in range(0, len(lista), n):
             yield lista[i:i+n]
 
     # =====================================================
-    # 🔹 Generar ZIP totalmente en memoria (CON CHUNKING)
+    # 🔹 Slug helper
     # =====================================================
     def slug(s):
         s = (s or "").strip()
         s = re.sub(r"[^\w\-\.]+", "_", s, flags=re.UNICODE)
         return s[:80] or "archivo"
 
-    zip_buffer = io.BytesIO()
+    # =====================================================
+    # 🔹 ZIP MAESTRO
+    # =====================================================
+    zip_maestro_buffer = io.BytesIO()
 
-    with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(zip_maestro_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zip_maestro:
 
-        # 🔥 Procesar en bloques de 8 para no reventar el worker
-        for lote in chunks(nominaciones, 8):
+        lote_num = 1
+
+        # 🔥 Procesar en bloques de 20 ZIPs pequeños dentro del ZIP maestro
+        for lote in chunks(nominaciones, 20):
             gc.collect()
 
-            for n in lote:
-                try:
-                    tipo = (n.tipo or "alumno").strip().lower()
-                    plantilla = (
-                        "formato_asamblea.docx" if tipo == "alumno"
-                        else "invitacion colaborador 1.docx"
-                    )
-                    plantilla_path = os.path.join("docx_templates", plantilla)
+            # Crear ZIP del lote
+            zip_lote_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_lote_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
 
-                    doc = DocxTemplate(plantilla_path)
-                    nominado = (
-                        n.alumno.nombre if tipo == "alumno"
-                        else n.maestro_nominado.nombre if n.maestro_nominado else ""
-                    )
+                for n in lote:
+                    try:
+                        tipo = (n.tipo or "alumno").strip().lower()
+                        plantilla = (
+                            "formato_asamblea.docx" if tipo == "alumno"
+                            else "invitacion colaborador 1.docx"
+                        )
+                        plantilla_path = os.path.join("docx_templates", plantilla)
 
-                    comentario_final = n.comentario or ""
+                        doc = DocxTemplate(plantilla_path)
 
-                    # -------- reconstrucción de comentario excelencia --------
-                    if n.valor and n.valor.nombre.upper() == "EXCELENCIA":
-                        nominaciones_previas = (
-                            Nominacion.query
-                            .filter(
-                                Nominacion.alumno_id == n.alumno_id,
-                                Nominacion.ciclo_id == n.ciclo_id,
-                                Nominacion.valor_id != n.valor_id
-                            )
-                            .order_by(Nominacion.fecha.asc())
-                            .all()
+                        nominado = (
+                            n.alumno.nombre if tipo == "alumno"
+                            else n.maestro_nominado.nombre if n.maestro_nominado else ""
                         )
 
-                        valores_previos = [
-                            nom.valor.nombre
-                            for nom in nominaciones_previas
-                            if nom.valor and nom.valor.nombre.upper() != "EXCELENCIA"
-                        ]
+                        comentario_final = n.comentario or ""
 
-                        valores_texto = ", ".join(valores_previos)
+                        # -------- reconstrucción EXCELENCIA --------
+                        if n.valor and n.valor.nombre.upper() == "EXCELENCIA":
+                            nominaciones_previas = nominaciones_previas_por_alumno.get(n.alumno_id, [])
 
-                        comentarios_por_maestro = {}
+                            valores_previos = [
+                                nom.valor.nombre
+                                for nom in nominaciones_previas
+                                if nom.valor and nom.valor.nombre.upper() != "EXCELENCIA"
+                            ]
 
-                        for nom in nominaciones_previas:
-                            maestro_nombre = nom.maestro.nombre if nom.maestro else "Maestro desconocido"
-                            comentario = (nom.comentario or "").replace("[EXCELENCIA-VISUAL]", "").strip()
+                            valores_texto = ", ".join(valores_previos)
 
-                            if comentario:
-                                comentarios_por_maestro.setdefault(maestro_nombre, []).append(comentario)
+                            comentarios_por_maestro = {}
 
-                        comentario_final = f"Por sus valores de {valores_texto}.\n"
-                        comentario_final += "— Comentarios de los maestros:\n"
+                            for nom in nominaciones_previas:
+                                maestro_nombre = nom.maestro.nombre if nom.maestro else "Maestro desconocido"
+                                comentario = (nom.comentario or "").replace("[EXCELENCIA-VISUAL]", "").strip()
 
-                        for maestro_nombre, comentarios in comentarios_por_maestro.items():
-                            comentario_final += f"{maestro_nombre}:\n"
-                            for c in comentarios:
-                                comentario_final += f"• {c}\n"
+                                if comentario:
+                                    comentarios_por_maestro.setdefault(maestro_nombre, []).append(comentario)
 
-                    # -------- Render --------
-                    context = {
-                        "quien_nomina": n.maestro.nombre if n.maestro else "",
-                        "nominado": nominado,
-                        "valor": n.valor.nombre if n.valor else "",
-                        "fecha_evento": n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else "",
-                        "texto_adicional": comentario_final,
-                    }
+                            comentario_final = f"Por sus valores de {valores_texto}.\n"
+                            comentario_final += "— Comentarios de los maestros:\n"
 
-                    doc_io = io.BytesIO()
-                    doc.render(context)
-                    doc.save(doc_io)
-                    doc_io.seek(0)
+                            for maestro_nombre, comentarios in comentarios_por_maestro.items():
+                                comentario_final += f"{maestro_nombre}:\n"
+                                for c in comentarios:
+                                    comentario_final += f"• {c}\n"
 
-                    filename = f"{slug(nominado)}_{slug(tipo)}_{slug(n.valor.nombre if n.valor else 'SinValor')}.docx"
-                    zf.writestr(filename, doc_io.read())
-                    doc_io.close()
-                    gc.collect()
+                        # -------- Render --------
+                        context = {
+                            "quien_nomina": n.maestro.nombre if n.maestro else "",
+                            "nominado": nominado,
+                            "valor": n.valor.nombre if n.valor else "",
+                            "fecha_evento": n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else "",
+                            "texto_adicional": comentario_final,
+                        }
 
-                except Exception as e:
-                    print(f"⚠️ Error generando invitación NominacionID={n.id}: {e}")
+                        doc_io = io.BytesIO()
+                        doc.render(context)
+                        doc.save(doc_io)
+                        doc_io.seek(0)
 
-    zip_buffer.seek(0)
+                        filename = f"{slug(nominado)}_{slug(tipo)}_{slug(n.valor.nombre if n.valor else 'SinValor')}.docx"
+                        zf.writestr(filename, doc_io.read())
+                        doc_io.close()
+                        gc.collect()
+
+                    except Exception as e:
+                        print(f"⚠️ Error generando invitación NominacionID={n.id}: {e}")
+
+            # Agregar ZIP de lote al ZIP maestro
+            zip_lote_buffer.seek(0)
+            zip_maestro.writestr(f"lote_{lote_num}.zip", zip_lote_buffer.read())
+            lote_num += 1
+
+    zip_maestro_buffer.seek(0)
     filename_zip = f"Invitaciones_{slug(bloque.nombre)}_{slug(mes_nombre)}_{time.strftime('%Y%m%d_%H%M')}.zip"
 
-    response = make_response(zip_buffer.read())
+    response = make_response(zip_maestro_buffer.read())
     response.headers["Content-Type"] = "application/zip"
     response.headers["Content-Disposition"] = f"attachment; filename={filename_zip}"
     response.headers["Cache-Control"] = "no-store"
 
-    zip_buffer.close()
-    print(f"✅ Exportado bloque {bloque.nombre} mes {mes_nombre} ({len(nominaciones)} invitaciones generadas)")
+    zip_maestro_buffer.close()
+    print(f"✅ Exportado bloque {bloque.nombre} mes {mes_nombre} ({len(nominaciones)} invitaciones | {lote_num-1} lotes)")
 
     return response
 
