@@ -3642,29 +3642,25 @@ def generar_invitaciones_bloque_unico():
             return f"No hay evento de {mes_nombre} para este bloque.", 404
 
     # =====================================================
-    # 🔹 Traer nominaciones del bloque filtradas por mes
+    # 🔹 Traer nominaciones (modo streaming)
     # =====================================================
     query = (
         Nominacion.query
-        .options(
-            joinedload(Nominacion.maestro),
-            joinedload(Nominacion.alumno),
-            joinedload(Nominacion.maestro_nominado),
-            joinedload(Nominacion.valor),
-            joinedload(Nominacion.evento),
-        )
         .join(Alumno, Alumno.id == Nominacion.alumno_id)
         .filter(
             Nominacion.ciclo_id == ciclo.id,
             Alumno.bloque_id == bloque.id
         )
         .order_by(Nominacion.fecha.asc())
+        .yield_per(5)                  # 🔥 Stream de 5 en 5
+        .enable_eagerloads(False)      # 🔥 NO cargar joins en memoria
     )
 
     if evento_filtrado:
         query = query.filter(Nominacion.evento_id == evento_filtrado.id)
 
-    nominaciones = query.all()
+    # Convertir a lista ligera
+    nominaciones = list(query)
 
     if not nominaciones:
         return f"No hay nominaciones para el mes {mes_nombre} en {bloque.nombre}.", 404
@@ -3700,7 +3696,7 @@ def generar_invitaciones_bloque_unico():
     nominaciones = nominaciones_filtradas
 
     # =====================================================
-    # 🔹 Función para dividir en lotes
+    # 🔹 Función para dividir en lotes (chunking)
     # =====================================================
     def chunks(lista, n):
         for i in range(0, len(lista), n):
@@ -3737,11 +3733,10 @@ def generar_invitaciones_bloque_unico():
                         else n.maestro_nominado.nombre if n.maestro_nominado else ""
                     )
 
-                    # -------- reconstrucción de comentario excelencia --------
                     comentario_final = n.comentario or ""
 
+                    # -------- reconstrucción de comentario excelencia --------
                     if n.valor and n.valor.nombre.upper() == "EXCELENCIA":
-
                         nominaciones_previas = (
                             Nominacion.query
                             .filter(
