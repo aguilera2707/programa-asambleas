@@ -3610,11 +3610,11 @@ def generar_invitaciones_bloque_unico():
     from docxtpl import DocxTemplate
     from models import Nominacion, Alumno, Bloque, CicloEscolar, EventoAsamblea
 
-    # ----------------------------------------
-    # 🔹 Leer parámetros
-    # ----------------------------------------
+    LOTE_SIZE = 20  # 🔥 tamaño fijo
+
     bloque_id = request.args.get("bloque_id", type=int)
     mes_nombre = request.args.get("mes", type=str)
+    lote = request.args.get("lote", default=None, type=int)
 
     if not bloque_id:
         return "No se especificó bloque.", 400
@@ -3627,23 +3627,20 @@ def generar_invitaciones_bloque_unico():
     if not bloque:
         return "Bloque no encontrado.", 404
 
-    # ----------------------------------------
     # 🔹 Si viene mes, buscar evento exacto
-    # ----------------------------------------
-    evento_filtrado = None
+    evento = None
     if mes_nombre:
-        evento_filtrado = EventoAsamblea.query.filter_by(
+        evento = EventoAsamblea.query.filter_by(
             bloque_id=bloque_id,
             nombre_mes=mes_nombre,
             ciclo_id=ciclo.id
         ).first()
-
-        if not evento_filtrado:
+        if not evento:
             return f"No hay evento de {mes_nombre} para este bloque.", 404
 
-    # =====================================================
-    # 🔹 Traer nominaciones del bloque filtradas por mes
-    # =====================================================
+    # =====================
+    # 🔹 Traer nominaciones
+    # =====================
     query = (
         Nominacion.query
         .options(
@@ -3654,26 +3651,20 @@ def generar_invitaciones_bloque_unico():
             joinedload(Nominacion.evento),
         )
         .join(Alumno, Alumno.id == Nominacion.alumno_id)
-        .filter(
-            Nominacion.ciclo_id == ciclo.id,
-            Alumno.bloque_id == bloque.id
-        )
+        .filter(Nominacion.ciclo_id == ciclo.id)
+        .filter(Alumno.bloque_id == bloque.id)
         .order_by(Nominacion.fecha.asc())
     )
 
-    # 🔹 Si hay mes → filtrar por evento específico
-    if evento_filtrado:
-        query = query.filter(Nominacion.evento_id == evento_filtrado.id)
+    if evento:
+        query = query.filter(Nominacion.evento_id == evento.id)
 
     nominaciones = query.all()
-
-    if not nominaciones:
-        return f"No hay nominaciones para el mes {mes_nombre} en {bloque.nombre}.", 404
 
     # =====================================================
     # 🔹 Filtrar duplicados con EXCELENCIA
     # =====================================================
-    nominaciones_filtradas = []
+    filtradas = []
     procesados = set()
 
     for n in nominaciones:
@@ -3686,94 +3677,84 @@ def generar_invitaciones_bloque_unico():
         )
 
         if tiene_excelencia:
-            excelencia = next(
+            exc = next(
                 (x for x in nominaciones
                     if x.alumno_id == n.alumno_id and x.valor and x.valor.nombre.upper() == "EXCELENCIA"),
                 None
             )
-            if excelencia:
-                nominaciones_filtradas.append(excelencia)
-            procesados.add(n.alumno_id)
+            if exc:
+                filtradas.append(exc)
         else:
-            nominaciones_filtradas.append(n)
-            procesados.add(n.alumno_id)
+            filtradas.append(n)
 
-    nominaciones = nominaciones_filtradas
+        procesados.add(n.alumno_id)
 
-    # =====================================================
-    # 🔹 Generar ZIP totalmente en memoria
-    # =====================================================
+    # ===================================
+    # 🔥 Aplicar LOTES si se especificó
+    # ===================================
+    if lote:
+        start = (lote - 1) * LOTE_SIZE
+        end = start + LOTE_SIZE
+        nominaciones = filtradas[start:end]
+    else:
+        nominaciones = filtradas
+
+    # ===================================
+    # 🔹 SLUG helper
+    # ===================================
     def slug(s):
         s = (s or "").strip()
-        s = re.sub(r"[^\w\-\.]+", "_", s, flags=re.UNICODE)
+        s = re.sub(r"[^\w\-\.]+", "_", s)
         return s[:80] or "archivo"
 
+    # ===================================
+    # 🔹 Generación ZIP
+    # ===================================
     zip_buffer = io.BytesIO()
+
     with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
         for n in nominaciones:
             try:
-                tipo = (n.tipo or "alumno").strip().lower()
-                plantilla = (
-                    "formato_asamblea.docx" if tipo == "alumno"
-                    else "invitacion colaborador 1.docx"
-                )
+                tipo = (n.tipo or "alumno").lower()
+                plantilla = "formato_asamblea.docx" if tipo == "alumno" else "invitacion colaborador 1.docx"
                 plantilla_path = os.path.join("docx_templates", plantilla)
 
                 doc = DocxTemplate(plantilla_path)
+
                 nominado = (
                     n.alumno.nombre if tipo == "alumno"
                     else n.maestro_nominado.nombre if n.maestro_nominado else ""
                 )
 
-                # -------- reconstrucción de comentario excelencia --------
-                comentario_final = n.comentario or ""
-                # =====================================================
-                # 🧠 Reconstrucción elegante de comentarios para EXCELENCIA
-                # =====================================================
-                if n.valor and n.valor.nombre.upper() == "EXCELENCIA":
+                comentario_final = (n.comentario or "").strip()
 
-                    # 1. Obtener nominaciones previas (las que formaron la excelencia)
-                    nominaciones_previas = (
+                # EXCELENCIA reconstrucción
+                if n.valor and n.valor.nombre.upper() == "EXCELENCIA":
+                    prev = (
                         Nominacion.query
                         .filter(
                             Nominacion.alumno_id == n.alumno_id,
                             Nominacion.ciclo_id == n.ciclo_id,
-                            Nominacion.valor_id != n.valor_id  # excluir EXCELENCIA
-                        )
-                        .order_by(Nominacion.fecha.asc())
+                            Nominacion.valor_id != n.valor_id
+                        ).order_by(Nominacion.fecha.asc())
                         .all()
                     )
 
-                    # 2. Lista de valores previos (para ponerlos en la primera línea)
-                    valores_previos = [
-                        nom.valor.nombre
-                        for nom in nominaciones_previas
-                        if nom.valor and nom.valor.nombre.upper() != "EXCELENCIA"
-                    ]
-
-                    valores_texto = ", ".join(valores_previos)
-
-                    # 3. Agrupar comentarios por maestro
+                    valores_previos = [x.valor.nombre for x in prev if x.valor and x.valor.nombre.upper() != "EXCELENCIA"]
                     comentarios_por_maestro = {}
 
-                    for nom in nominaciones_previas:
-                        maestro_nombre = nom.maestro.nombre if nom.maestro else "Maestro desconocido"
-                        comentario = (nom.comentario or "").replace("[EXCELENCIA-VISUAL]", "").strip()
+                    for x in prev:
+                        maestro = x.maestro.nombre if x.maestro else "Maestro desconocido"
+                        c = (x.comentario or "").replace("[EXCELENCIA-VISUAL]", "").strip()
+                        if c:
+                            comentarios_por_maestro.setdefault(maestro, []).append(c)
 
-                        if comentario:
-                            comentarios_por_maestro.setdefault(maestro_nombre, []).append(comentario)
-
-                    # 4. Construir texto final
-                    comentario_final = f"Por sus valores de {valores_texto}.\n"
-                    comentario_final += "— Comentarios de los maestros:\n"
-
-                    for maestro_nombre, comentarios in comentarios_por_maestro.items():
-                        comentario_final += f"{maestro_nombre}:\n"
-                        for c in comentarios:
+                    comentario_final = f"Por sus valores de {', '.join(valores_previos)}.\n— Comentarios de los maestros:\n"
+                    for m, cs in comentarios_por_maestro.items():
+                        comentario_final += f"{m}:\n"
+                        for c in cs:
                             comentario_final += f"• {c}\n"
-                        comentario_final += ""  # espacio entre maestros
 
-                # -------- Render --------
                 context = {
                     "quien_nomina": n.maestro.nombre if n.maestro else "",
                     "nominado": nominado,
@@ -3787,25 +3768,26 @@ def generar_invitaciones_bloque_unico():
                 doc.save(doc_io)
                 doc_io.seek(0)
 
-                filename = f"{slug(nominado)}_{slug(tipo)}_{slug(n.valor.nombre if n.valor else 'SinValor')}.docx"
+                valor_nombre = n.valor.nombre if n.valor else "SinValor"
+                filename = f"{slug(nominado)}_{slug(valor_nombre)}.docx"
                 zf.writestr(filename, doc_io.read())
-                doc_io.close()
                 gc.collect()
+
             except Exception as e:
-                print(f"⚠️ Error generando invitación NominacionID={n.id}: {e}")
+                print(f"⚠️ Error generando invitación alumno ID={n.id}: {e}")
 
     zip_buffer.seek(0)
-    filename_zip = f"Invitaciones_{slug(bloque.nombre)}_{slug(mes_nombre)}_{time.strftime('%Y%m%d_%H%M')}.zip"
 
-    response = make_response(zip_buffer.read())
-    response.headers["Content-Type"] = "application/zip"
-    response.headers["Content-Disposition"] = f"attachment; filename={filename_zip}"
-    response.headers["Cache-Control"] = "no-store"
+    sufijo = f"Lote{lote}_" if lote else ""
+    filename_zip = (
+        f"Invitaciones_{slug(bloque.nombre)}_{slug(mes_nombre)}_{sufijo}{time.strftime('%Y%m%d_%H%M')}.zip"
+    )
 
-    zip_buffer.close()
-    print(f"✅ Exportado bloque {bloque.nombre} mes {mes_nombre} ({len(nominaciones)} invitaciones generadas)")
-
-    return response
+    resp = make_response(zip_buffer.read())
+    resp.headers["Content-Type"] = "application/zip"
+    resp.headers["Content-Disposition"] = f"attachment; filename={filename_zip}"
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 # ======================================================
 # == Exportar concentrado general de nominaciones (Excel)
@@ -3969,11 +3951,11 @@ def exportar_concentrado_excel():
 @login_required
 @admin_required
 def generar_invitaciones_profesores():
-    import io, zipfile, time, os, re, gc
+    import io, zipfile, os, re
     from flask import make_response, request
     from sqlalchemy.orm import joinedload
     from docxtpl import DocxTemplate
-    from models import Nominacion, CicloEscolar
+    from models import Nominacion, CicloEscolar, EventoAsamblea
 
     def slug(s):
         s = (s or "").strip()
@@ -3984,39 +3966,36 @@ def generar_invitaciones_profesores():
     if not ciclo:
         return "No hay ciclo activo", 400
 
-    # 🔹 Obtener mes desde el dashboard (Enero, Noviembre, etc.)
-    mes_nombre = request.args.get("mes")
+    mes_nombre = request.args.get("mes", "").strip()
+    lote = request.args.get("lote", type=int)   # 🔥 AHORA SÍ LO LEEMOS
+
     if not mes_nombre:
         return "No se especificó el mes.", 400
 
-    # 🔹 Filtrar por mes → necesitamos el mes_ordinal correspondiente
-    #    Ej: Enero → 2, Noviembre → 1
-    from models import EventoAsamblea
-    evento_mes = EventoAsamblea.query.filter_by(
-        ciclo_id=ciclo.id,
-        nombre_mes=mes_nombre
-    ).first()
+    # 1. Obtener eventos del mes
+    eventos_del_mes = EventoAsamblea.query.filter(
+        EventoAsamblea.ciclo_id == ciclo.id,
+        EventoAsamblea.nombre_mes == mes_nombre
+    ).all()
 
-    if not evento_mes:
-        return f"No existe un evento para el mes {mes_nombre}.", 404
+    if not eventos_del_mes:
+        return f"No existen eventos para el mes {mes_nombre}.", 404
 
-    mes_ordinal = evento_mes.mes_ordinal
+    eventos_ids = [e.id for e in eventos_del_mes]
 
-    # =====================================================
-    # 🔹 Solo profesores (tipo personal) del MES indicado
-    # =====================================================
+    # 2. Obtener nominaciones tipo "personal"
     nominaciones = (
         Nominacion.query
         .options(
             joinedload(Nominacion.maestro),
             joinedload(Nominacion.maestro_nominado),
             joinedload(Nominacion.valor),
-            joinedload(Nominacion.evento),
+            joinedload(Nominacion.evento)
         )
         .filter(
             Nominacion.ciclo_id == ciclo.id,
             Nominacion.tipo == "personal",
-            Nominacion.evento_id == evento_mes.id    # 👈 FILTRAMOS SOLO ESE MES
+            Nominacion.evento_id.in_(eventos_ids)
         )
         .order_by(Nominacion.fecha.asc())
         .all()
@@ -4025,58 +4004,61 @@ def generar_invitaciones_profesores():
     if not nominaciones:
         return f"No hay nominaciones para profesores en {mes_nombre}.", 404
 
-    # =====================================================
-    # 🔹 Generación del ZIP (idéntico al tuyo)
-    # =====================================================
+    # 3. Dividir nominaciones en lotes
+    LOTE_SIZE = 20
+    lotes = [nominaciones[i:i+LOTE_SIZE] for i in range(0, len(nominaciones), LOTE_SIZE)]
+
+    # 4. Si el usuario pidió un lote en particular, usar solo ese
+    if lote:
+        if lote < 1 or lote > len(lotes):
+            return "Lote inválido.", 400
+        nominaciones = lotes[lote - 1]
+
+    # Si no se pidió lote → usar lote 1 (comportamiento clásico)
+    else:
+        nominaciones = lotes[0]
+
+    # 5. Generar ZIP de ese lote
     zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for n in nominaciones:
-            try:
-                plantilla_path = os.path.join("docx_templates", "invitacion colaborador 1.docx")
-                if not os.path.exists(plantilla_path):
-                    return f"No se encontró la plantilla DOCX: {plantilla_path}", 500
+            plantilla = os.path.join("docx_templates", "invitacion colaborador 1.docx")
+            doc = DocxTemplate(plantilla)
 
-                doc = DocxTemplate(plantilla_path)
+            nominado = n.maestro_nominado.nombre if n.maestro_nominado else ""
+            valor = n.valor.nombre if n.valor else ""
+            comentario = (n.comentario or "").strip()
 
-                nominado = n.maestro_nominado.nombre if n.maestro_nominado else ""
-                valor = n.valor.nombre if n.valor else ""
-                comentario_final = (n.comentario or "").strip()
+            fecha_evento = (
+                n.evento.fecha_evento.strftime("%d/%m/%Y")
+                if n.evento and n.evento.fecha_evento else ""
+            )
 
-                fecha_evento = (
-                    n.evento.fecha_evento.strftime("%d/%m/%Y")
-                    if n.evento and n.evento.fecha_evento else ""
-                )
+            context = {
+                "quien_nomina": n.maestro.nombre if n.maestro else "",
+                "nominado": nominado,
+                "valor": valor,
+                "fecha_evento": fecha_evento,
+                "texto_adicional": comentario,
+            }
 
-                contexto = {
-                    "quien_nomina": n.maestro.nombre if n.maestro else "",
-                    "nominado": nominado,
-                    "valor": valor,
-                    "fecha_evento": fecha_evento,
-                    "texto_adicional": comentario_final,
-                }
+            temp = io.BytesIO()
+            doc.render(context)
+            doc.save(temp)
+            temp.seek(0)
 
-                doc_io = io.BytesIO()
-                doc.render(contexto)
-                doc.save(doc_io)
-                doc_io.seek(0)
-
-                filename = f"{slug(nominado)}_{slug(valor)}.docx"
-                zf.writestr(filename, doc_io.read())
-                doc_io.close()
-                gc.collect()
-
-            except Exception as e:
-                print(f"⚠️ Error generando invitación profesor (ID={n.id}): {e}")
+            filename = f"{slug(nominado)}_{slug(valor)}.docx"
+            zf.writestr(filename, temp.read())
 
     zip_buffer.seek(0)
-    filename_zip = f"Invitaciones_Profesores_{mes_nombre}_{slug(ciclo.nombre)}_{time.strftime('%Y%m%d_%H%M')}.zip"
 
     response = make_response(zip_buffer.read())
     response.headers["Content-Type"] = "application/zip"
-    response.headers["Content-Disposition"] = f"attachment; filename={filename_zip}"
-    response.headers["Cache-Control"] = "no-store"
+    response.headers["Content-Disposition"] = (
+        f"attachment; filename=Profesores_{slug(mes_nombre)}_Lote{lote or 1}.zip"
+    )
     return response
+
 
 # ======================================================
 # 🧹 Gestor de nominaciones (NUEVA PÁGINA)
@@ -4176,3 +4158,118 @@ def admin_gestor_nominaciones_eliminar():
         db.session.rollback()
         print("❌ Error al eliminar nominaciones:", e)
         return jsonify({"success": False, "message": "Error interno."}), 500
+
+@nom.route('/admin/dashboard/contar_lotes')
+@login_required
+@admin_required
+def contar_lotes():
+    from models import Nominacion, Alumno, CicloEscolar, EventoAsamblea
+    from sqlalchemy.orm import joinedload
+    import math
+
+    bloque_id = request.args.get("bloque_id", type=int)
+    mes_nombre = request.args.get("mes", type=str)
+
+    if not bloque_id or not mes_nombre:
+        return {"error": "Falta bloque o mes"}, 400
+
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        return {"error": "No hay ciclo activo"}, 400
+
+    evento = EventoAsamblea.query.filter_by(
+        ciclo_id=ciclo.id,
+        bloque_id=bloque_id,
+        nombre_mes=mes_nombre
+    ).first()
+
+    if not evento:
+        return {"error": f"No existe evento para {mes_nombre}"}, 404
+
+    # Contar nominaciones únicas por alumno (solo una invitación de excelencia)
+    query = (
+        Nominacion.query
+        .join(Alumno, Alumno.id == Nominacion.alumno_id)
+        .filter(
+            Nominacion.ciclo_id == ciclo.id,
+            Alumno.bloque_id == bloque_id,
+            Nominacion.evento_id == evento.id
+        )
+        .options(
+            joinedload(Nominacion.valor),
+            joinedload(Nominacion.alumno)
+        )
+        .order_by(Nominacion.fecha.asc())
+    )
+
+    nominaciones = query.all()
+
+    # Filtrar duplicados con excelencia
+    procesados = set()
+    filtradas = []
+
+    for n in nominaciones:
+        if n.alumno_id in procesados:
+            continue
+
+        tiene_excelencia = any(
+            x.alumno_id == n.alumno_id and x.valor and x.valor.nombre.upper() == "EXCELENCIA"
+            for x in nominaciones
+        )
+
+        if tiene_excelencia:
+            exc = next(
+                (x for x in nominaciones
+                    if x.alumno_id == n.alumno_id and x.valor and x.valor.nombre.upper() == "EXCELENCIA"),
+                None
+            )
+            if exc:
+                filtradas.append(exc)
+        else:
+            filtradas.append(n)
+
+        procesados.add(n.alumno_id)
+
+    total = len(filtradas)
+    lotes = math.ceil(total / 20)
+
+    return {"total": total, "total_lotes": lotes}
+
+# ============================================================
+# 🔹 CONTAR LOTES PARA PROFESORES (20 POR LOTE)
+# ============================================================
+@nom.route('/admin/dashboard/contar_lotes_profesores')
+@login_required
+@admin_required
+def contar_lotes_profesores():
+    from models import Nominacion, CicloEscolar, EventoAsamblea
+
+    mes = request.args.get("mes", "").strip()
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+
+    # 1. Obtener todos los eventos del mes
+    eventos = EventoAsamblea.query.filter(
+        EventoAsamblea.ciclo_id == ciclo.id,
+        EventoAsamblea.nombre_mes == mes
+    ).all()
+
+    if not eventos:
+        return jsonify({"total_lotes": 0})
+
+    eventos_ids = [e.id for e in eventos]
+
+    # 2. Contar nominaciones de PERSONAL asociadas a esos eventos
+    total = (
+        Nominacion.query
+        .filter(
+            Nominacion.ciclo_id == ciclo.id,
+            Nominacion.tipo == "personal",
+            Nominacion.evento_id.in_(eventos_ids)
+        )
+        .count()
+    )
+
+    # 3. Calcular lotes de 20
+    total_lotes = (total + 19) // 20
+
+    return jsonify({"total_lotes": total_lotes})

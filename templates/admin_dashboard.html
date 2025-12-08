@@ -58,72 +58,72 @@
     <section class="export-section">
 
     <div class="exportar-concentrado">
-    <h3>📊 Exportar concentrado general</h3>
-    <button class="btn-exportar" id="btnExportarExcel">📥 Descargar Excel</button>
+        <h3>📊 Exportar concentrado general</h3>
+        <button class="btn-exportar" id="btnExportarExcel">📥 Descargar Excel</button>
     </div>
 
     <div class="exportar-bloques">
-    <h3>📦 Exportar invitaciones por bloque</h3> 
+        <h3>📦 Exportar invitaciones por bloque</h3>
 
-    <label for="bloqueSelect">Bloque:</label>
-    <select id="bloqueSelect">
-        {% for bloque in bloques %}
-            <option value="{{ bloque.id }}">{{ bloque.nombre }}</option>
-        {% endfor %}
-    </select>
+        <label for="bloqueSelect">Bloque:</label>
+        <select id="bloqueSelect">
+            {% for bloque in bloques %}
+                <option value="{{ bloque.id }}">{{ bloque.nombre }}</option>
+            {% endfor %}
+        </select>
 
+        <button class="btn-exportar" id="btnDescargarBloque">📄 Descargar Alumnos</button>
 
-
-    <button class="btn-exportar" id="btnDescargarBloque">📄 Descargar Alumnos</button>
-    <button class="btn-exportar azul" id="btnDescargarProfesores">
-        📘 Descargar Profesores
-    </button>
+        <button class="btn-exportar azul" id="btnDescargarProfesores">
+            📘 Descargar Profesores
+        </button>
     </div>
-        <h2>📩 Exportar nominaciones por maestro</h2>
 
+    <h2>📩 Exportar nominaciones por maestro</h2>
 
-        <div class="export-filtros">
-            <div class="campo">
-                <label for="maestro-search">🔍 Buscar maestro:</label>
-                <input type="text" id="maestro-search" placeholder="Escribe para filtrar..." class="input-buscar">
-            </div>
-
-            <div class="campo">
-                <label for="maestro-select">👨‍🏫 Maestro:</label>
-                <select id="maestro-select"></select>
-            </div>
-
-            <div class="campo">
-                <label for="mes-export">📅 Mes:</label>
-                <select id="mes-export">
-                    {% for evento in eventos %}
-                        <option value="{{ evento.mes_ordinal }}">{{ evento.nombre_mes }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="botones">
-                <button id="btn-buscar-nominaciones" class="btn-accion rojo">🔍 Buscar</button>
-                <button id="btn-generar-pdf" class="btn-accion verde" disabled>📄 Generar Words seleccionados</button>
-            </div>
+    <div class="export-filtros">
+        <div class="campo">
+            <label for="maestro-search">🔍 Buscar maestro:</label>
+            <input type="text" id="maestro-search" placeholder="Escribe para filtrar..." class="input-buscar">
         </div>
 
-        <table id="tabla-nominaciones" class="tabla-dashboard">
-            <thead>
-                <tr>
-                    <th><input type="checkbox" id="select-all"></th>
-                    <th>Fecha</th>
-                    <th>Tipo</th>
-                    <th>Nominado</th>
-                    <th>Bloque</th>
-                    <th>Valor</th>
-                    <th>Comentario</th>
-                    <th>Evento</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </section>
+        <div class="campo">
+            <label for="maestro-select">👨‍🏫 Maestro:</label>
+            <select id="maestro-select"></select>
+        </div>
+
+        <div class="campo">
+            <label for="mes-export">📅 Mes:</label>
+            <select id="mes-export">
+                {% for evento in eventos %}
+                    <option value="{{ evento.mes_ordinal }}">{{ evento.nombre_mes }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="botones">
+            <button id="btn-buscar-nominaciones" class="btn-accion rojo">🔍 Buscar</button>
+            <button id="btn-generar-pdf" class="btn-accion verde" disabled>📄 Generar Words seleccionados</button>
+        </div>
+    </div>
+
+    <table id="tabla-nominaciones" class="tabla-dashboard">
+        <thead>
+            <tr>
+                <th><input type="checkbox" id="select-all"></th>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Nominado</th>
+                <th>Bloque</th>
+                <th>Valor</th>
+                <th>Comentario</th>
+                <th>Evento</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+</section>
 </main>
 
 <!-- 🔄 Overlay visual -->
@@ -136,9 +136,34 @@
     font-size:1.5em;
     justify-content:center;
     align-items:center;
-    z-index:9999;
-">
+    z-index:9999;">
     ⏳ Generando invitaciones, por favor espera...
+</div>
+
+<!-- 🆕 NUEVO: Modal para selección de lote -->
+<div id="modal-lotes" class="modal" style="
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.5);
+    justify-content:center;
+    align-items:center;
+    z-index:99999;">
+        
+    <div class="modal-content" style="
+        background:white;
+        padding:20px;
+        border-radius:10px;
+        width:300px;
+        text-align:center;">
+        
+        <h3>Selecciona el lote</h3>
+        <p id="modal-info">Cargando…</p>
+
+        <div id="modal-lotes-buttons" style="margin-top:10px;"></div>
+
+        <button onclick="cerrarModal()" class="btn-accion rojo" style="margin-top:15px;">Cancelar</button>
+    </div>
 </div>
 
 <script>
@@ -174,8 +199,6 @@ function mostrarOverlay(mostrar=true){
     document.getElementById("overlay-cargando").style.display=mostrar?"flex":"none";
 }
 
-
-
 // ===============================
 // 🔹 Dashboard principal
 // ===============================
@@ -191,7 +214,9 @@ async function cargarDashboard(mes=null){
         animateCounter(document.getElementById('k_alumnos'),0,data.totales.alumnos);
         animateCounter(document.getElementById('k_nominaciones'),0,data.totales.nominaciones);
 
-        if(chartTipo)chartTipo.destroy(); if(chartValor)chartValor.destroy(); if(chartDia)chartDia.destroy();
+        if(chartTipo)chartTipo.destroy(); 
+        if(chartValor)chartValor.destroy(); 
+        if(chartDia)chartDia.destroy();
 
         chartTipo=new Chart(document.getElementById('chart_tipo'),{
             type:'doughnut',
@@ -200,34 +225,32 @@ async function cargarDashboard(mes=null){
             options:{devicePixelRatio:2,plugins:{title:{display:true,text:'Nominaciones por tipo'}}}
         });
 
-        chartValor = new Chart(document.getElementById('chart_valor'), {
-            type: 'bar',
-            data: {
-                labels: data.por_valor.map(d => d.valor),
-                datasets: [{
-                    label: 'VALORES', // ✅ agrega este label
-                    data: data.por_valor.map(d => d.n),
-                    backgroundColor: '#42a5f5'
+        chartValor=new Chart(document.getElementById('chart_valor'),{
+            type:'bar',
+            data:{
+                labels:data.por_valor.map(d=>d.valor),
+                datasets:[{
+                    label:'VALORES',
+                    data:data.por_valor.map(d=>d.n),
+                    backgroundColor:'#42a5f5'
                 }]
             },
-            options: {
-                devicePixelRatio: 2,
-                plugins: {
-                    title: { display: true, text: 'Top valores nominados' }
-                },
-                scales: {
-                    y: { beginAtZero: true }
-                }
+            options:{
+                devicePixelRatio:2,
+                plugins:{title:{display:true,text:'Top valores nominados'}},
+                scales:{y:{beginAtZero:true}}
             }
         });
-    function convertirFechaISO(fecha){
-            const [d,m,y] = fecha.split("/");
-            return `${y}-${m}-${d}`;
-            }
 
-            const porDiaOrdenado = [...data.por_dia].sort((a,b)=> 
-                new Date(convertirFechaISO(a.fecha)) - new Date(convertirFechaISO(b.fecha))
-            );
+        function convertirFechaISO(f){
+            const [d,m,y]=f.split("/");
+            return `${y}-${m}-${d}`;
+        }
+
+        const porDiaOrdenado=[...data.por_dia].sort((a,b)=>
+            new Date(convertirFechaISO(a.fecha)) - new Date(convertirFechaISO(b.fecha))
+        );
+
         chartDia=new Chart(document.getElementById('chart_dia'),{
             type:'line',
             data:{
@@ -246,7 +269,8 @@ async function cargarDashboard(mes=null){
                 plugins:{title:{display:true,text:'Nominaciones por día'}}
             }
         });
-    }catch(e){console.error("Error:",e);}
+
+    }catch(e){ console.error("Error:",e); }
 }
 
 // ===============================
@@ -289,6 +313,7 @@ async function buscarNominaciones(){
     const r=await fetch(`${URL_LISTAR}?maestro_id=${maestro}&mes=${mes}`);
     const data=await r.json();
     const tbody=document.querySelector('#tabla-nominaciones tbody');
+
     tbody.innerHTML="";
     data.forEach(n=>{
         const tr=document.createElement('tr');
@@ -304,6 +329,7 @@ async function buscarNominaciones(){
         `;
         tbody.appendChild(tr);
     });
+
     document.getElementById('btn-generar-pdf').disabled=data.length===0;
 }
 
@@ -311,104 +337,150 @@ document.getElementById('select-all').addEventListener('change',e=>{
     document.querySelectorAll('.chk-nom').forEach(chk=>chk.checked=e.target.checked);
 });
 
-document.getElementById("btnExportarExcel").addEventListener("click", () => {
-    window.location.href = "/admin/dashboard/exportar_concentrado_excel";
+// ===============================
+// 🔹 Exportación Excel y Profesores (SIN LOTES)
+// ===============================
+document.getElementById("btnExportarExcel").addEventListener("click",()=>{
+    window.location.href="/admin/dashboard/exportar_concentrado_excel";
 });
 
-document.getElementById("btnDescargarProfesores").addEventListener("click", () => {
-    const mes = document.getElementById("mes-dashboard").value;
+document.getElementById("btnDescargarProfesores").addEventListener("click",async()=>{
+    const mes=document.getElementById("mes-dashboard").value;
+    if(!mes)return alert("Selecciona un mes.");
 
-    if (!mes) {
-        alert("Selecciona un mes.");
-        return;
+    // 🆕 Ahora profesores también usan LOTES
+    await abrirModalProfesores(mes);
+});
+
+document.getElementById("btnDescargarBloque").addEventListener("click",async()=>{
+    const mes=document.getElementById("mes-dashboard").value;
+    const bloque=document.getElementById("bloqueSelect").value;
+
+    if(!mes||!bloque)return alert("Selecciona bloque y mes.");
+
+    await abrirModalAlumnos(bloque,mes);
+});
+
+// =====================================================
+// 🆕 NUEVAS FUNCIONES PARA LOTES (ALUMNOS + PROFESORES)
+// =====================================================
+
+function cerrarModal(){
+    document.getElementById("modal-lotes").style.display="none";
+}
+
+async function abrirModalAlumnos(bloqueId,mes){
+    const modal=document.getElementById("modal-lotes");
+    const info=document.getElementById("modal-info");
+    const cont=document.getElementById("modal-lotes-buttons");
+
+    modal.style.display="flex";
+    info.textContent="Calculando lotes…";
+    cont.innerHTML="";
+
+    const r=await fetch(`/admin/dashboard/contar_lotes?bloque_id=${bloqueId}&mes=${mes}`);
+    const data=await r.json();
+
+    if(data.error)return alert(data.error);
+
+    info.textContent=`Hay ${data.total_lotes} lotes disponibles:`;
+
+    for(let i=1;i<=data.total_lotes;i++){
+        const btn=document.createElement("button");
+        btn.textContent=`Lote ${i}`;
+        btn.className="btn-exportar";
+        btn.onclick=()=>{ 
+            window.location.href=
+            `/admin/dashboard/generar_invitaciones_bloque_unico?bloque_id=${bloqueId}&mes=${mes}&lote=${i}`;
+            cerrarModal();
+        };
+        cont.appendChild(btn);
     }
+}
 
-    window.location.href = `/admin/dashboard/generar_invitaciones_profesores?mes=${mes}`;
-});
+async function abrirModalProfesores(mes){
+    const modal=document.getElementById("modal-lotes");
+    const info=document.getElementById("modal-info");
+    const cont=document.getElementById("modal-lotes-buttons");
 
+    modal.style.display="flex";
+    info.textContent="Calculando lotes…";
+    cont.innerHTML="";
 
-document.getElementById("btnDescargarBloque").addEventListener("click", () => {
-    const bloqueId = document.getElementById("bloqueSelect").value;
-    const mes = document.getElementById("mes-dashboard").value;
+    const r=await fetch(`/admin/dashboard/contar_lotes_profesores?mes=${mes}`);
+    const data=await r.json();
 
-    if (!bloqueId) {
-        alert("Selecciona un bloque primero.");
-        return;
+    if(data.error)return alert(data.error);
+
+    info.textContent=`Hay ${data.total_lotes} lotes disponibles:`;
+
+    for(let i=1;i<=data.total_lotes;i++){
+        const btn=document.createElement("button");
+        btn.textContent=`Lote ${i}`;
+        btn.className="btn-exportar azul";
+        btn.onclick=()=>{
+            window.location.href=
+            `/admin/dashboard/generar_invitaciones_profesores?mes=${mes}&lote=${i}`;
+            cerrarModal();
+        };
+        cont.appendChild(btn);
     }
-
-    window.location.href = `/admin/dashboard/generar_invitaciones_bloque_unico?bloque_id=${bloqueId}&mes=${mes}`;
-});
+}
 
 // ===============================
-// 🔹 Generar invitaciones (nuevo streaming directo)
-// ===============================
-// ===============================
-// 🔹 Generar invitaciones con progreso visual simulado
+// 🔹 Generar invitaciones seleccionadas (MAESTROS normales)
 // ===============================
 async function generarInvitaciones(){
-    const seleccionados = [...document.querySelectorAll('.chk-nom:checked')].map(chk => chk.value);
-    if(!seleccionados.length) return alert("Selecciona al menos una nominación.");
+    const seleccionados=[...document.querySelectorAll('.chk-nom:checked')].map(ch=>ch.value);
+    if(!seleccionados.length)return alert("Selecciona al menos una nominación");
 
-    const total = seleccionados.length;
-    const url = `${URL_GENERAR}?ids=${seleccionados.join(",")}`;
-    const overlay = document.getElementById("overlay-cargando");
+    const total=seleccionados.length;
+    const url=`${URL_GENERAR}?ids=${seleccionados.join(",")}`;
+    const overlay=document.getElementById("overlay-cargando");
 
-    // Crear barra de progreso temporal
-    overlay.innerHTML = `
+    overlay.innerHTML=`
         <div class="spinner-container">
             <div class="spinner"></div>
             <p id="mensaje-cargando">Generando 1 de ${total} invitaciones...</p>
             <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
             <p id="progress-text">0%</p>
-        </div>
-    `;
-    overlay.style.display = "flex";
+        </div>`;
+    overlay.style.display="flex";
 
-    // Simulación visual del progreso
-    const barra = document.getElementById("progress-fill");
-    const texto = document.getElementById("progress-text");
-    const msg = document.getElementById("mensaje-cargando");
+    const barra=document.getElementById("progress-fill");
+    const texto=document.getElementById("progress-text");
+    const msg=document.getElementById("mensaje-cargando");
 
-    let current = 0;
-    const duration = Math.max(3, total * 0.6); // segundos aprox.
-    const interval = setInterval(()=>{
+    let current=0;
+    const duration=Math.max(3,total*0.6);
+
+    const interval=setInterval(()=>{
         current++;
-        const porcentaje = Math.min((current / duration) * 100, 100);
-        barra.style.width = `${porcentaje}%`;
-        texto.textContent = `${Math.floor(porcentaje)}%`;
-        const invitacionActual = Math.min(Math.ceil((porcentaje / 100) * total), total);
-        msg.textContent = `Generando ${invitacionActual} de ${total} invitaciones...`;
-        if(porcentaje >= 100){
-            clearInterval(interval);
-        }
-    }, 600);
+        const p=Math.min((current/duration)*100,100);
+        barra.style.width=`${p}%`;
+        texto.textContent=`${Math.floor(p)}%`;
+        msg.textContent=`Generando ${Math.min(Math.ceil((p/100)*total),total)} de ${total} invitaciones...`;
+        if(p>=100)clearInterval(interval);
+    },600);
 
-    try {
-        // 🔸 Crear enlace invisible para descargar el ZIP
-        const enlace = document.createElement("a");
-        enlace.href = url;
-        enlace.download = "";
-        document.body.appendChild(enlace);
-        enlace.click();
-        document.body.removeChild(enlace);
+    try{
+        const a=document.createElement("a");
+        a.href=url;
+        a.download="";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
 
-        // 🔹 Mostrar mensaje final
         setTimeout(()=>{
-            overlay.innerHTML = `
-                <div class="spinner-container">
-                    <p style="font-size:1.3em;">✅ Invitaciones listas y descargadas</p>
-                </div>
-            `;
-            setTimeout(()=> overlay.style.display = "none", 1800);
-        }, (duration * 1000) + 1000);
+            overlay.innerHTML=`<p style="font-size:1.3em;">✅ Invitaciones listas</p>`;
+            setTimeout(()=>overlay.style.display="none",1800);
+        },duration*1000+1000);
 
-    } catch (err) {
-        console.error("Error generando invitaciones:", err);
-        alert("Ocurrió un error al generar las invitaciones.");
-        overlay.style.display = "none";
+    }catch(e){
+        alert("Error generando invitaciones");
+        overlay.style.display="none";
     }
 }
-
 
 // ===============================
 // 🔹 Inicialización
@@ -416,12 +488,14 @@ async function generarInvitaciones(){
 document.addEventListener('DOMContentLoaded',()=>{
     const mesInicial=document.getElementById('mes-dashboard')?.value;
     cargarDashboard(mesInicial);
-    document.getElementById('mes-dashboard').addEventListener('change',()=>cargarDashboard(document.getElementById('mes-dashboard').value));
     cargarMaestros();
+
+    document.getElementById('mes-dashboard').addEventListener('change',
+        ()=>cargarDashboard(document.getElementById('mes-dashboard').value)
+    );
+
     document.getElementById('btn-buscar-nominaciones').addEventListener('click',buscarNominaciones);
     document.getElementById('btn-generar-pdf').addEventListener('click',generarInvitaciones);
 });
 </script>
 
-</body>
-</html>
