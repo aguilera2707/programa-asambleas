@@ -3868,12 +3868,42 @@ def exportar_concentrado_excel():
     df_alumnos = pd.DataFrame(data_alumnos)
     df_personal = pd.DataFrame(data_personal)
 
+    # 🔹 Orden personalizado para que PP1A/PP1B vayan después de K2B
+    def orden_pre(row):
+        bloque = str(row.get("Bloque") or "")
+        grupo = str(row.get("Grupo") or "")
+
+        # Solo nos importa ajustar BLOQUE 1 (preescolar)
+        if bloque == "BLOQUE 1":
+            if grupo.startswith("K1"):
+                return 1  # K1A, K1B
+            if grupo.startswith("K2"):
+                return 2  # K2A, K2B
+            if grupo.startswith("PP1"):
+                return 3  # PP1A, PP1B  👉 justo después de K2
+            return 4  # resto de grupos de BLOQUE 1 (P1A, P1B, P1C, etc.)
+
+        # El resto de bloques se mantienen en el orden actual
+        if bloque == "BLOQUE 2":
+            return 5
+        if bloque == "BLOQUE 3":
+            return 6
+        if bloque == "BLOQUE 4":
+            return 7
+        return 100  # cualquier cosa rara al final
+
     # 🧱 Generar Excel
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         # --- HOJA 1: ALUMNOS ---
         if not df_alumnos.empty:
-            df_alumnos = df_alumnos.sort_values(by=["Grupo", "Bloque", "Grado"])
+            # 👉 conservamos tu lógica, solo metemos la columna de orden personalizado
+            df_alumnos = df_alumnos.copy()
+            df_alumnos["orden_pre"] = df_alumnos.apply(orden_pre, axis=1)
+            df_alumnos = df_alumnos.sort_values(
+                by=["orden_pre", "Grupo", "Bloque", "Grado"]
+            ).drop(columns=["orden_pre"])
+
             df_alumnos.to_excel(writer, index=False, sheet_name="Alumnos")
 
             ws = writer.book["Alumnos"]
@@ -3887,13 +3917,14 @@ def exportar_concentrado_excel():
                 bottom=Side(style="thin", color="999999"),
             )
 
+            # Encabezados
             for cell in ws[1]:
                 cell.fill = header_fill
                 cell.font = header_font
                 cell.alignment = header_align
                 cell.border = border
 
-            # 🎨 Alternar colores por grupo
+            # 🎨 Alternar colores por grupo (igual que tenías)
             colores = ["FFF8E1", "FFFFFF"]
             ultimo_grupo = None
             color_idx = 0
@@ -3940,6 +3971,7 @@ def exportar_concentrado_excel():
     output.close()
 
     return response
+
 
 # ======================================================
 # 📦 Generar invitaciones para PROFESORES (colaboradores)

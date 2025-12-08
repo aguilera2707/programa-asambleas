@@ -122,3 +122,5 @@ def cerrar_eventos_vencidos():
             evento.activo = False
 
     db.session.commit()
+
+
