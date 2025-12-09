@@ -86,6 +86,7 @@
     <table class="tabla-nominaciones">
         <thead>
             <tr>
+                <th>#</th>
                 <th>Tipo</th>
                 <th>Alumno</th>
                 <th>Bloque</th>
@@ -98,6 +99,7 @@
         <tbody>
             {% for n in nominaciones %}
             <tr data-id="{{ n.id }}" data-valor="{{ n.valor_id }}" data-comentario="{{ n.comentario or '' }}">
+                <td>{{ loop.index }}</td>
                 <td>{{ 'Alumno' if n.tipo == 'alumno' else 'Personal' }}</td>
                 <td>
                     {% if n.tipo == 'alumno' %}
