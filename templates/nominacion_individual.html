@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Nominar alumno</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/nominacion_individual.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/nominacion_individual.css') }}?v=20251209">
     <style>
         .comentarios-section {
             margin-top: 10px;
@@ -84,10 +84,16 @@
                         🔹 Chrome → Configuración → Idiomas
                     </p>
 
-        <button type="submit" class="btn-filtrar">Registrar nominación</button>
-        <a href="{{ url_for('nom.matriz_grupo_maestro', bloque_id=alumno.bloque_id, grado=alumno.grado, grupo=alumno.grupo) }}" class="btn-volver">
-            ← Volver al grupo
-        </a>
+            <div class="botones-accion">
+                <button type="submit" class="btn-filtrar">Registrar nominación</button>
+
+                <a href="{{ url_for('nom.matriz_grupo_maestro', 
+                    bloque_id=alumno.bloque_id, 
+                    grado=alumno.grado, 
+                    grupo=alumno.grupo) }}" class="btn-volver">
+                    ← Volver al grupo
+                </a>
+            </div>
     </form>
 </div>
 
