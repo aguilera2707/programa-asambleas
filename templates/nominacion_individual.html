@@ -66,17 +66,23 @@
                 ✔ Comentario sugerido cargado (puedes editarlo).
             </small>
 
-            <textarea 
+            <textarea
+                spellcheck="true" lang="es,en" 
                 name="comentario" 
                 id="comentario" 
                 rows="3" 
                 maxlength="200"
                 placeholder="Escribe tu comentario (máx. 200 caracteres)..."></textarea>
-
             <div class="contador">
                 <small><span id="charCount">0</span>/200 caracteres</small>
             </div>
-        </div>
+                    <p class="nota-ortografia">
+                        🔍 Este campo admite corrección ortográfica automática si está activada en su navegador.
+
+                        En Windows, para Chrome, debes ACTIVAR la función:
+
+                        🔹 Chrome → Configuración → Idiomas
+                    </p>
 
         <button type="submit" class="btn-filtrar">Registrar nominación</button>
         <a href="{{ url_for('nom.matriz_grupo_maestro', bloque_id=alumno.bloque_id, grado=alumno.grado, grupo=alumno.grupo) }}" class="btn-volver">
