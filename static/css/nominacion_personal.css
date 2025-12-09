@@ -293,3 +293,30 @@ tr:nth-child(even) {
         width: 95%;
     }
 }
+/* Textarea para comentarios */
+.textarea-comentario {
+    width: 100%;
+    min-height: 90px;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 15px;
+    font-family: inherit;
+    resize: vertical; /* Permite agrandar, pero no deformar hacia los lados */
+    box-sizing: border-box;
+    background: #fff;
+    transition: border-color 0.2s ease;
+}
+
+.textarea-comentario:focus {
+    border-color: #800000;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(128, 0, 0, 0.2);
+}
+.nota-ortografia {
+    font-size: 13px;
+    color: #666;
+    margin-top: 4px;
+    margin-bottom: 12px;
+    font-style: italic;
+}

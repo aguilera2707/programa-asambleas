@@ -73,7 +73,20 @@
             </select>
 
             <label for="comentario">Comentario (opcional):</label>
-            <input type="text" id="comentario" name="comentario" spellcheck="true" lang="es" placeholder="Comentario opcional...">
+            <textarea id="comentario"
+                    name="comentario"
+                    placeholder="Escribe un comentario..."
+                    spellcheck="true"
+                    lang="es"
+                    class="textarea-comentario"></textarea>
+
+                    <p class="nota-ortografia">
+                        🔍 Este campo admite corrección ortográfica automática si está activada en su navegador.
+
+                        En Windows, para Chrome, debes ACTIVAR la función:
+
+                        🔹 Chrome → Configuración → Idiomas
+                    </p>
 
             <button type="submit" class="btn-registrar">Registrar nominación</button>
         </form>
@@ -185,7 +198,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     <label style='font-weight:600;'>Selecciona nuevo valor:</label>
                     <select id='nuevo_valor' class='swal2-input'>${opciones}</select>
                     <label style='font-weight:600;'>Comentario:</label>
-                    <input id='nuevo_comentario' class='swal2-input' placeholder='Comentario opcional...' value='${comentarioActual || ''}'>
+                    <textarea id='nuevo_comentario' 
+                    class='swal2-textarea' 
+                    placeholder='Comentario opcional...'
+                    spellcheck="true"
+                    lang="es"
+                    style="height: 90px;">${comentarioActual || ''}</textarea>
                 `,
                 confirmButtonText: "Guardar cambios",
                 confirmButtonColor: "#800000",
