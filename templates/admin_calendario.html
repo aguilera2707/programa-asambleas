@@ -108,7 +108,7 @@
                             <td>{{ e.mes_ordinal }} – {{ e.nombre_mes }}</td>
                             <td>{{ e.bloque.nombre }}</td>
                             <td>{{ e.fecha_evento.strftime('%d/%m/%Y') }}</td>
-                            <td>{{ e.fecha_cierre_nominaciones.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td>{{ e.fecha_cierre_nominaciones | hora_mx('%d/%m/%Y %H:%M') }}</td>
                             <td>{{ e.plantilla.nombre if e.plantilla else 'Predeterminada' }}</td>
                             <td><span class="estado {{ color }}">{{ estado }}</span></td>
                             <td>

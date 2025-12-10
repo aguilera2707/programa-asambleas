@@ -1899,10 +1899,28 @@ def dashboard_data_resumen():
     })
 
 
+from zoneinfo import ZoneInfo
+
+@admin_bp.app_template_filter('hora_mx')
+def hora_mx(dt, fmt="%d/%m/%Y %H:%M"):
+    """Convierte un datetime UTC a hora de Mérida y lo formatea."""
+    if not dt:
+        return ""
+    
+    MX = ZoneInfo("America/Merida")
+    UTC = ZoneInfo("UTC")
+
+    # Si viene naive, asumimos que está en UTC (como lo guardamos)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+
+    return dt.astimezone(MX).strftime(fmt)
+
 # ===============================
-# 🗓️ CALENDARIO DE EVENTOS
+# 🗓️ CALENDARIO DE EVENTOS (CORREGIDO)
 # ===============================
-from datetime import datetime
+from datetime import datetime, date
+from zoneinfo import ZoneInfo
 from models import EventoAsamblea, PlantillaInvitacion, Bloque, CicloEscolar
 
 @admin_bp.route('/calendario', methods=['GET', 'POST'])
@@ -1926,35 +1944,48 @@ def calendario_eventos():
         bloque_id = request.form.get('bloque_id')
         nombre_mes = request.form.get('nombre_mes')
         mes_ordinal = request.form.get('mes_ordinal', type=int)
-        fecha_evento = request.form.get('fecha_evento')
-        fecha_cierre = request.form.get('fecha_cierre_nominaciones')
+        fecha_evento_str = request.form.get('fecha_evento')               # YYYY-MM-DD
+        fecha_cierre_str = request.form.get('fecha_cierre_nominaciones') # YYYY-MM-DDTHH:MM
         plantilla_id = request.form.get('plantilla_id') or None
 
-        if not all([bloque_id, nombre_mes, mes_ordinal, fecha_evento, fecha_cierre]):
+        if not all([bloque_id, nombre_mes, mes_ordinal, fecha_evento_str, fecha_cierre_str]):
             flash("⚠️ Todos los campos son obligatorios.", "warning")
             return redirect(url_for('admin_bp.calendario_eventos'))
 
-        # 🧩 Validación: la fecha de cierre debe ser menor a la fecha del evento
         try:
-            fecha_evento_dt = datetime.fromisoformat(fecha_evento)
-            fecha_cierre_dt = datetime.fromisoformat(fecha_cierre)
+            # 📅 Fecha del evento solo como DATE (correcto)
+            fecha_evento_dt = date.fromisoformat(fecha_evento_str)
 
-            if fecha_cierre_dt >= fecha_evento_dt:
-                flash("⚠️ La fecha de cierre de nominaciones debe ser anterior a la fecha del evento.", "danger")
+            # ⏰ Fecha/hora de cierre → naive (local sin zona)
+            cierre_local = datetime.fromisoformat(fecha_cierre_str)
+
+            # 🧩 Validación: cierre debe ser ANTES del día del evento
+            if cierre_local.date() >= fecha_evento_dt:
+                flash("⚠️ La fecha de cierre de nominaciones debe ser anterior al día del evento.", "danger")
                 return redirect(url_for('admin_bp.calendario_eventos'))
+
+            # 🌎 Conversión correcta de hora local (Mérida) a UTC
+            MX = ZoneInfo("America/Merida")
+            UTC = ZoneInfo("UTC")
+
+            cierre_utc = (
+                cierre_local.replace(tzinfo=MX)  # asumimos que lo que escribió el admin está en hora MX
+                .astimezone(UTC)                 # convertimos a UTC real
+                .replace(tzinfo=None)            # lo guardamos como datetime naive en UTC
+            )
 
         except Exception as e:
             flash(f"❌ Error al procesar las fechas: {str(e)}", "danger")
             return redirect(url_for('admin_bp.calendario_eventos'))
 
-        # ✅ Crear evento si las fechas son válidas
+        # ✅ Crear evento con fechas correctas
         evento = EventoAsamblea(
             ciclo_id=ciclo_activo.id,
             bloque_id=bloque_id,
             nombre_mes=nombre_mes.strip().capitalize(),
             mes_ordinal=mes_ordinal,
-            fecha_evento=fecha_evento,
-            fecha_cierre_nominaciones=fecha_cierre,
+            fecha_evento=fecha_evento_dt,
+            fecha_cierre_nominaciones=cierre_utc,
             plantilla_id=plantilla_id
         )
         db.session.add(evento)
@@ -1962,13 +1993,14 @@ def calendario_eventos():
         flash("✅ Evento agregado exitosamente.", "success")
         return redirect(url_for('admin_bp.calendario_eventos'))
 
-    # Mostrar todos los eventos existentes del ciclo actual
+    # Mostrar eventos ya creados
     eventos = (
         EventoAsamblea.query
         .filter_by(ciclo_id=ciclo_activo.id)
         .order_by(EventoAsamblea.mes_ordinal.asc(), EventoAsamblea.bloque_id.asc())
         .all()
     )
+
     return render_template(
         'admin_calendario.html',
         ciclo=ciclo_activo,
@@ -1977,6 +2009,8 @@ def calendario_eventos():
         eventos=eventos,
         datetime=datetime
     )
+    
+    
 
 # ===============================
 # 🗑️ ELIMINAR EVENTO DE ASAMBLEA (AJAX)
