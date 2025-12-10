@@ -3,6 +3,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from extensions import db
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
 
 
 # -------------------------------
@@ -108,6 +110,10 @@ class Valor(db.Model):
 
 # -------------------------------
 # 🔹 Modelo: Nominación (alumno o personal)
+
+def fecha_hoy_merida():
+    return datetime.now(ZoneInfo("America/Merida")).date()
+
 # -------------------------------
 class Nominacion(db.Model):
     __tablename__ = 'nominaciones'
@@ -126,7 +132,11 @@ class Nominacion(db.Model):
     ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclos_escolares.id'), nullable=False)
 
     comentario = db.Column(db.Text, nullable=True)
-    fecha = db.Column(db.Date, default=db.func.current_date())
+
+
+
+
+    fecha = db.Column(db.Date, default=fecha_hoy_merida)
 
     # Relaciones
     alumno = db.relationship('Alumno', foreign_keys=[alumno_id], backref='nominaciones_alumno', lazy=True)
