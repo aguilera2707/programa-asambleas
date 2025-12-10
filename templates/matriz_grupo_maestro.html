@@ -90,9 +90,13 @@
             🎓 <strong>Grado:</strong> {{ grado }}°{{ grupo }}
         </p>
         {% if evento_abierto %}
+        {% set cierre = evento_abierto.fecha_cierre_nominaciones
+            .replace(tzinfo=zoneinfo.ZoneInfo('UTC'))
+            .astimezone(zoneinfo.ZoneInfo('America/Merida')) %}
+
         <p>
             📅 <strong>Evento activo:</strong> {{ evento_abierto.nombre_mes }}
-            (Cierra: {{ evento_abierto.fecha_cierre_nominaciones.strftime('%d/%m/%Y %H:%M') }})
+            (Cierra: {{ cierre.strftime('%d/%m/%Y %H:%M') }})
         </p>
         <p style="font-weight:600; color:#7b0000;">
             👥 Alumnos nominados en {{ grupo }} ({{ evento_abierto.nombre_mes }}): 

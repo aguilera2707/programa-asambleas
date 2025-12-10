@@ -33,17 +33,21 @@
 </div>
 
 <main class="contenedor-principal">
-
-    <!-- 🔹 Estado del evento vigente -->
+<!-- 🔹 Estado del evento vigente -->
     {% if evento and evento.activo %}
+        {% set cierre = evento.fecha_cierre_nominaciones
+            .replace(tzinfo=zoneinfo.ZoneInfo('UTC'))
+            .astimezone(zoneinfo.ZoneInfo('America/Merida')) %}
+
         <div class="alerta-evento activo">
-            <p>🗓️ <strong>Evento vigente:</strong> {{ evento.nombre_mes }}  
-            (Cierra el <strong>{{ evento.fecha_cierre_nominaciones.strftime('%d/%m/%Y %H:%M') }}</strong>)</p>
+            <p>
+                🗓️ <strong>Evento vigente:</strong> {{ evento.nombre_mes }}
+                (Cierra el <strong>{{ cierre.strftime('%d/%m/%Y %H:%M') }}</strong>)
+            </p>
         </div>
     {% else %}
         <div class="alerta-evento inactivo">
-            <p>⚠️ No hay ningún evento de asamblea activo actualmente.  
-            No puedes registrar nominaciones hasta que se habilite uno.</p>
+            <p>⚠️ No hay ningún evento de asamblea activo actualmente.</p>
         </div>
     {% endif %}
 

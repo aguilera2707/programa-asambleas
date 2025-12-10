@@ -1107,7 +1107,7 @@ def gestionar_nominaciones():
     )
 
 
-
+import zoneinfo
 # Maestro nomina a alumnos (sin dependencia de bloque)
 @nom.route('/nominaciones/alumno', methods=['GET', 'POST'])
 @login_required
@@ -1218,7 +1218,8 @@ def nominar_alumno():
         valores=valores,
         nominaciones=nominaciones,
         ciclo=ciclo_activo,
-        evento=evento_abierto
+        evento=evento_abierto,
+        zoneinfo=zoneinfo
     )
 
 
@@ -1263,6 +1264,8 @@ def sincronizar_admins_como_maestros(ciclo_activo):
 # ============================================================
 # 👨‍🏫 NOMINAR PERSONAL (profesor o admin)
 # ============================================================
+
+import zoneinfo
 @nom.route('/nominaciones/personal', methods=['GET', 'POST'])
 @login_required
 def nominar_personal():
@@ -1383,7 +1386,8 @@ def nominar_personal():
         valores_json=valores_json,
         nominaciones=nominaciones,
         ciclo=ciclo_activo,
-        evento=evento_abierto
+        evento=evento_abierto,
+        zoneinfo=zoneinfo
     )
 
 
@@ -2917,7 +2921,8 @@ def matriz_grupo_maestro(bloque_id, grado, grupo):
         eventos=list(eventos_por_mes.values()),
         alumnos=data,
         mes_actual=mes_actual,
-        evento_abierto=evento_abierto
+        evento_abierto=evento_abierto,
+        zoneinfo=zoneinfo
     )
 
 
