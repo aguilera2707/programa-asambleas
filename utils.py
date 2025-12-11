@@ -101,26 +101,26 @@ def admin_required(f):
     return decorated_function
 
 
-# ======================================
-# 🔹 Cierre automático de eventos vencidos
-# ======================================
+from datetime import datetime
+
 from datetime import datetime
 
 def cerrar_eventos_vencidos():
-    """Desactiva automáticamente los eventos cuya fecha de cierre ya pasó, 
-    pero respeta si el administrador los reactivó manualmente."""
-    ahora = datetime.now()
+    """Desactiva automáticamente eventos cuya fecha ya pasó,
+    excepto si el admin los reactivó manualmente."""
+    
+    ahora = datetime.utcnow()  # usamos UTC porque tú guardas UTC en DB
 
     eventos = EventoAsamblea.query.all()
-    for evento in eventos:
-        # Si el admin lo activó manualmente, no lo tocamos
-        if evento.activo:
-            continue
 
-        # Si ya pasó su fecha de cierre y sigue marcado activo, lo cerramos
-        if evento.fecha_cierre_nominaciones and evento.fecha_cierre_nominaciones <= ahora:
+    for evento in eventos:
+
+        if evento.fecha_cierre_nominaciones <= ahora:
+            # Si ya pasó el cierre → debe estar desactivado
             evento.activo = False
+        else:
+            # Si NO ha pasado → debe estar activo (salvo que el admin lo desactivó)
+            if evento.activo is None:
+                evento.activo = True
 
     db.session.commit()
-
-

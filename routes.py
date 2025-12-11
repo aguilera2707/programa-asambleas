@@ -1931,6 +1931,9 @@ from models import EventoAsamblea, PlantillaInvitacion, Bloque, CicloEscolar
 @login_required
 @admin_required
 def calendario_eventos():
+    
+    cerrar_eventos_vencidos()
+    
     ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
     if not ciclo_activo:
         flash("⚠️ No hay un ciclo escolar activo.", "warning")
