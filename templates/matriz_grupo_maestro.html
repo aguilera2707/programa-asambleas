@@ -7,6 +7,7 @@
 </head>
 <body>
 
+
     <!-- 🔹 Header institucional -->
     <header class="admin-header">
         <div class="header-left">
@@ -94,7 +95,8 @@
             .replace(tzinfo=zoneinfo.ZoneInfo('UTC'))
             .astimezone(zoneinfo.ZoneInfo('America/Merida')) %}
 
-        <p>
+        <p id="info-cierre"
+            data-cierre="{{ cierre.strftime('%Y-%m-%d %H:%M') }}">
             📅 <strong>Evento activo:</strong> {{ evento_abierto.nombre_mes }}
             (Cierra: {{ cierre.strftime('%d/%m/%Y %H:%M') }})
         </p>
@@ -245,7 +247,9 @@
     </main>
 
     <script>
-        // 💬 Hace que los mensajes desaparezcan automáticamente
+    document.addEventListener("DOMContentLoaded", () => {
+
+        // ========== FLASH AUTO-HIDE ==========
         setTimeout(() => {
             document.querySelectorAll('.flash').forEach(el => {
                 el.classList.add('hide');
@@ -253,51 +257,17 @@
             });
         }, 3000);
 
-        // 🧠 Función para sacar apellidos (últimas dos palabras) ignorando el número inicial "1. "
-        function extraerApellido(texto) {
-            // Quita "12. " del inicio si existe
-            texto = texto.replace(/^\d+\.\s*/, "").trim();
+        // ========== ORDENAR POR APELLIDO (ya lo tenías) ==========
+        const tabla = document.querySelector(".tabla-matriz tbody");
+        const boton = document.getElementById("btn-ordenar");
 
-            const partes = texto.split(/\s+/);
-            if (partes.length === 1) {
-                return partes[0].toLowerCase();
-            }
-            return partes.slice(-2).join(" ").toLowerCase();
-        }
-
-        // 🔁 Renumerar las filas visualmente (1., 2., 3., ...)
-        function renumerarFilas(tabla, selectorNombre) {
-            const filas = tabla.querySelectorAll("tr");
-            let contador = 1;
-
-            filas.forEach(fila => {
-                const celda = fila.querySelector(selectorNombre);
-                if (celda) {
-                    let nombreActual = celda.innerText.trim();
-                    // quita numeración previa "x. "
-                    nombreActual = nombreActual.replace(/^\d+\.\s*/, "");
-                    celda.innerText = `${contador}. ${nombreActual}`;
-                    contador++;
-                }
-            });
-        }
-
-        // 🧷 Configuración cuando cargue la página
-        document.addEventListener("DOMContentLoaded", () => {
-            const tabla = document.querySelector(".tabla-matriz tbody");
-            const boton = document.getElementById("btn-ordenar");
-
-            if (!tabla || !boton) return;
-
-            // Guardamos el orden ORIGINAL de las filas
+        if (tabla && boton) {
             const filasIniciales = tabla.querySelectorAll("tr");
             let i = 1;
             filasIniciales.forEach(fila => {
-                fila.dataset.ordenOriginal = i;  // 1, 2, 3, ...
+                fila.dataset.ordenOriginal = i;
                 i++;
             });
-
-            // Estado inicial: orden por número (nombre)
             boton.dataset.apellido = "false";
 
             boton.addEventListener("click", function () {
@@ -305,7 +275,6 @@
                 const usandoApellido = this.dataset.apellido === "true";
 
                 if (!usandoApellido) {
-                    // 👉 Ordenar por apellido (ascendente)
                     filas.sort((a, b) => {
                         const nomA = a.querySelector(".nombre-alumno").innerText;
                         const nomB = b.querySelector(".nombre-alumno").innerText;
@@ -314,7 +283,6 @@
                     this.textContent = "↩ Ordenar por nombre";
                     this.dataset.apellido = "true";
                 } else {
-                    // 👉 Restaurar al orden ORIGINAL (por data-orden-original)
                     filas.sort((a, b) => {
                         const ordA = parseInt(a.dataset.ordenOriginal || "0", 10);
                         const ordB = parseInt(b.dataset.ordenOriginal || "0", 10);
@@ -323,15 +291,57 @@
                     this.textContent = "🔤 Ordenar por apellido";
                     this.dataset.apellido = "false";
                 }
-
-                // Reinsertar filas en el nuevo orden
                 filas.forEach(f => tabla.appendChild(f));
-
-                // Renumerar 1., 2., 3., ... siempre sobre el orden actual
                 renumerarFilas(tabla, ".nombre-alumno");
             });
+        }
+
+        // ========== OVERLAY DE NOMINACIONES CERRADAS ==========
+
+        const info = document.getElementById("info-cierre");
+        if (info) {
+
+            const fechaCierreStr = info.dataset.cierre;  
+            const fechaCierre = new Date(fechaCierreStr.replace(" ", "T"));
+            const ahora = new Date();
+
+            if (ahora > fechaCierre) {
+                const overlay = document.createElement("div");
+                overlay.id = "nominaciones-closed-overlay";
+                overlay.innerHTML = `
+                    <div class="closed-text">NOMINACIONES<br>CERRADAS</div>
+                `;
+                document.body.appendChild(overlay);
+
+                setTimeout(() => overlay.remove(), 3100);
+            }
+        }
+
+    });
+
+    // ========== FUNCIONES EXTRA ==========
+    function extraerApellido(texto) {
+        texto = texto.replace(/^\d+\.\s*/, "").trim();
+        const partes = texto.split(/\s+/);
+        if (partes.length === 1) return partes[0].toLowerCase();
+        return partes.slice(-2).join(" ").toLowerCase();
+    }
+
+    function renumerarFilas(tabla, selectorNombre) {
+        const filas = tabla.querySelectorAll("tr");
+        let contador = 1;
+        filas.forEach(fila => {
+            const celda = fila.querySelector(selectorNombre);
+            if (celda) {
+                let nombreActual = celda.innerText.trim();
+                nombreActual = nombreActual.replace(/^\d+\.\s*/, "");
+                celda.innerText = `${contador}. ${nombreActual}`;
+                contador++;
+            }
         });
+    }
     </script>
+
 
 </body>
 </html>

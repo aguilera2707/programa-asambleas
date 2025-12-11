@@ -395,4 +395,74 @@ body {
     background-color: #a30000;
     transform: translateY(-2px);
 }
+#nominaciones-closed-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+    animation: fadeOut 3s forwards 0s;
+}
 
+.closed-text {
+    text-align: center;
+    font-size: 80px;
+    font-weight: 800;
+    color: #ff3838;
+    text-shadow: 0 0 20px #ff0000, 0 0 40px #ff4242;
+    font-family: 'Impact', 'Arial Black', sans-serif;
+    animation: zoomInOut 1.5s ease-in-out forwards;
+    line-height: 1;
+}
+
+@keyframes zoomInOut {
+    0% { transform: scale(0.8); opacity: 0; }
+    20% { transform: scale(1.2); opacity: 1; }
+    60% { transform: scale(1.0); opacity: 1; }
+    100% { transform: scale(1.0); opacity: 0.9; }
+}
+
+@keyframes fadeOut {
+    0% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { opacity: 0; pointer-events: none; visibility: hidden; }
+}
+/* ============= OVERLAY NOMINACIONES CERRADAS ============= */
+
+#nominaciones-closed-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+    animation: overlayFadeOut 3s forwards 0s;
+}
+
+#nominaciones-closed-overlay .closed-text {
+    text-align: center;
+    font-size: 80px;
+    font-weight: 800;
+    color: #ff3838;
+    text-shadow: 0 0 20px #ff0000, 0 0 40px #ff4242;
+    font-family: 'Impact', 'Arial Black', sans-serif;
+    animation: overlayZoom 1.5s ease-in-out forwards;
+    line-height: 1.1;
+}
+
+/* Animaciones */
+@keyframes overlayZoom {
+    0%   { transform: scale(0.8); opacity: 0; }
+    20%  { transform: scale(1.2); opacity: 1; }
+    60%  { transform: scale(1.0); opacity: 1; }
+    100% { transform: scale(1.0); opacity: 0.9; }
+}
+
+@keyframes overlayFadeOut {
+    0%   { opacity: 1; }
+    80%  { opacity: 1; }
+    100% { opacity: 0; pointer-events: none; visibility: hidden; }
+}
