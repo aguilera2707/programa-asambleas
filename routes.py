@@ -3770,32 +3770,95 @@ def generar_invitaciones_bloque_unico():
 
                 comentario_final = (n.comentario or "").strip()
 
-                # EXCELENCIA reconstrucción
+                # =========================================================
+                # 🔥 EXCELENCIA — BLOQUE CORREGIDO AQUÍ
+                # =========================================================
+                # =========================================================
+                # 🔥 EXCELENCIA — BLOQUE CORREGIDO
+                # =========================================================
+                # =========================================================
+                # 🔥 EXCELENCIA — BLOQUE CORREGIDO CON RICHTEXT
+                # =========================================================
+                from docxtpl import RichText
+
                 if n.valor and n.valor.nombre.upper() == "EXCELENCIA":
+
+                    # Obtener valores previos (sin incluir excelencia)
                     prev = (
                         Nominacion.query
                         .filter(
                             Nominacion.alumno_id == n.alumno_id,
                             Nominacion.ciclo_id == n.ciclo_id,
                             Nominacion.valor_id != n.valor_id
-                        ).order_by(Nominacion.fecha.asc())
+                        )
+                        .order_by(Nominacion.fecha.asc())
                         .all()
                     )
 
-                    valores_previos = [x.valor.nombre for x in prev if x.valor and x.valor.nombre.upper() != "EXCELENCIA"]
-                    comentarios_por_maestro = {}
+                    valores_previos = [
+                        x.valor.nombre for x in prev
+                        if x.valor and x.valor.nombre.upper() != "EXCELENCIA"
+                    ]
 
+                    # Comentarios previos agrupados
+                    comentarios_previos = {}
                     for x in prev:
                         maestro = x.maestro.nombre if x.maestro else "Maestro desconocido"
                         c = (x.comentario or "").replace("[EXCELENCIA-VISUAL]", "").strip()
                         if c:
-                            comentarios_por_maestro.setdefault(maestro, []).append(c)
+                            comentarios_previos.setdefault(maestro, []).append(c)
 
-                    comentario_final = f"Por sus valores de {', '.join(valores_previos)}.\n— Comentarios de los maestros:\n"
-                    for m, cs in comentarios_por_maestro.items():
-                        comentario_final += f"{m}:\n"
-                        for c in cs:
-                            comentario_final += f"• {c}\n"
+                    # =========================================================
+                    # Caso 1: Excelencia AUTOMÁTICA (3 valores previos)
+                    # =========================================================
+                    if len(valores_previos) >= 3:
+                        rt = RichText()
+                        rt.add(f"Por sus valores de {', '.join(valores_previos)}.\n", size=28)
+                        rt.add("— Comentarios de los maestros:\n", size=28)
+
+                        for m, cs in comentarios_previos.items():
+                            rt.add(f"{m.upper()}:\n", size=28, bold=True)
+                            for c in cs:
+                                rt.add(f"• {c}\n", size=28)
+
+                        comentario_final = rt
+
+                    # =========================================================
+                    # Caso 2: Excelencia DIRECTA sin valores previos
+                    # (solo 1 comentario, tamaño normal)
+                    # =========================================================
+                    elif len(valores_previos) == 0:
+                        comentario_final = (n.comentario or "").strip()
+
+                    # =========================================================
+                    # Caso 3: Excelencia DIRECTA con 1–2 valores previos
+                    # (debe mostrar TODO + con RichText tamaño 11)
+                    # =========================================================
+                    else:
+                        comentario_directo = (n.comentario or "").strip()
+
+                        rt = RichText()
+                        rt.add(f"Por sus valores de {', '.join(valores_previos)}" " " "y Excelencia.\n", size=28)
+                        rt.add("— Comentarios de los maestros:\n", size=28)
+
+                        # Primero comentarios de valores previos
+                        for m, cs in comentarios_previos.items():
+                            rt.add(f"{m.upper()}:\n", size=28, bold=True)
+                            for c in cs:
+                                rt.add(f"• {c}\n", size=28)
+
+                        # Luego comentario directo del maestro de excelencia
+                        if comentario_directo:
+                            maestro_excelencia = n.maestro.nombre.upper() if n.maestro else "MAESTRO DESCONOCIDO"
+
+                            # Luego el comentario directo de excelencia, con nombre del maestro en negritas
+                            if comentario_directo:
+                                rt.add("\n", size=28)
+                                rt.add(f"— {maestro_excelencia}:\n", size=28, bold=True)
+                                rt.add(f"• {comentario_directo}\n", size=28)
+
+                        comentario_final = rt
+                # =========================================================
 
                 context = {
                     "quien_nomina": n.maestro.nombre if n.maestro else "",
