@@ -63,7 +63,7 @@
             <tbody>
                 {% for m in maestros_activos %}
                 <tr>
-                    <td class="col-nombre">{{ loop.index }}. {{ m.nombre }}</td>
+                    <td class="col-nombre">{{ loop.index }}. {{ m.nombre|title }}</td>
                     <td class="col-correo">{{ m.correo }}</td>
                     <td>{{ ciclo.nombre }}</td>
                     <td class="acciones">
@@ -99,7 +99,7 @@
             <tbody>
                 {% for m in maestros_inactivos %}
                 <tr style="opacity:0.7;">
-                    <td>{{ loop.index }}. {{ m.nombre }}</td>
+                    <td>{{ loop.index }}. {{ m.nombre|title }}</td>
                     <td>{{ m.correo }}</td>
                     <td>{{ ciclo.nombre }}</td>
                     <td class="acciones">

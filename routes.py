@@ -52,7 +52,32 @@ def principal():
     else:
         return render_template('principal.html')  # si en el futuro hay alumnos
 
+import re
 
+def nombre_bonito(nombre: str) -> str:
+    """
+    Convierte: 'ADRIAN ISAAC MENDEZ' -> 'Adrian Isaac Mendez'
+    Respeta conectores comunes: de, del, la, las, los, y, e, etc.
+    """
+    if not nombre:
+        return ""
+
+    # Normalizar espacios
+    s = re.sub(r"\s+", " ", nombre.strip())
+
+    # Partículas que suelen ir en minúscula (cuando NO son la primera palabra)
+    minus = {"de", "del", "la", "las", "los", "y", "e", "da", "dos", "do", "di", "van", "von"}
+
+    partes = s.split(" ")
+    out = []
+    for i, p in enumerate(partes):
+        pl = p.lower()
+        if i > 0 and pl in minus:
+            out.append(pl)
+        else:
+            # Capitalizar conservando acentos
+            out.append(pl[:1].upper() + pl[1:])
+    return " ".join(out)
 
 # -------------------------------
 # 🔹 Login y logout
@@ -3515,12 +3540,17 @@ def generar_invitaciones_stream():
                 # =====================================================
                 # 🔹 Contexto del documento
                 # =====================================================
+                quien_nomina = nombre_bonito(n.maestro.nombre) if n.maestro else ""
+
+                nominado_raw = (
+                    n.alumno.nombre if tipo == "alumno"
+                    else n.maestro_nominado.nombre if n.maestro_nominado else ""
+                )
+                nominado = nombre_bonito(nominado_raw)
+
                 context = {
-                    "quien_nomina": n.maestro.nombre if n.maestro else "",
-                    "nominado": (
-                        n.alumno.nombre if tipo == "alumno"
-                        else n.maestro_nominado.nombre if n.maestro_nominado else ""
-                    ),
+                    "quien_nomina": quien_nomina,
+                    "nominado": nominado,
                     "valor": n.valor.nombre if n.valor else "",
                     "fecha_evento": n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else "",
                     "texto_adicional": comentario_final,
@@ -3772,6 +3802,24 @@ def generar_invitaciones_bloque_unico():
         return s[:80] or "archivo"
 
     # ===================================
+    # ✅ Helper visual para nombres (SOLO VISUAL)
+    # ===================================
+    def nombre_bonito(nombre: str) -> str:
+        if not nombre:
+            return ""
+        s = re.sub(r"\s+", " ", nombre.strip())
+        minus = {"de", "del", "la", "las", "los", "y", "e", "da", "dos", "do", "di", "van", "von"}
+        partes = s.split(" ")
+        out = []
+        for i, p in enumerate(partes):
+            pl = p.lower()
+            if i > 0 and pl in minus:
+                out.append(pl)
+            else:
+                out.append(pl[:1].upper() + pl[1:])
+        return " ".join(out)
+
+    # ===================================
     # 🔹 Generación ZIP
     # ===================================
     zip_buffer = io.BytesIO()
@@ -3789,15 +3837,11 @@ def generar_invitaciones_bloque_unico():
                     n.alumno.nombre if tipo == "alumno"
                     else n.maestro_nominado.nombre if n.maestro_nominado else ""
                 )
+                # ✅ SOLO VISUAL
+                nominado = nombre_bonito(nominado)
 
                 comentario_final = (n.comentario or "").strip()
 
-                # =========================================================
-                # 🔥 EXCELENCIA — BLOQUE CORREGIDO AQUÍ
-                # =========================================================
-                # =========================================================
-                # 🔥 EXCELENCIA — BLOQUE CORREGIDO
-                # =========================================================
                 # =========================================================
                 # 🔥 EXCELENCIA — BLOQUE CORREGIDO CON RICHTEXT
                 # =========================================================
@@ -3826,6 +3870,7 @@ def generar_invitaciones_bloque_unico():
                     comentarios_previos = {}
                     for x in prev:
                         maestro = x.maestro.nombre if x.maestro else "Maestro desconocido"
+                        maestro = nombre_bonito(maestro)  # ✅ SOLO VISUAL
                         c = (x.comentario or "").replace("[EXCELENCIA-VISUAL]", "").strip()
                         if c:
                             comentarios_previos.setdefault(maestro, []).append(c)
@@ -3839,7 +3884,7 @@ def generar_invitaciones_bloque_unico():
                         rt.add("— Comentarios de los maestros:\n", size=28)
 
                         for m, cs in comentarios_previos.items():
-                            rt.add(f"{m.upper()}:\n", size=28, bold=True)
+                            rt.add(f"{m}:\n", size=28, bold=True)  # ✅ (quitamos .upper())
                             for c in cs:
                                 rt.add(f"• {c}\n", size=28)
 
@@ -3847,14 +3892,12 @@ def generar_invitaciones_bloque_unico():
 
                     # =========================================================
                     # Caso 2: Excelencia DIRECTA sin valores previos
-                    # (solo 1 comentario, tamaño normal)
                     # =========================================================
                     elif len(valores_previos) == 0:
                         comentario_final = (n.comentario or "").strip()
 
                     # =========================================================
                     # Caso 3: Excelencia DIRECTA con 1–2 valores previos
-                    # (debe mostrar TODO + con RichText tamaño 11)
                     # =========================================================
                     else:
                         comentario_directo = (n.comentario or "").strip()
@@ -3865,26 +3908,24 @@ def generar_invitaciones_bloque_unico():
 
                         # Primero comentarios de valores previos
                         for m, cs in comentarios_previos.items():
-                            rt.add(f"{m.upper()}:\n", size=28, bold=True)
+                            rt.add(f"{m}:\n", size=28, bold=True)  # ✅ (quitamos .upper())
                             for c in cs:
                                 rt.add(f"• {c}\n", size=28)
 
                         # Luego comentario directo del maestro de excelencia
                         if comentario_directo:
-                            maestro_excelencia = n.maestro.nombre.upper() if n.maestro else "MAESTRO DESCONOCIDO"
+                            maestro_excelencia = nombre_bonito(n.maestro.nombre) if n.maestro else "Maestro desconocido"
 
-                            # Luego el comentario directo de excelencia, con nombre del maestro en negritas
-                            if comentario_directo:
-                                rt.add("\n", size=28)
-                                rt.add(f"— {maestro_excelencia}:\n", size=28, bold=True)
-                                rt.add(f"• {comentario_directo}\n", size=28)
+                            rt.add("\n", size=28)
+                            rt.add(f"— {maestro_excelencia}:\n", size=28, bold=True)  # ✅ (sin upper)
+                            rt.add(f"• {comentario_directo}\n", size=28)
 
                         comentario_final = rt
                 # =========================================================
 
                 context = {
-                    "quien_nomina": n.maestro.nombre if n.maestro else "",
-                    "nominado": nominado,
+                    "quien_nomina": nombre_bonito(n.maestro.nombre) if n.maestro else "",  # ✅ SOLO VISUAL
+                    "nominado": nominado,  # ✅ SOLO VISUAL
                     "valor": n.valor.nombre if n.valor else "",
                     "fecha_evento": n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else "",
                     "texto_adicional": comentario_final,
@@ -3915,6 +3956,7 @@ def generar_invitaciones_bloque_unico():
     resp.headers["Content-Disposition"] = f"attachment; filename={filename_zip}"
     resp.headers["Cache-Control"] = "no-store"
     return resp
+
 
 # ======================================================
 # == Exportar concentrado general de nominaciones (Excel)
@@ -4130,12 +4172,28 @@ def generar_invitaciones_profesores():
         s = re.sub(r"[^\w\-\.]+", "_", s, flags=re.UNICODE)
         return s[:80] or "archivo"
 
+    # ✅ SOLO VISUAL: nombre "bonito"
+    def nombre_bonito(nombre: str) -> str:
+        if not nombre:
+            return ""
+        s = re.sub(r"\s+", " ", nombre.strip())
+        minus = {"de", "del", "la", "las", "los", "y", "e", "da", "dos", "do", "di", "van", "von"}
+        partes = s.split(" ")
+        out = []
+        for i, p in enumerate(partes):
+            pl = p.lower()
+            if i > 0 and pl in minus:
+                out.append(pl)
+            else:
+                out.append(pl[:1].upper() + pl[1:])
+        return " ".join(out)
+
     ciclo = CicloEscolar.query.filter_by(activo=True).first()
     if not ciclo:
         return "No hay ciclo activo", 400
 
     mes_nombre = request.args.get("mes", "").strip()
-    lote = request.args.get("lote", type=int)   # 🔥 AHORA SÍ LO LEEMOS
+    lote = request.args.get("lote", type=int)
 
     if not mes_nombre:
         return "No se especificó el mes.", 400
@@ -4181,8 +4239,6 @@ def generar_invitaciones_profesores():
         if lote < 1 or lote > len(lotes):
             return "Lote inválido.", 400
         nominaciones = lotes[lote - 1]
-
-    # Si no se pidió lote → usar lote 1 (comportamiento clásico)
     else:
         nominaciones = lotes[0]
 
@@ -4197,14 +4253,20 @@ def generar_invitaciones_profesores():
             valor = n.valor.nombre if n.valor else ""
             comentario = (n.comentario or "").strip()
 
+            # ✅ ARREGLADO (sin SyntaxError)
             fecha_evento = (
                 n.evento.fecha_evento.strftime("%d/%m/%Y")
-                if n.evento and n.evento.fecha_evento else ""
+                if (n.evento and n.evento.fecha_evento)
+                else ""
             )
 
+            # ✅ SOLO VISUAL
+            nominado_bonito = nombre_bonito(nominado)
+            quien_nomina_bonito = nombre_bonito(n.maestro.nombre) if n.maestro else ""
+
             context = {
-                "quien_nomina": n.maestro.nombre if n.maestro else "",
-                "nominado": nominado,
+                "quien_nomina": quien_nomina_bonito,
+                "nominado": nominado_bonito,
                 "valor": valor,
                 "fecha_evento": fecha_evento,
                 "texto_adicional": comentario,
@@ -4215,7 +4277,7 @@ def generar_invitaciones_profesores():
             doc.save(temp)
             temp.seek(0)
 
-            filename = f"{slug(nominado)}_{slug(valor)}.docx"
+            filename = f"{slug(nominado_bonito)}_{slug(valor)}.docx"
             zf.writestr(filename, temp.read())
 
     zip_buffer.seek(0)
