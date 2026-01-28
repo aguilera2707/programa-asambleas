@@ -3928,7 +3928,7 @@ def generar_invitaciones_bloque_unico():
 def exportar_concentrado_excel():
     import io
     import pandas as pd
-    from flask import make_response
+    from flask import make_response, request  # ✅ request
     from datetime import datetime
     from models import Nominacion, CicloEscolar, Alumno, Valor, EventoAsamblea, Bloque
     from sqlalchemy.orm import joinedload
@@ -3938,8 +3938,10 @@ def exportar_concentrado_excel():
     if not ciclo:
         return "No hay ciclo activo.", 400
 
-    # 🔹 Cargar todas las nominaciones (con relaciones)
-    nominaciones = (
+    mes = request.args.get("mes")  # ✅ ej: "Febrero" (igual que tu dashboard)
+
+    # 🔹 Cargar nominaciones (con relaciones)
+    query = (
         Nominacion.query
         .options(
             joinedload(Nominacion.maestro),
@@ -3950,6 +3952,15 @@ def exportar_concentrado_excel():
         )
         .filter(Nominacion.ciclo_id == ciclo.id)
         .filter(~Nominacion.comentario.contains("[EXCELENCIA-VISUAL]"))  # ⛔ excluir visuales
+    )
+
+    # ✅ Filtrar por mes/evento si viene en querystring
+    #    (asumiendo que tu dashboard manda mes por nombre_mes, ej. "Febrero")
+    if mes:
+        query = query.join(EventoAsamblea).filter(EventoAsamblea.nombre_mes == mes)
+
+    nominaciones = (
+        query
         .order_by(Nominacion.fecha.asc())
         .all()
     )
@@ -4000,31 +4011,28 @@ def exportar_concentrado_excel():
         bloque = str(row.get("Bloque") or "")
         grupo = str(row.get("Grupo") or "")
 
-        # Solo nos importa ajustar BLOQUE 1 (preescolar)
         if bloque == "BLOQUE 1":
             if grupo.startswith("K1"):
-                return 1  # K1A, K1B
+                return 1
             if grupo.startswith("K2"):
-                return 2  # K2A, K2B
+                return 2
             if grupo.startswith("PP1"):
-                return 3  # PP1A, PP1B  👉 justo después de K2
-            return 4  # resto de grupos de BLOQUE 1 (P1A, P1B, P1C, etc.)
+                return 3
+            return 4
 
-        # El resto de bloques se mantienen en el orden actual
         if bloque == "BLOQUE 2":
             return 5
         if bloque == "BLOQUE 3":
             return 6
         if bloque == "BLOQUE 4":
             return 7
-        return 100  # cualquier cosa rara al final
+        return 100
 
     # 🧱 Generar Excel
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         # --- HOJA 1: ALUMNOS ---
         if not df_alumnos.empty:
-            # 👉 conservamos tu lógica, solo metemos la columna de orden personalizado
             df_alumnos = df_alumnos.copy()
             df_alumnos["orden_pre"] = df_alumnos.apply(orden_pre, axis=1)
             df_alumnos = df_alumnos.sort_values(
@@ -4044,14 +4052,12 @@ def exportar_concentrado_excel():
                 bottom=Side(style="thin", color="999999"),
             )
 
-            # Encabezados
             for cell in ws[1]:
                 cell.fill = header_fill
                 cell.font = header_font
                 cell.alignment = header_align
                 cell.border = border
 
-            # 🎨 Alternar colores por grupo (igual que tenías)
             colores = ["FFF8E1", "FFFFFF"]
             ultimo_grupo = None
             color_idx = 0
@@ -4087,9 +4093,13 @@ def exportar_concentrado_excel():
                 max_len = max(len(str(cell.value or "")) for cell in col)
                 ws2.column_dimensions[col[0].column_letter].width = min(max_len + 3, 45)
 
-    # 📦 Enviar respuesta
     output.seek(0)
-    filename = f"Concentrado_Nominaciones_{ciclo.nombre}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+
+    # ✅ Si quieres, el filename puede incluir el mes, pero NO es obligatorio.
+    #    Lo dejo sin cambiarte tu lógica; solo te propongo esto opcional:
+    # filename = f"Concentrado_{ciclo.nombre}_{mes or 'TODO'}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+    filename = f"Concentrado_Nominaciones_{ciclo.nombre}_{mes or 'TODO'}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+
 
     response = make_response(output.read())
     response.headers["Content-Disposition"] = f"attachment; filename={filename}"
@@ -4098,7 +4108,6 @@ def exportar_concentrado_excel():
     output.close()
 
     return response
-
 
 # ======================================================
 # 📦 Generar invitaciones para PROFESORES (colaboradores)

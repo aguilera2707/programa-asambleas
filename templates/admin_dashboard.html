@@ -341,7 +341,9 @@ document.getElementById('select-all').addEventListener('change',e=>{
 // 🔹 Exportación Excel y Profesores (SIN LOTES)
 // ===============================
 document.getElementById("btnExportarExcel").addEventListener("click",()=>{
-    window.location.href="/admin/dashboard/exportar_concentrado_excel";
+    const mes = document.getElementById("mes-dashboard").value;
+    if(!mes) return alert("Selecciona un mes.");
+    window.location.href = `/admin/dashboard/exportar_concentrado_excel?mes=${encodeURIComponent(mes)}`;
 });
 
 document.getElementById("btnDescargarProfesores").addEventListener("click",async()=>{
