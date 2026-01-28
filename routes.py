@@ -3739,7 +3739,7 @@ def generar_invitaciones_bloque_unico():
         Nominacion.query
         .options(
             joinedload(Nominacion.maestro),
-            joinedload(Nominacion.alumno),
+            joinedload(Nominacion.alumno).joinedload(Alumno.bloque),  # ✅ para saber el bloque y asignar hora
             joinedload(Nominacion.maestro_nominado),
             joinedload(Nominacion.valor),
             joinedload(Nominacion.evento),
@@ -3875,59 +3875,76 @@ def generar_invitaciones_bloque_unico():
                         if c:
                             comentarios_previos.setdefault(maestro, []).append(c)
 
-                    # =========================================================
                     # Caso 1: Excelencia AUTOMÁTICA (3 valores previos)
-                    # =========================================================
                     if len(valores_previos) >= 3:
                         rt = RichText()
                         rt.add(f"Por sus valores de {', '.join(valores_previos)}.\n", size=28)
                         rt.add("— Comentarios de los maestros:\n", size=28)
 
                         for m, cs in comentarios_previos.items():
-                            rt.add(f"{m}:\n", size=28, bold=True)  # ✅ (quitamos .upper())
+                            rt.add(f"{m}:\n", size=28, bold=True)
                             for c in cs:
                                 rt.add(f"• {c}\n", size=28)
 
                         comentario_final = rt
 
-                    # =========================================================
                     # Caso 2: Excelencia DIRECTA sin valores previos
-                    # =========================================================
                     elif len(valores_previos) == 0:
                         comentario_final = (n.comentario or "").strip()
 
-                    # =========================================================
                     # Caso 3: Excelencia DIRECTA con 1–2 valores previos
-                    # =========================================================
                     else:
                         comentario_directo = (n.comentario or "").strip()
 
                         rt = RichText()
-                        rt.add(f"Por sus valores de {', '.join(valores_previos)}" " " "y Excelencia.\n", size=28)
+                        rt.add(f"Por sus valores de {', '.join(valores_previos)} y Excelencia.\n", size=28)
                         rt.add("— Comentarios de los maestros:\n", size=28)
 
-                        # Primero comentarios de valores previos
                         for m, cs in comentarios_previos.items():
-                            rt.add(f"{m}:\n", size=28, bold=True)  # ✅ (quitamos .upper())
+                            rt.add(f"{m}:\n", size=28, bold=True)
                             for c in cs:
                                 rt.add(f"• {c}\n", size=28)
 
-                        # Luego comentario directo del maestro de excelencia
                         if comentario_directo:
                             maestro_excelencia = nombre_bonito(n.maestro.nombre) if n.maestro else "Maestro desconocido"
-
                             rt.add("\n", size=28)
-                            rt.add(f"— {maestro_excelencia}:\n", size=28, bold=True)  # ✅ (sin upper)
+                            rt.add(f"— {maestro_excelencia}:\n", size=28, bold=True)
                             rt.add(f"• {comentario_directo}\n", size=28)
 
                         comentario_final = rt
+
+                # =========================================================
+                # ✅ FECHA + HORA (SOLO ALUMNOS)
+                # Bloque 1 = 8:30 am
+                # Bloque 2 = 7:30 am
+                # Bloque 3 = 7:30 am
+                # Bloque 4 = 8:30 am
+                # =========================================================
+                hora_por_bloque = {
+                    "BLOQUE 1": "8:30 a. m.",
+                    "BLOQUE 2": "7:30 a. m.",
+                    "BLOQUE 3": "7:30 a. m.",
+                    "BLOQUE 4": "8:30 a. m.",
+                }
+
+                fecha_str = ""
+                if n.evento and n.evento.fecha_evento:
+                    fecha_str = n.evento.fecha_evento.strftime("%d/%m/%Y")
+
+                bloque_nombre = ""
+                if n.alumno and n.alumno.bloque and n.alumno.bloque.nombre:
+                    bloque_nombre = n.alumno.bloque.nombre.strip().upper()
+
+                hora_str = hora_por_bloque.get(bloque_nombre, "")
+                fecha_con_hora = f"{fecha_str} - {hora_str}".strip(" -")
+
                 # =========================================================
 
                 context = {
-                    "quien_nomina": nombre_bonito(n.maestro.nombre) if n.maestro else "",  # ✅ SOLO VISUAL
-                    "nominado": nominado,  # ✅ SOLO VISUAL
+                    "quien_nomina": nombre_bonito(n.maestro.nombre) if n.maestro else "",
+                    "nominado": nominado,
                     "valor": n.valor.nombre if n.valor else "",
-                    "fecha_evento": n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else "",
+                    "fecha_evento": fecha_con_hora,  # ✅ aquí ya va fecha + hora
                     "texto_adicional": comentario_final,
                 }
 
@@ -3956,7 +3973,6 @@ def generar_invitaciones_bloque_unico():
     resp.headers["Content-Disposition"] = f"attachment; filename={filename_zip}"
     resp.headers["Cache-Control"] = "no-store"
     return resp
-
 
 # ======================================================
 # == Exportar concentrado general de nominaciones (Excel)
