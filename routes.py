@@ -3985,6 +3985,7 @@ def generar_invitaciones_bloque_unico():
 @admin_required
 def exportar_concentrado_excel():
     import io
+    import re
     import pandas as pd
     from flask import make_response, request  # ✅ request
     from datetime import datetime
@@ -3997,6 +3998,22 @@ def exportar_concentrado_excel():
         return "No hay ciclo activo.", 400
 
     mes = request.args.get("mes")  # ✅ ej: "Febrero" (igual que tu dashboard)
+
+    # ✅ Helper visual para nombres (SOLO VISUAL)
+    def nombre_bonito(nombre: str) -> str:
+        if not nombre:
+            return ""
+        s = re.sub(r"\s+", " ", str(nombre).strip())
+        minus = {"de", "del", "la", "las", "los", "y", "e", "da", "dos", "do", "di", "van", "von"}
+        partes = s.split(" ")
+        out = []
+        for i, p in enumerate(partes):
+            pl = p.lower()
+            if i > 0 and pl in minus:
+                out.append(pl)
+            else:
+                out.append(pl[:1].upper() + pl[1:])
+        return " ".join(out)
 
     # 🔹 Cargar nominaciones (con relaciones)
     query = (
@@ -4012,8 +4029,7 @@ def exportar_concentrado_excel():
         .filter(~Nominacion.comentario.contains("[EXCELENCIA-VISUAL]"))  # ⛔ excluir visuales
     )
 
-    # ✅ Filtrar por mes/evento si viene en querystring
-    #    (asumiendo que tu dashboard manda mes por nombre_mes, ej. "Febrero")
+    # ✅ Filtrar por mes/evento si viene en querystring (nombre_mes)
     if mes:
         query = query.join(EventoAsamblea).filter(EventoAsamblea.nombre_mes == mes)
 
@@ -4031,6 +4047,7 @@ def exportar_concentrado_excel():
 
     for n in nominaciones:
         tipo = n.tipo or "alumno"
+
         evento = (
             getattr(n.evento, "nombre", None)
             or getattr(n.evento, "nombre_mes", None)
@@ -4039,13 +4056,19 @@ def exportar_concentrado_excel():
             or "—"
         )
 
+        quien_nomina = nombre_bonito(n.maestro.nombre) if n.maestro else ""
+
+        if tipo == "alumno":
+            nominado_raw = n.alumno.nombre if n.alumno else ""
+        else:
+            nominado_raw = n.maestro_nominado.nombre if n.maestro_nominado else ""
+
+        nominado = nombre_bonito(nominado_raw)
+
         base = {
-            "Quién nomina": n.maestro.nombre if n.maestro else "",
+            "Quién nomina": quien_nomina,  # ✅ bonito
             "Tipo": tipo.capitalize(),
-            "Nominado": (
-                n.alumno.nombre if tipo == "alumno"
-                else n.maestro_nominado.nombre if n.maestro_nominado else ""
-            ),
+            "Nominado": nominado,          # ✅ bonito
             "Bloque": n.alumno.bloque.nombre if n.alumno and n.alumno.bloque else "—",
             "Grado": n.alumno.grado if n.alumno and hasattr(n.alumno, "grado") else "—",
             "Grupo": n.alumno.grupo if n.alumno and hasattr(n.alumno, "grupo") else "—",
@@ -4116,6 +4139,7 @@ def exportar_concentrado_excel():
                 cell.alignment = header_align
                 cell.border = border
 
+            # 🎨 Alternar colores por grupo (igual que tenías)
             colores = ["FFF8E1", "FFFFFF"]
             ultimo_grupo = None
             color_idx = 0
@@ -4153,11 +4177,7 @@ def exportar_concentrado_excel():
 
     output.seek(0)
 
-    # ✅ Si quieres, el filename puede incluir el mes, pero NO es obligatorio.
-    #    Lo dejo sin cambiarte tu lógica; solo te propongo esto opcional:
-    # filename = f"Concentrado_{ciclo.nombre}_{mes or 'TODO'}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
     filename = f"Concentrado_Nominaciones_{ciclo.nombre}_{mes or 'TODO'}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
-
 
     response = make_response(output.read())
     response.headers["Content-Disposition"] = f"attachment; filename={filename}"
@@ -4166,6 +4186,7 @@ def exportar_concentrado_excel():
     output.close()
 
     return response
+
 
 # ======================================================
 # 📦 Generar invitaciones para PROFESORES (colaboradores)
