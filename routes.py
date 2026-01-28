@@ -2398,7 +2398,7 @@ def panel_profesor():
 @nom.route('/mis_grupos')
 @login_required
 def mis_grupos():
-    """Muestra los grupos y alumnos con orden correcto, límites y bloqueo por excelencia."""
+    """Muestra los grupos y alumnos con orden correcto, límites y bloqueo por excelencia (por evento/mes)."""
     if current_user.rol != 'profesor':
         flash("🚫 Solo los profesores pueden acceder a esta vista.", "danger")
         return redirect(url_for('nom.principal'))
@@ -2413,7 +2413,7 @@ def mis_grupos():
         flash("⚠️ No se encontró tu registro como maestro activo.", "warning")
         return redirect(url_for('nom.panel_profesor'))
 
-    # 🔹 Traer todo en una sola consulta (optimizado)
+    # 🔹 Traer alumnos del ciclo (orden base; el orden final lo hacemos con parser)
     alumnos = (
         Alumno.query
         .filter_by(ciclo_id=ciclo_activo.id)
@@ -2421,7 +2421,7 @@ def mis_grupos():
         .all()
     )
 
-    # 🔹 Traer TODOS los eventos activos del ciclo y mapearlos por bloque
+    # 🔹 Traer TODOS los eventos activos del ciclo y mapearlos por bloque (el más reciente por fecha_evento)
     eventos_activos = (
         EventoAsamblea.query
         .filter_by(ciclo_id=ciclo_activo.id, activo=True)
@@ -2430,15 +2430,23 @@ def mis_grupos():
 
     evento_por_bloque = {}
     for e in eventos_activos:
-        # Si hay varios activos en el mismo bloque, nos quedamos con el más reciente por fecha_evento
         actual = evento_por_bloque.get(e.bloque_id)
         if not actual or e.fecha_evento > actual.fecha_evento:
             evento_por_bloque[e.bloque_id] = e
 
-    # Cargar todas las nominaciones del ciclo de una sola vez
-    nominaciones_ciclo = Nominacion.query.filter_by(ciclo_id=ciclo_activo.id).all()
+    # ✅ Cargar todas las nominaciones del ciclo en una sola vez (con Valor para evitar N+1)
+    from sqlalchemy.orm import joinedload
+    nominaciones_ciclo = (
+        Nominacion.query
+        .options(joinedload(Nominacion.valor))
+        .filter_by(ciclo_id=ciclo_activo.id)
+        .all()
+    )
+
     nominaciones_por_alumno = {}
     for n in nominaciones_ciclo:
+        if n.alumno_id is None:
+            continue
         nominaciones_por_alumno.setdefault(n.alumno_id, []).append(n)
 
     grupos = {}
@@ -2451,19 +2459,22 @@ def mis_grupos():
 
         nominaciones = nominaciones_por_alumno.get(alumno.id, [])
 
-        # 🟡 Verificar excelencia
-        tiene_excelencia = any(
-            n.valor and getattr(n.valor, "nombre", "").upper() == "EXCELENCIA"
-            for n in nominaciones
-        )
-
-        # 🟢 Verificar nominación del mes actual PERO por BLOQUE del alumno
-        tiene_nominaciones_mes = False
+        # 🎯 Evento vigente del bloque del alumno (define “mes”)
         evento_bloque = evento_por_bloque.get(alumno.bloque_id)
+
+        # 🟢 Nominado en el mes (por evento del bloque)
+        tiene_nominaciones_mes = False
         if evento_bloque:
-            # Nominaciones ligadas al evento de ese bloque
-            tiene_nominaciones_mes = any(
-                n.evento_id == evento_bloque.id for n in nominaciones
+            tiene_nominaciones_mes = any(n.evento_id == evento_bloque.id for n in nominaciones)
+
+        # 🟡 EXCELENCIA SOLO EN EL MES (por evento del bloque)
+        tiene_excelencia = False
+        if evento_bloque:
+            tiene_excelencia = any(
+                (n.evento_id == evento_bloque.id)
+                and n.valor
+                and getattr(n.valor, "nombre", "").upper() == "EXCELENCIA"
+                for n in nominaciones
             )
 
         grupos[clave].append({
@@ -2482,30 +2493,36 @@ def mis_grupos():
         Devuelve una tupla (orden_seccion, grado_num, letra_grupo)
         para ordenar correctamente Kinder → Preprimaria → Primaria → Secundaria.
         """
-        t = nombre_grupo.upper().strip()
-        m = re.search(r'°\s*([A-Z]+)(\d+)\b', t)
+        t = (nombre_grupo or "").upper().strip()
+
+        # Busca algo como: °K1  o  °PP1  o  °P5  o  °SEC1
+        m = re.search(r'°\s*([A-Z]+)\s*(\d+)\b', t)
         if not m:
             return (99, 99, 'Z')
+
         seccion_code = m.group(1)
         grado_num = int(m.group(2))
+
+        # Letra final del grupo (A/B/C...) si existe
         m2 = re.search(r'\s([A-Z])$', t)
         letra = m2.group(1) if m2 else ''
+
         orden_seccion = {'K': 1, 'PP': 2, 'P': 3, 'SEC': 4}.get(seccion_code, 9)
         return (orden_seccion, grado_num, letra)
 
     grupos_ordenados = dict(sorted(grupos.items(), key=lambda kv: parse_grupo_key(kv[0])))
 
-    # 🔹 Detectar límite automáticamente
+    # 🔹 Detectar límite automáticamente (lo sigues usando en template si lo ocupas)
     def obtener_limite(nombre_grupo):
-        nombre = nombre_grupo.upper()
+        nombre = (nombre_grupo or "").upper()
         if "SEC" in nombre or "SECUND" in nombre or "BLOQUE 4" in nombre:
             return 11
         return 8
 
     # 🔹 Numerar alumnos dentro de cada grupo
     for grupo_nombre, lista_alumnos in grupos_ordenados.items():
-        for i, alumno in enumerate(lista_alumnos, start=1):
-            alumno["numero"] = i
+        for i, a in enumerate(lista_alumnos, start=1):
+            a["numero"] = i
 
     return render_template(
         "mis_grupos.html",
@@ -2513,7 +2530,6 @@ def mis_grupos():
         ciclo=ciclo_activo,
         obtener_limite=obtener_limite
     )
-
 
 @nom.route('/seleccionar_bloque')
 @login_required
