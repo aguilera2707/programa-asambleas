@@ -98,13 +98,16 @@ def panel_admin():
 # ======================================================
 # 🧠 Función auxiliar: actualiza a EXCELENCIA automáticamente
 # ======================================================
-def actualizar_a_excelencia(alumno_id, ciclo_id):
-    """Convierte las nominaciones de un alumno a EXCELENCIA si ya alcanzó 3."""
+def actualizar_a_excelencia(alumno_id, ciclo_id, evento_id):
+    """Convierte las nominaciones de un alumno a EXCELENCIA si ya alcanzó 3 EN EL EVENTO (mes)."""
     from models import Nominacion, Valor
     from sqlalchemy.orm import joinedload
-    import datetime
+    from datetime import datetime
 
-    # Buscar valor EXCELENCIA o crearlo si no existe (ignorando mayúsculas)
+    if not evento_id:
+        return False  # seguridad: sin evento no tiene sentido promover
+
+    # Buscar valor EXCELENCIA o crearlo si no existe (por ciclo)
     excelencia = Valor.query.filter(
         db.func.lower(Valor.nombre) == "excelencia",
         Valor.ciclo_id == ciclo_id
@@ -114,62 +117,62 @@ def actualizar_a_excelencia(alumno_id, ciclo_id):
         db.session.add(excelencia)
         db.session.commit()
 
-    # Si ya tiene EXCELENCIA, no hacer nada
-    tiene_excelencia = (
-        Nominacion.query.filter_by(alumno_id=alumno_id, ciclo_id=ciclo_id)
+    # Si ya tiene EXCELENCIA en ESTE EVENTO, no hacer nada
+    tiene_excelencia_en_evento = (
+        Nominacion.query
+        .filter_by(alumno_id=alumno_id, ciclo_id=ciclo_id, evento_id=evento_id)
         .join(Valor)
         .filter(db.func.lower(Valor.nombre) == "excelencia")
         .first()
     )
-    if tiene_excelencia:
-        return False  # ya tenía excelencia
+    if tiene_excelencia_en_evento:
+        return False
 
-    # Traer todas las nominaciones actuales (sin contar EXCELENCIA)
+    # Traer nominaciones del EVENTO actual (sin contar EXCELENCIA)
     nominaciones = (
         Nominacion.query
         .options(joinedload(Nominacion.valor))
         .filter(
             Nominacion.alumno_id == alumno_id,
-            Nominacion.ciclo_id == ciclo_id
+            Nominacion.ciclo_id == ciclo_id,
+            Nominacion.evento_id == evento_id
         )
+        .order_by(Nominacion.fecha.asc())
         .all()
     )
 
-    # Filtrar solo las nominaciones normales
     nominaciones_normales = [n for n in nominaciones if n.valor and n.valor.nombre.upper() != "EXCELENCIA"]
 
     if len(nominaciones_normales) < 3:
-        return False  # aún no alcanza 3
+        return False
 
-    # Concatenar comentarios y valores previos
-    comentarios = []
+    # Construir comentario final
     valores = []
+    comentarios = []
     for n in nominaciones_normales:
         if n.valor:
             valores.append(n.valor.nombre)
         if n.comentario:
             comentarios.append(n.comentario.strip())
 
-    texto_final = f"Valores obtenidos: {', '.join(valores)}. " \
-                    f"Comentarios: {' | '.join(comentarios)}"
+    texto_final = f"Valores obtenidos: {', '.join(valores)}. Comentarios: {' | '.join(comentarios)}"
 
-    # 🔹 Marcar las tres nominaciones previas como "solo visuales" (no exportables)
+    # Marcar las nominaciones del evento como visuales
     for n in nominaciones_normales:
-        if n.valor and n.valor.nombre.upper() != "EXCELENCIA":
-            if "[EXCELENCIA-VISUAL]" not in (n.comentario or ""):
-                n.comentario = (n.comentario or "") + " [EXCELENCIA-VISUAL]"
+        if "[EXCELENCIA-VISUAL]" not in (n.comentario or ""):
+            n.comentario = ((n.comentario or "").strip() + " [EXCELENCIA-VISUAL]").strip()
     db.session.commit()
 
-    # 🔹 Crear nueva nominación de EXCELENCIA
+    # Crear la nominación EXCELENCIA EN ESTE EVENTO
     nueva = Nominacion(
         alumno_id=alumno_id,
-        maestro_id=nominaciones_normales[-1].maestro_id if nominaciones_normales else None,
+        maestro_id=nominaciones_normales[-1].maestro_id,
         valor_id=excelencia.id,
         ciclo_id=ciclo_id,
         comentario=texto_final,
-        evento_id=nominaciones_normales[-1].evento_id if nominaciones_normales else None,
+        evento_id=evento_id,
         tipo="alumno",
-        fecha=datetime.datetime.utcnow()
+        fecha=datetime.utcnow().date()  # tu columna es Date
     )
     db.session.add(nueva)
     db.session.commit()
@@ -179,9 +182,12 @@ def actualizar_a_excelencia(alumno_id, ciclo_id):
 # ======================================================
 # 🧠 Verificar reversión de EXCELENCIA si bajan de 3 nominaciones
 # ======================================================
-def verificar_reversion_excelencia(alumno_id, ciclo_id):
-    """Elimina la nominación de EXCELENCIA si el alumno baja de 3 nominaciones normales."""
+def verificar_reversion_excelencia(alumno_id, ciclo_id, evento_id):
+    """Elimina la nominación de EXCELENCIA si el alumno baja de 3 nominaciones normales EN EL EVENTO."""
     from models import Nominacion, Valor
+
+    if not evento_id:
+        return
 
     excelencia = Valor.query.filter(
         db.func.lower(Valor.nombre) == "excelencia",
@@ -190,22 +196,21 @@ def verificar_reversion_excelencia(alumno_id, ciclo_id):
     if not excelencia:
         return
 
-    # Contar nominaciones normales (sin excelencia)
     nominaciones_normales = (
         Nominacion.query
         .join(Valor)
         .filter(
             Nominacion.alumno_id == alumno_id,
             Nominacion.ciclo_id == ciclo_id,
+            Nominacion.evento_id == evento_id,
             db.func.lower(Valor.nombre) != "excelencia"
         ).count()
     )
 
-    # Si bajó de 3 → eliminar la EXCELENCIA
     if nominaciones_normales < 3:
         nom_excelencia = (
             Nominacion.query
-            .filter_by(alumno_id=alumno_id, ciclo_id=ciclo_id, valor_id=excelencia.id)
+            .filter_by(alumno_id=alumno_id, ciclo_id=ciclo_id, evento_id=evento_id, valor_id=excelencia.id)
             .first()
         )
         if nom_excelencia:
@@ -233,7 +238,7 @@ def recalcular_comentario_excelencia(alumno_id, ciclo_id):
     # Buscar la nominación de EXCELENCIA (si existe)
     nom_excelencia = (
         Nominacion.query
-        .filter_by(alumno_id=alumno_id, ciclo_id=ciclo_id, valor_id=excelencia.id)
+        .filter_by(alumno_id=alumno_id, ciclo_id=ciclo_id, evento_id=evento_id, valor_id=excelencia.id)
         .first()
     )
     if not nom_excelencia:
@@ -245,6 +250,7 @@ def recalcular_comentario_excelencia(alumno_id, ciclo_id):
         .filter(
             Nominacion.alumno_id == alumno_id,
             Nominacion.ciclo_id == ciclo_id,
+            Nominacion.evento_id == evento_id,
             db.func.lower(Valor.nombre) != "excelencia",
             Nominacion.comentario.ilike("%[EXCELENCIA-VISUAL]%")
         )
@@ -2350,7 +2356,7 @@ def nominar_alumno_individual(alumno_id):
         db.session.commit()
 
         # 🧠 Verificar si alcanza EXCELENCIA
-        promovido = actualizar_a_excelencia(alumno.id, ciclo_activo.id)
+        promovido = actualizar_a_excelencia(alumno.id, ciclo_activo.id, evento_abierto.id)
 
         if promovido:
             flash(f"🏅 {alumno.nombre} ha alcanzado el valor EXCELENCIA por acumular 3 nominaciones.", "success")
@@ -3296,7 +3302,7 @@ def editar_nominacion(id):
 
     # 🔁 Intentar recalcular la nominación EXCELENCIA asociada
     try:
-        recalcular_comentario_excelencia(nominacion.alumno_id, nominacion.ciclo_id)
+        recalcular_comentario_excelencia(nominacion.alumno_id, nominacion.ciclo_id, nominacion.evento_id)
     except Exception as e:
         print("⚠️ Error recalculando EXCELENCIA:", e)
 
@@ -3334,7 +3340,7 @@ def eliminar_nominacion(id):
     # ✅ Eliminar si todo está correcto
     db.session.delete(nominacion)
     db.session.commit()
-    verificar_reversion_excelencia(nominacion.alumno_id, nominacion.ciclo_id)
+    verificar_reversion_excelencia(nominacion.alumno_id, nominacion.ciclo_id, nominacion.evento_id)
     flash("🗑️ Nominación eliminada correctamente.", "success")
     return redirect(url_for('nom.mis_nominaciones'))
 
