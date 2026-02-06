@@ -19,6 +19,7 @@ from flask import jsonify
 from datetime import datetime
 from utils import admin_required
 from utils import cerrar_eventos_vencidos
+from sqlalchemy.exc import IntegrityError
 
 # -------------------------------
 # 🔹 Definición de Blueprints
@@ -1139,11 +1140,13 @@ def gestionar_nominaciones():
 
 
 import zoneinfo
+
 # Maestro nomina a alumnos (sin dependencia de bloque)
 @nom.route('/nominaciones/alumno', methods=['GET', 'POST'])
 @login_required
 def nominar_alumno():
     cerrar_eventos_vencidos()
+
     # 1️⃣ Validar rol del usuario
     if current_user.rol != 'profesor':
         flash("🚫 Solo los profesores pueden registrar nominaciones.", "danger")
@@ -1187,7 +1190,6 @@ def nominar_alumno():
         )
         return redirect(url_for('nom.principal'))
 
-
     # 5️⃣ Procesar envío del formulario
     if request.method == 'POST':
         valor_id = request.form.get('valor_id')
@@ -1199,15 +1201,21 @@ def nominar_alumno():
             return redirect(url_for('nom.nominar_alumno'))
 
         nuevas = 0
+        duplicadas = 0
+
         for alumno_id in alumno_ids:
-            # Evitar duplicados: mismo maestro, alumno y valor en el mismo ciclo
+            # ✅ Pre-check (rápido, mantiene tu lógica actual)
+            #    Ahora incluye evento_id y tipo para que el criterio sea idéntico al índice único
             existente = Nominacion.query.filter_by(
                 alumno_id=alumno_id,
                 maestro_id=maestro.id,
                 valor_id=valor_id,
-                ciclo_id=ciclo_activo.id
+                ciclo_id=ciclo_activo.id,
+                evento_id=evento_abierto.id,
+                tipo='alumno'
             ).first()
             if existente:
+                duplicadas += 1
                 continue
 
             nueva_nom = Nominacion(
@@ -1219,11 +1227,28 @@ def nominar_alumno():
                 evento_id=evento_abierto.id,
                 tipo='alumno'
             )
-            db.session.add(nueva_nom)
-            nuevas += 1
+
+            try:
+                # ✅ Savepoint: si entra doble request, el índice único bloquea y no truena todo
+                with db.session.begin_nested():
+                    db.session.add(nueva_nom)
+                    db.session.flush()  # fuerza INSERT aquí para disparar el índice único
+                nuevas += 1
+
+            except IntegrityError:
+                # Doble clic / requests simultáneos
+                db.session.rollback()
+                duplicadas += 1
 
         db.session.commit()
-        flash(f"✅ Se registraron {nuevas} nominaciones al evento {evento_abierto.nombre_mes}.", "success")
+
+        if nuevas > 0 and duplicadas == 0:
+            flash(f"✅ Se registraron {nuevas} nominaciones al evento {evento_abierto.nombre_mes}.", "success")
+        elif nuevas > 0 and duplicadas > 0:
+            flash(f"✅ Se registraron {nuevas} nominaciones. ⚠️ Se ignoraron {duplicadas} duplicadas.", "warning")
+        else:
+            flash("⚠️ No se registró nada: todas eran duplicadas.", "warning")
+
         return redirect(url_for('nom.nominar_alumno'))
 
     # 6️⃣ Cargar datos para el formulario
@@ -1252,6 +1277,7 @@ def nominar_alumno():
         evento=evento_abierto,
         zoneinfo=zoneinfo
     )
+
 
 
 # 🔧 Función para asegurar que los admins existan como maestros en el ciclo actual
@@ -1297,6 +1323,8 @@ def sincronizar_admins_como_maestros(ciclo_activo):
 # ============================================================
 
 import zoneinfo
+
+
 @nom.route('/nominaciones/personal', methods=['GET', 'POST'])
 @login_required
 def nominar_personal():
@@ -1348,11 +1376,14 @@ def nominar_personal():
         duplicados = []
 
         for nominado_id in nominados:
+            # ✅ Pre-check ahora alineado al índice único (incluye evento_id y tipo)
             existente = Nominacion.query.filter_by(
                 maestro_nominado_id=nominado_id,
                 maestro_id=maestro.id,
                 valor_id=valor_id,
-                ciclo_id=ciclo_activo.id
+                ciclo_id=ciclo_activo.id,
+                evento_id=evento_abierto.id,
+                tipo='personal'
             ).first()
 
             if existente:
@@ -1370,12 +1401,23 @@ def nominar_personal():
                 evento_id=evento_abierto.id,
                 tipo='personal'
             )
-            db.session.add(nueva_nom)
-            nuevas += 1
+
+            try:
+                # ✅ Savepoint: si entra doble request, el índice único bloquea y no truena todo
+                with db.session.begin_nested():
+                    db.session.add(nueva_nom)
+                    db.session.flush()
+                nuevas += 1
+
+            except IntegrityError:
+                db.session.rollback()
+                nominado = Maestro.query.get(nominado_id)
+                if nominado:
+                    duplicados.append(nominado.nombre)
 
         db.session.commit()
 
-        # ✅ Mensajes más detallados
+        # ✅ Mensajes más detallados (igual que tu lógica, solo contando mejor duplicados)
         if nuevas > 0 and not duplicados:
             flash(f"✅ Se registraron {nuevas} nominaciones de personal al evento {evento_abierto.nombre_mes}.", "success")
 
@@ -1420,6 +1462,7 @@ def nominar_personal():
         evento=evento_abierto,
         zoneinfo=zoneinfo
     )
+
 
 
 @nom.route('/admin/nominaciones/export', methods=['GET'])
