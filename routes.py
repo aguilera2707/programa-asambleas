@@ -1140,13 +1140,13 @@ def gestionar_nominaciones():
 
 
 import zoneinfo
+from sqlalchemy.exc import IntegrityError  # ✅ agregar si no lo tienes
 
 # Maestro nomina a alumnos (sin dependencia de bloque)
 @nom.route('/nominaciones/alumno', methods=['GET', 'POST'])
 @login_required
 def nominar_alumno():
     cerrar_eventos_vencidos()
-
     # 1️⃣ Validar rol del usuario
     if current_user.rol != 'profesor':
         flash("🚫 Solo los profesores pueden registrar nominaciones.", "danger")
@@ -1204,8 +1204,7 @@ def nominar_alumno():
         duplicadas = 0
 
         for alumno_id in alumno_ids:
-            # ✅ Pre-check (rápido, mantiene tu lógica actual)
-            #    Ahora incluye evento_id y tipo para que el criterio sea idéntico al índice único
+            # ✅ Pre-check alineado a tu índice único (evento + tipo)
             existente = Nominacion.query.filter_by(
                 alumno_id=alumno_id,
                 maestro_id=maestro.id,
@@ -1229,18 +1228,12 @@ def nominar_alumno():
             )
 
             try:
-                # ✅ Savepoint: si entra doble request, el índice único bloquea y no truena todo
-                with db.session.begin_nested():
-                    db.session.add(nueva_nom)
-                    db.session.flush()  # fuerza INSERT aquí para disparar el índice único
+                db.session.add(nueva_nom)
+                db.session.commit()  # ✅ commit por fila: evita que un duplicado rompa todo
                 nuevas += 1
-
             except IntegrityError:
-                # Doble clic / requests simultáneos
                 db.session.rollback()
                 duplicadas += 1
-
-        db.session.commit()
 
         if nuevas > 0 and duplicadas == 0:
             flash(f"✅ Se registraron {nuevas} nominaciones al evento {evento_abierto.nombre_mes}.", "success")
@@ -1277,6 +1270,7 @@ def nominar_alumno():
         evento=evento_abierto,
         zoneinfo=zoneinfo
     )
+
 
 
 
