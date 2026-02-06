@@ -82,5 +82,32 @@
 
 </main>
 
+<!-- ✅ BLOQUEO DE DOBLE SUBMIT -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const form = document.querySelector("form");
+    if (!form) return;
+
+    let enviado = false;
+
+    form.addEventListener("submit", (e) => {
+        if (enviado) {
+        e.preventDefault();
+        return;
+        }
+
+        enviado = true;
+
+        const botones = form.querySelectorAll('button[type="submit"], input[type="submit"]');
+        botones.forEach(btn => {
+        btn.disabled = true;
+        if (btn.tagName.toLowerCase() === "button") {
+            btn.innerText = "Registrando...";
+        }
+        });
+    });
+});
+</script>
+
 </body>
 </html>
