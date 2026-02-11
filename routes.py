@@ -3793,30 +3793,48 @@ def generar_invitaciones_bloque_unico():
     nominaciones = query.all()
 
     # =====================================================
-    # 🔹 Filtrar duplicados con EXCELENCIA
+    # 🔹 Filtrar: si hay EXCELENCIA -> solo EXCELENCIA
+    # 🔹 si NO hay EXCELENCIA -> exportar TODAS (sin duplicados)
     # =====================================================
     filtradas = []
     procesados = set()
+
+    # Para deduplicar por alumno+valor (por si hubiera repetidas)
+    keys = set()
 
     for n in nominaciones:
         if n.alumno_id in procesados:
             continue
 
+        # ¿tiene excelencia este alumno?
         tiene_excelencia = any(
             x.alumno_id == n.alumno_id and x.valor and x.valor.nombre.upper() == "EXCELENCIA"
             for x in nominaciones
         )
 
         if tiene_excelencia:
+            # exportar solo la de excelencia (la primera que encuentre)
             exc = next(
                 (x for x in nominaciones
-                    if x.alumno_id == n.alumno_id and x.valor and x.valor.nombre.upper() == "EXCELENCIA"),
+                if x.alumno_id == n.alumno_id and x.valor and x.valor.nombre.upper() == "EXCELENCIA"),
                 None
             )
             if exc:
-                filtradas.append(exc)
+                k = (exc.alumno_id, exc.valor_id, exc.evento_id, exc.tipo)
+                if k not in keys:
+                    filtradas.append(exc)
+                    keys.add(k)
+
         else:
-            filtradas.append(n)
+            # ✅ exportar todas las nominaciones del alumno (distintas por valor)
+            for x in nominaciones:
+                if x.alumno_id != n.alumno_id:
+                    continue
+                k = (x.alumno_id, x.valor_id, x.evento_id, x.tipo)
+                if k in keys:
+                    continue
+                filtradas.append(x)
+                keys.add(k)
 
         procesados.add(n.alumno_id)
 
@@ -3892,16 +3910,27 @@ def generar_invitaciones_bloque_unico():
                         .filter(
                             Nominacion.alumno_id == n.alumno_id,
                             Nominacion.ciclo_id == n.ciclo_id,
+                            Nominacion.evento_id == n.evento_id,   # ✅ clave: solo el evento actual
                             Nominacion.valor_id != n.valor_id
                         )
                         .order_by(Nominacion.fecha.asc())
                         .all()
                     )
 
-                    valores_previos = [
-                        x.valor.nombre for x in prev
-                        if x.valor and x.valor.nombre.upper() != "EXCELENCIA"
-                    ]
+                    # ✅ Deduplicar valores (por si se repite el mismo valor en ese evento)
+                    valores_previos = []
+                    seen = set()
+                    for x in prev:
+                        if not x.valor:
+                            continue
+                        nombre_valor = (x.valor.nombre or "").strip()
+                        key = nombre_valor.upper()
+                        if key == "EXCELENCIA":
+                            continue
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        valores_previos.append(nombre_valor)
 
                     # Comentarios previos agrupados
                     comentarios_previos = {}
