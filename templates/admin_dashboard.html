@@ -49,14 +49,20 @@
         <div class="card"><h3>Alumnos</h3><div id="k_alumnos">–</div></div>
         <div class="card"><h3>Nominaciones</h3><div id="k_nominaciones">–</div></div>
     </section>
-
+    <div class="zona-header">
+    <h2>📈 Zona de gráficos</h2>
+    <p>Resumen visual del mes seleccionado.</p>
+    </div>
     <!-- Gráficas -->
     <section class="charts">
         <div class="chart-box"><canvas id="chart_tipo"></canvas></div>
         <div class="chart-box"><canvas id="chart_valor"></canvas></div>
         <div class="chart-box full-width"><canvas id="chart_dia"></canvas></div>
     </section>
-
+    <div class="zona-header">
+    <h2>📦 Zona de reportes en Excel</h2>
+    <p>Exportaciones y reportes descargables.</p>
+    </div>
     <!-- ✅ Sección 1: Exportar concentrado -->
     <section class="export-section">
         <div class="exportar-concentrado">
@@ -101,7 +107,10 @@
             <p id="msg-reportes" style="margin-top:10px; opacity:.75;"></p>
         </div>
     </section>
-
+    <div class="zona-header">
+    <h2>📄 Zona de descarga y creación de invitaciones</h2>
+    <p>Generación de invitaciones por bloque y por maestro.</p>
+    </div>
     <!-- ✅ Sección 3: Exportar invitaciones por bloque + por maestro -->
     <section class="export-section">
 
@@ -168,7 +177,10 @@
 
     </section>
 
-
+    <div class="zona-header">
+    <h2>📡 Zona de nominaciones en tiempo real</h2>
+    <p>Consulta “LIVE” con filtros y DataTable.</p>
+    </div>
 
     <!-- ✅ Sección 4: Nominaciones LIVE -->
     <section class="export-section">
@@ -233,6 +245,47 @@
         </small>
     </div>
     </section>
+
+    <div class="zona-header">
+    <h2>🔎 Zona de consulta de valores por alumno</h2>
+    <p>Busca por nombre y revisa valores por mes o por ciclo.</p>
+    </div>
+
+    <!-- ✅ Sección NUEVA: Consulta por alumno -->
+    <section class="export-section">
+    <div class="consulta-alumno">
+        <h3>🔎 Consulta por alumno</h3>
+
+        <div class="export-filtros" style="margin-top:10px;">
+        <div class="campo" style="position:relative; min-width:320px;">
+            <label for="buscar-alumno">👦 Buscar alumno:</label>
+            <input id="buscar-alumno" type="text" class="input-buscar" placeholder="Ej. leon garcia / montserrat cano" autocomplete="off">
+
+            <!-- dropdown resultados -->
+            <div id="lista-alumnos" class="lista-alumnos" style="display:none;"></div>
+            <input type="hidden" id="alumno-id-seleccionado" value="">
+        </div>
+
+        <div class="campo">
+            <label>📌 Rango:</label>
+            <div style="display:flex; gap:10px; margin-top:6px; flex-wrap:wrap;">
+            <button type="button" id="btn-rango-mes" class="btn-accion verde">Mes seleccionado</button>
+            <button type="button" id="btn-rango-ciclo" class="btn-accion rojo">Todo el ciclo</button>
+            </div>
+            <small style="display:block;opacity:.7;margin-top:6px;">
+            Mes actual del dashboard: <b id="label-mes-dashboard-actual">{{ mes_seleccionado }}</b>
+            </small>
+        </div>
+
+        <div class="botones">
+            <button id="btn-consultar-alumno" class="btn-accion verde" disabled>📌 Consultar</button>
+        </div>
+        </div>
+
+        <div id="resultado-alumno" class="resultado-alumno" style="display:none; margin-top:14px;"></div>
+    </div>
+    </section>
+
 
 </main>
 
@@ -746,6 +799,226 @@ async function cargarMaestrosLiveSelect(){
     });
     });
 
+    // =====================================================
+// 🔎 Consulta por alumno (búsqueda + resumen)
+// =====================================================
+(function(){
+    const input = document.getElementById("buscar-alumno");
+    const lista = document.getElementById("lista-alumnos");
+    const alumnoId = document.getElementById("alumno-id-seleccionado");
+    const btnConsultar = document.getElementById("btn-consultar-alumno");
+    const resultBox = document.getElementById("resultado-alumno");
+
+    const mesSelect = document.getElementById("mes-dashboard");
+    const labelMesActual = document.getElementById("label-mes-dashboard-actual");
+
+    const btnMes = document.getElementById("btn-rango-mes");
+    const btnCiclo = document.getElementById("btn-rango-ciclo");
+    let rango = "mes";
+
+    function setRango(r){
+        rango = r;
+        // visual simple (sin depender de css extra)
+        if(r === "mes"){
+        btnMes.classList.add("verde");
+        btnCiclo.classList.remove("verde");
+        } else {
+        btnCiclo.classList.add("verde");
+        btnMes.classList.remove("verde");
+        }
+    }
+
+    // mantener el label del mes actual
+    function syncMesActual(){
+        if(labelMesActual && mesSelect) labelMesActual.textContent = mesSelect.value || "";
+    }
+    syncMesActual();
+    mesSelect?.addEventListener("change", syncMesActual);
+
+    btnMes?.addEventListener("click", ()=> setRango("mes"));
+    btnCiclo?.addEventListener("click", ()=> setRango("ciclo"));
+
+    function clearSeleccion(){
+        alumnoId.value = "";
+        btnConsultar.disabled = true;
+        resultBox.style.display = "none";
+        resultBox.innerHTML = "";
+    }
+
+    function showLista(items){
+        if(!items || items.length === 0){
+        lista.style.display = "none";
+        lista.innerHTML = "";
+        return;
+        }
+        lista.innerHTML = items.map(a => {
+        const meta = [
+            a.bloque ? a.bloque : "",
+            (a.grado && a.grupo) ? `${a.grado}°${a.grupo}` : ""
+        ].filter(Boolean).join(" • ");
+
+        return `
+            <div class="item-alumno" data-id="${a.id}" data-nombre="${(a.nombre||"").replace(/"/g,'&quot;')}">
+            <div class="nombre">${a.nombre}</div>
+            <div class="meta">${meta || "—"}</div>
+            </div>
+        `;
+        }).join("");
+        lista.style.display = "block";
+    }
+
+    let tmr = null;
+    input?.addEventListener("input", ()=>{
+        const q = (input.value || "").trim();
+        clearSeleccion();
+
+        if(tmr) clearTimeout(tmr);
+        if(q.length < 2){
+        showLista([]);
+        return;
+        }
+        tmr = setTimeout(async ()=>{
+        try{
+            const r = await fetch(`/admin/dashboard/buscar_alumno?q=${encodeURIComponent(q)}`);
+            const data = await r.json();
+            showLista(data);
+        }catch(e){
+            console.error(e);
+            showLista([]);
+        }
+        }, 250);
+    });
+
+    // click en item del dropdown
+    lista?.addEventListener("click", (e)=>{
+        const item = e.target.closest(".item-alumno");
+        if(!item) return;
+
+        alumnoId.value = item.getAttribute("data-id");
+        input.value = item.getAttribute("data-nombre");
+        lista.style.display = "none";
+        btnConsultar.disabled = false;
+    });
+
+    // cerrar dropdown si clic fuera
+    document.addEventListener("click", (e)=>{
+        if(!lista) return;
+        if(e.target === input) return;
+        if(lista.contains(e.target)) return;
+        lista.style.display = "none";
+    });
+
+    btnConsultar?.addEventListener("click", async ()=>{
+        const id = alumnoId.value;
+        if(!id) return;
+
+        const mes = mesSelect?.value || "";
+        const qs = new URLSearchParams();
+        qs.set("alumno_id", id);
+        qs.set("rango", rango);
+        if(rango === "mes") qs.set("mes", mes);
+
+        btnConsultar.disabled = true;
+        resultBox.style.display = "block";
+        resultBox.innerHTML = "⏳ Consultando…";
+
+        try{
+        const r = await fetch(`/admin/dashboard/resumen_alumno?${qs.toString()}`);
+        const data = await r.json();
+        if(data.error){
+            resultBox.innerHTML = `❌ ${data.error}`;
+            btnConsultar.disabled = false;
+            return;
+        }
+
+        const a = data.alumno || {};
+        const titulo = `${a.nombre || ""} ${a.bloque ? " • " + a.bloque : ""} ${(a.grado && a.grupo) ? " • " + a.grado + "°" + a.grupo : ""}`;
+        const subt = (data.rango === "mes")
+            ? `Mes: <b>${data.mes || ""}</b>`
+            : `Rango: <b>Todo el ciclo</b>`;
+
+        const porValor = (data.por_valor || []).map(v=>{
+            const meses = (v.meses || []).join(", ");
+            return `
+            <tr>
+                <td><b>${v.valor}</b></td>
+                <td>${v.conteo}</td>
+                <td>${meses || "—"}</td>
+            </tr>
+            `;
+        }).join("");
+
+        const detalles = (data.detalles || []).map(d=>{
+            const c = (d.comentario && d.comentario.length) ? d.comentario : "—";
+            return `
+            <tr>
+                <td>${d.mes || "—"}</td>
+                <td>${d.valor || "—"}</td>
+                <td>${d.maestro || "—"}</td>
+                <td>${d.fecha_nominacion || "—"}</td>
+                <td style="white-space:normal;">${c}</td>
+            </tr>
+            `;
+        }).join("");
+
+        resultBox.innerHTML = `
+            <div class="resumen-head">
+            <h4 style="margin:0;">✅ ${titulo}</h4>
+            <div style="opacity:.75;margin-top:4px;">${subt} • Total nominaciones: <b>${(data.totales||{}).nominaciones || 0}</b></div>
+            </div>
+
+            <div class="resumen-grid" style="display:grid;gap:14px;margin-top:12px;">
+            <div class="mini-card">
+                <h4 style="margin:0 0 8px 0;">📌 Valores (conteo)</h4>
+                <div style="overflow:auto;">
+                <table class="tabla-dashboard" style="min-width:520px;">
+                    <thead>
+                    <tr>
+                        <th>Valor</th>
+                        <th>Conteo</th>
+                        <th>Mes(es)</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    ${porValor || `<tr><td colspan="3">—</td></tr>`}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+
+            <div class="mini-card">
+                <h4 style="margin:0 0 8px 0;">🧾 Detalle (incluye comentarios)</h4>
+                <div style="overflow:auto;">
+                <table class="tabla-dashboard" style="min-width:920px;">
+                    <thead>
+                    <tr>
+                        <th>Mes</th>
+                        <th>Valor</th>
+                        <th>Maestro</th>
+                        <th>Fecha</th>
+                        <th>Comentario</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    ${detalles || `<tr><td colspan="5">—</td></tr>`}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+            </div>
+        `;
+
+        }catch(e){
+        console.error(e);
+        resultBox.innerHTML = "❌ Error consultando el alumno.";
+        }finally{
+        btnConsultar.disabled = false;
+        }
+    });
+
+    // estado inicial
+    setRango("mes");
+    })();
     
 
 

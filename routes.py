@@ -4907,3 +4907,208 @@ def dashboard_nominaciones_live():
         })
 
     return jsonify(out)
+
+
+
+# ======================================================
+# 🔎 DASHBOARD - Consulta por alumno (búsqueda + resumen)
+# - Búsqueda ignora: mayúsculas, acentos, símbolos raros
+# - Devuelve lista para elegir
+# - Resumen D: valores + conteo + meses/eventos + comentarios
+# ======================================================
+
+import re
+import unicodedata
+from sqlalchemy.orm import joinedload
+from flask import jsonify, request
+from models import Alumno, Nominacion, CicloEscolar, EventoAsamblea, Maestro, Valor, Bloque
+
+def _norm_text(s: str) -> str:
+    """Normaliza texto: lower, sin acentos, sin símbolos raros, espacios limpios."""
+    if not s:
+        return ""
+    s = s.strip().lower()
+    # quitar acentos
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
+    # dejar solo letras/números/espacios
+    s = re.sub(r"[^a-z0-9\s]+", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+@admin_bp.route("/dashboard/buscar_alumno")
+@login_required
+def dashboard_buscar_alumno():
+    if current_user.rol != "admin":
+        return jsonify({"error": "Solo administradores"}), 403
+
+    q = request.args.get("q", "", type=str).strip()
+    if len(q) < 2:
+        return jsonify([])
+
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        return jsonify({"error": "No hay ciclo activo"}), 400
+
+    qn = _norm_text(q)
+    tokens = [t for t in qn.split(" ") if t]
+    if not tokens:
+        return jsonify([])
+
+    # ⚠️ Nota: para ignorar acentos sin extensión UNACCENT,
+    # filtramos en Python. (En escuelas suele ser manejable.)
+    alumnos = (
+        Alumno.query
+        .options(joinedload(Alumno.bloque))
+        .filter(Alumno.ciclo_id == ciclo.id)
+        .all()
+    )
+
+    resultados = []
+    for a in alumnos:
+        nombre = a.nombre or ""
+        nn = _norm_text(nombre)
+
+        # Debe contener TODOS los tokens (búsqueda flexible)
+        ok = True
+        for t in tokens:
+            if t not in nn:
+                ok = False
+                break
+        if not ok:
+            continue
+
+        bloque = (a.bloque.nombre if a.bloque else None)
+
+        resultados.append({
+            "id": a.id,
+            "nombre": a.nombre,
+            "grado": getattr(a, "grado", None),
+            "grupo": getattr(a, "grupo", None),
+            "bloque": bloque
+        })
+
+        if len(resultados) >= 20:
+            break
+
+    return jsonify(resultados)
+
+
+@admin_bp.route("/dashboard/resumen_alumno")
+@login_required
+def dashboard_resumen_alumno():
+    if current_user.rol != "admin":
+        return jsonify({"error": "Solo administradores"}), 403
+
+    alumno_id = request.args.get("alumno_id", type=int)
+    rango = request.args.get("rango", default="mes", type=str)  # mes | ciclo
+    mes_nombre = request.args.get("mes", default=None, type=str)  # nombre_mes (ej. "Febrero")
+
+    if not alumno_id:
+        return jsonify({"error": "Falta alumno_id"}), 400
+
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        return jsonify({"error": "No hay ciclo activo"}), 400
+
+    alumno = Alumno.query.options(joinedload(Alumno.bloque)).get(alumno_id)
+    if not alumno or alumno.ciclo_id != ciclo.id:
+        return jsonify({"error": "Alumno no encontrado en el ciclo activo"}), 404
+
+    # eventos para filtrar por mes
+    evento_ids_mes = None
+    if rango == "mes":
+        if not mes_nombre:
+            return jsonify({"error": "Falta mes"}), 400
+
+        eventos_mes = (
+            EventoAsamblea.query
+            .filter(EventoAsamblea.ciclo_id == ciclo.id)
+            .filter(EventoAsamblea.nombre_mes == mes_nombre)
+            .all()
+        )
+        evento_ids_mes = [e.id for e in eventos_mes]
+        # si no hay evento de ese mes, devolvemos vacío pero con info del alumno
+        if not evento_ids_mes:
+            return jsonify({
+                "alumno": {
+                    "id": alumno.id,
+                    "nombre": alumno.nombre,
+                    "grado": getattr(alumno, "grado", None),
+                    "grupo": getattr(alumno, "grupo", None),
+                    "bloque": alumno.bloque.nombre if alumno.bloque else None
+                },
+                "rango": rango,
+                "mes": mes_nombre,
+                "totales": {"nominaciones": 0},
+                "por_valor": [],
+                "detalles": []
+            })
+
+    query = (
+        Nominacion.query
+        .options(
+            joinedload(Nominacion.maestro),
+            joinedload(Nominacion.valor),
+            joinedload(Nominacion.evento),
+        )
+        .filter(Nominacion.ciclo_id == ciclo.id)
+        .filter(Nominacion.alumno_id == alumno.id)
+        .filter((Nominacion.tipo == "alumno") | (Nominacion.tipo.is_(None)))
+    )
+
+    if rango == "mes" and evento_ids_mes is not None:
+        query = query.filter(Nominacion.evento_id.in_(evento_ids_mes))
+
+    nominaciones = query.order_by(Nominacion.fecha.asc()).all()
+
+    # Agrupar por valor (conteo) + meses/eventos
+    por_valor = {}
+    detalles = []
+
+    for n in nominaciones:
+        valor_nombre = (n.valor.nombre if n.valor else "Sin valor")
+        key = valor_nombre
+
+        ev_nombre = (n.evento.nombre_mes if n.evento else "—")
+        ev_fecha = (n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento and n.evento.fecha_evento else "")
+        maestro_nom = (n.maestro.nombre if n.maestro else "Maestro desconocido")
+        comentario = (n.comentario or "").strip()
+        fecha_nom = (n.fecha.strftime("%d/%m/%Y %H:%M") if n.fecha else "")
+
+        por_valor.setdefault(key, {"valor": valor_nombre, "conteo": 0, "meses": set(), "eventos": set()})
+        por_valor[key]["conteo"] += 1
+        por_valor[key]["meses"].add(ev_nombre)
+        por_valor[key]["eventos"].add(f"{ev_nombre} {ev_fecha}".strip())
+
+        detalles.append({
+            "id": n.id,
+            "valor": valor_nombre,
+            "mes": ev_nombre,
+            "evento_fecha": ev_fecha,
+            "maestro": maestro_nom,
+            "fecha_nominacion": fecha_nom,
+            "comentario": comentario
+        })
+
+    # ordenar por conteo desc
+    por_valor_list = list(por_valor.values())
+    for item in por_valor_list:
+        item["meses"] = sorted(list(item["meses"]))
+        item["eventos"] = sorted(list(item["eventos"]))
+    por_valor_list.sort(key=lambda x: x["conteo"], reverse=True)
+
+    return jsonify({
+        "alumno": {
+            "id": alumno.id,
+            "nombre": alumno.nombre,
+            "grado": getattr(alumno, "grado", None),
+            "grupo": getattr(alumno, "grupo", None),
+            "bloque": alumno.bloque.nombre if alumno.bloque else None
+        },
+        "rango": rango,
+        "mes": mes_nombre if rango == "mes" else None,
+        "totales": {"nominaciones": len(nominaciones)},
+        "por_valor": por_valor_list,
+        "detalles": detalles
+    })
