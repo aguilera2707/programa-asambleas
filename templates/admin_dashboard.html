@@ -6,6 +6,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_dashboard.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 </head>
 <body>
 
@@ -54,76 +57,183 @@
         <div class="chart-box full-width"><canvas id="chart_dia"></canvas></div>
     </section>
 
-    <!-- 📩 Exportar nominaciones -->
+    <!-- ✅ Sección 1: Exportar concentrado -->
+    <section class="export-section">
+        <div class="exportar-concentrado">
+            <h3>📊 Exportar concentrado general</h3>
+            <button class="btn-exportar" id="btnExportarExcel">📥 Descargar Excel</button>
+        </div>
+    </section>
+
+    <!-- ✅ Sección 2: Reportes rápidos (aparte) -->
+    <section class="export-section">
+        <div class="reportes-rapidos">
+            <h3>📦 Reportes rápidos (personalizable)</h3>
+
+            <div class="export-filtros" style="margin-top:10px;">
+                <div class="campo">
+                    <label>📌 Rango:</label>
+                    <select id="rango-reportes">
+                        <option value="mes">Solo mes seleccionado</option>
+                        <option value="ciclo">Todo el ciclo</option>
+                    </select>
+                    <small style="display:block;opacity:.7;margin-top:6px;">
+                        Mes seleccionado: <b id="label-mes-seleccionado">{{ mes_seleccionado }}</b>
+                    </small>
+                </div>
+
+                <div class="campo" style="min-width:280px;">
+                    <label>✅ Qué incluir:</label>
+
+                    <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+                        <label><input type="checkbox" class="chk-reporte" value="top_alumnos"> Niño(s) con más nominaciones</label>
+                        <label><input type="checkbox" class="chk-reporte" value="sin_nominaciones"> Niños sin nominaciones</label>
+                        <label><input type="checkbox" class="chk-reporte" value="top_valores"> Valores más frecuentes</label>
+                        <label><input type="checkbox" class="chk-reporte" value="top_maestros"> Maestros que más nominan</label>
+                    </div>
+                </div>
+
+                <div class="botones">
+                    <button id="btn-descargar-reportes" class="btn-accion verde" disabled>📥 Descargar reporte</button>
+                </div>
+            </div>
+
+            <p id="msg-reportes" style="margin-top:10px; opacity:.75;"></p>
+        </div>
+    </section>
+
+    <!-- ✅ Sección 3: Exportar invitaciones por bloque + por maestro -->
     <section class="export-section">
 
-    <div class="exportar-concentrado">
-        <h3>📊 Exportar concentrado general</h3>
-        <button class="btn-exportar" id="btnExportarExcel">📥 Descargar Excel</button>
-    </div>
+        <div class="exportar-bloques">
+            <h3>📦 Exportar invitaciones por bloque</h3>
 
-    <div class="exportar-bloques">
-        <h3>📦 Exportar invitaciones por bloque</h3>
+            <label for="bloqueSelect">Bloque:</label>
+            <select id="bloqueSelect">
+                {% for bloque in bloques %}
+                    <option value="{{ bloque.id }}">{{ bloque.nombre }}</option>
+                {% endfor %}
+            </select>
 
-        <label for="bloqueSelect">Bloque:</label>
-        <select id="bloqueSelect">
+            <button class="btn-exportar" id="btnDescargarBloque">📄 Descargar Alumnos</button>
+
+            <button class="btn-exportar azul" id="btnDescargarProfesores">
+                📘 Descargar Profesores
+            </button>
+        </div>
+
+        <h2>📩 Exportar nominaciones por maestro</h2>
+
+        <div class="export-filtros">
+            <div class="campo">
+                <label for="maestro-search">🔍 Buscar maestro:</label>
+                <input type="text" id="maestro-search" placeholder="Escribe para filtrar..." class="input-buscar">
+            </div>
+
+            <div class="campo">
+                <label for="maestro-select">👨‍🏫 Maestro:</label>
+                <select id="maestro-select"></select>
+            </div>
+
+            <div class="campo">
+                <label for="mes-export">📅 Mes:</label>
+                <select id="mes-export">
+                    {% for evento in eventos %}
+                        <option value="{{ evento.mes_ordinal }}">{{ evento.nombre_mes }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="botones">
+                <button id="btn-buscar-nominaciones" class="btn-accion rojo">🔍 Buscar</button>
+                <button id="btn-generar-pdf" class="btn-accion verde" disabled>📄 Generar Words seleccionados</button>
+            </div>
+        </div>
+
+        <table id="tabla-nominaciones" class="tabla-dashboard">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="select-all"></th>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Nominado</th>
+                    <th>Bloque</th>
+                    <th>Valor</th>
+                    <th>Comentario</th>
+                    <th>Evento</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+    </section>
+
+
+
+    <!-- ✅ Sección 4: Nominaciones LIVE -->
+    <section class="export-section">
+    <div class="reportes-rapidos">
+        <h3>📡 Nominaciones actuales (LIVE)</h3>
+
+        <div class="export-filtros" style="margin-top:10px;">
+        <div class="campo">
+            <label>📅 Mes:</label>
+            <select id="live-mes"></select>
+        </div>
+
+        <div class="campo">
+            <label>🏷️ Tipo:</label>
+            <select id="live-tipo">
+            <option value="">Todos</option>
+            <option value="alumno">Alumno</option>
+            <option value="personal">Personal</option>
+            </select>
+        </div>
+
+        <div class="campo">
+            <label>🧩 Bloque:</label>
+            <select id="live-bloque">
+            <option value="">Todos</option>
             {% for bloque in bloques %}
                 <option value="{{ bloque.id }}">{{ bloque.nombre }}</option>
             {% endfor %}
-        </select>
-
-        <button class="btn-exportar" id="btnDescargarBloque">📄 Descargar Alumnos</button>
-
-        <button class="btn-exportar azul" id="btnDescargarProfesores">
-            📘 Descargar Profesores
-        </button>
-    </div>
-
-    <h2>📩 Exportar nominaciones por maestro</h2>
-
-    <div class="export-filtros">
-        <div class="campo">
-            <label for="maestro-search">🔍 Buscar maestro:</label>
-            <input type="text" id="maestro-search" placeholder="Escribe para filtrar..." class="input-buscar">
+            </select>
         </div>
 
         <div class="campo">
-            <label for="maestro-select">👨‍🏫 Maestro:</label>
-            <select id="maestro-select"></select>
-        </div>
-
-        <div class="campo">
-            <label for="mes-export">📅 Mes:</label>
-            <select id="mes-export">
-                {% for evento in eventos %}
-                    <option value="{{ evento.mes_ordinal }}">{{ evento.nombre_mes }}</option>
-                {% endfor %}
+            <label>👨‍🏫 Maestro:</label>
+            <select id="live-maestro">
+            <option value="">Todos</option>
             </select>
         </div>
 
         <div class="botones">
-            <button id="btn-buscar-nominaciones" class="btn-accion rojo">🔍 Buscar</button>
-            <button id="btn-generar-pdf" class="btn-accion verde" disabled>📄 Generar Words seleccionados</button>
+            <button id="btn-live-refrescar" class="btn-accion verde">🔄 Actualizar</button>
         </div>
-    </div>
+        </div>
 
-    <table id="tabla-nominaciones" class="tabla-dashboard">
+        <table id="tabla-live" class="tabla-dashboard" style="margin-top:14px;">
         <thead>
             <tr>
-                <th><input type="checkbox" id="select-all"></th>
-                <th>Fecha</th>
-                <th>Tipo</th>
-                <th>Nominado</th>
-                <th>Bloque</th>
-                <th>Valor</th>
-                <th>Comentario</th>
-                <th>Evento</th>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Maestro</th>
+            <th>Nominado</th>
+            <th>Bloque</th>
+            <th>Valor</th>
+            <th>Comentario</th>
+            <th>Evento</th>
             </tr>
         </thead>
         <tbody></tbody>
-    </table>
+        </table>
 
-</section>
+        <small style="display:block; margin-top:10px; opacity:.7;">
+        Tip: si eliges Bloque, verás principalmente nominaciones de alumnos (porque “personal” no tiene bloque).
+        </small>
+    </div>
+    </section>
+
 </main>
 
 <!-- 🔄 Overlay visual -->
@@ -149,14 +259,14 @@
     justify-content:center;
     align-items:center;
     z-index:99999;">
-        
+
     <div class="modal-content" style="
         background:white;
         padding:20px;
         border-radius:10px;
         width:300px;
         text-align:center;">
-        
+
         <h3>Selecciona el lote</h3>
         <p id="modal-info">Cargando…</p>
 
@@ -214,8 +324,8 @@ async function cargarDashboard(mes=null){
         animateCounter(document.getElementById('k_alumnos'),0,data.totales.alumnos);
         animateCounter(document.getElementById('k_nominaciones'),0,data.totales.nominaciones);
 
-        if(chartTipo)chartTipo.destroy(); 
-        if(chartValor)chartValor.destroy(); 
+        if(chartTipo)chartTipo.destroy();
+        if(chartValor)chartValor.destroy();
         if(chartDia)chartDia.destroy();
 
         chartTipo=new Chart(document.getElementById('chart_tipo'),{
@@ -349,8 +459,6 @@ document.getElementById("btnExportarExcel").addEventListener("click",()=>{
 document.getElementById("btnDescargarProfesores").addEventListener("click",async()=>{
     const mes=document.getElementById("mes-dashboard").value;
     if(!mes)return alert("Selecciona un mes.");
-
-    // 🆕 Ahora profesores también usan LOTES
     await abrirModalProfesores(mes);
 });
 
@@ -359,14 +467,12 @@ document.getElementById("btnDescargarBloque").addEventListener("click",async()=>
     const bloque=document.getElementById("bloqueSelect").value;
 
     if(!mes||!bloque)return alert("Selecciona bloque y mes.");
-
     await abrirModalAlumnos(bloque,mes);
 });
 
 // =====================================================
 // 🆕 NUEVAS FUNCIONES PARA LOTES (ALUMNOS + PROFESORES)
 // =====================================================
-
 function cerrarModal(){
     document.getElementById("modal-lotes").style.display="none";
 }
@@ -391,7 +497,7 @@ async function abrirModalAlumnos(bloqueId,mes){
         const btn=document.createElement("button");
         btn.textContent=`Lote ${i}`;
         btn.className="btn-exportar";
-        btn.onclick=()=>{ 
+        btn.onclick=()=>{
             window.location.href=
             `/admin/dashboard/generar_invitaciones_bloque_unico?bloque_id=${bloqueId}&mes=${mes}&lote=${i}`;
             cerrarModal();
@@ -488,16 +594,163 @@ async function generarInvitaciones(){
 // 🔹 Inicialización
 // ===============================
 document.addEventListener('DOMContentLoaded',()=>{
-    const mesInicial=document.getElementById('mes-dashboard')?.value;
+    const mesSelect = document.getElementById('mes-dashboard');
+    const labelMes = document.getElementById('label-mes-seleccionado');
+
+    function syncMesLabel(){
+        if(labelMes && mesSelect) labelMes.textContent = mesSelect.value || '';
+    }
+
+    const mesInicial = mesSelect?.value;
     cargarDashboard(mesInicial);
     cargarMaestros();
+    syncMesLabel();
 
-    document.getElementById('mes-dashboard').addEventListener('change',
-        ()=>cargarDashboard(document.getElementById('mes-dashboard').value)
-    );
+    mesSelect?.addEventListener('change', () => {
+        syncMesLabel();
+        cargarDashboard(mesSelect.value);
+    });
 
     document.getElementById('btn-buscar-nominaciones').addEventListener('click',buscarNominaciones);
     document.getElementById('btn-generar-pdf').addEventListener('click',generarInvitaciones);
 });
+
+(function(){
+    const btn = document.getElementById("btn-descargar-reportes");
+    const msg = document.getElementById("msg-reportes");
+    const rango = document.getElementById("rango-reportes");
+    const mesSelect = document.getElementById("mes-dashboard");
+
+    function getSeleccionados(){
+        return Array.from(document.querySelectorAll(".chk-reporte:checked")).map(x => x.value);
+    }
+
+    function toggleBtn(){
+        btn.disabled = getSeleccionados().length === 0;
+    }
+
+    document.querySelectorAll(".chk-reporte").forEach(chk => chk.addEventListener("change", toggleBtn));
+    toggleBtn();
+
+    btn.addEventListener("click", function(e){
+        e.preventDefault();
+        const seleccion = getSeleccionados();
+        if(seleccion.length === 0) return;
+
+        const rangoVal = rango.value;
+        const mesNombre = mesSelect.value;
+
+        msg.textContent = "Generando reporte…";
+        const qs = new URLSearchParams();
+        qs.set("rango", rangoVal);
+        qs.set("mes", mesNombre);
+        qs.set("incluye", seleccion.join(","));
+
+        window.location.href = "/admin/dashboard/reportes_rapidos_excel?" + qs.toString();
+        setTimeout(()=> msg.textContent = "", 2500);
+    });
+})();
+
+let dtLive = null;
+
+async function cargarMaestrosLiveSelect(){
+    const r = await fetch('/admin/catalogo/maestros');
+    const maestros = await r.json();
+    const sel = document.getElementById('live-maestro');
+    sel.innerHTML = '<option value="">Todos</option>';
+    maestros.forEach(m=>{
+        const opt=document.createElement('option');
+        opt.value=m.id; opt.textContent=m.nombre;
+        sel.appendChild(opt);
+    });
+    }
+
+    function poblarMesLive(){
+    const mesDashboard = document.getElementById('mes-dashboard');
+    const liveMes = document.getElementById('live-mes');
+    // clonar opciones del selector principal
+    liveMes.innerHTML = mesDashboard.innerHTML;
+    liveMes.value = mesDashboard.value;
+    }
+
+    function buildLiveUrl(){
+    const mes = document.getElementById('live-mes').value;
+    const tipo = document.getElementById('live-tipo').value;
+    const bloque = document.getElementById('live-bloque').value;
+    const maestro = document.getElementById('live-maestro').value;
+
+    const qs = new URLSearchParams();
+    if(mes) qs.set('mes', mes);
+    if(tipo) qs.set('tipo', tipo);
+    if(bloque) qs.set('bloque_id', bloque);
+    if(maestro) qs.set('maestro_id', maestro);
+
+    return '/admin/dashboard/data/nominaciones_live?' + qs.toString();
+    }
+
+    function initTablaLive(){
+    if(dtLive) { dtLive.destroy(); document.querySelector('#tabla-live tbody').innerHTML=''; }
+
+    dtLive = $('#tabla-live').DataTable({
+        pageLength: 25,
+        order: [[0, 'desc']],
+        ajax: {
+        url: buildLiveUrl(),
+        dataSrc: ''
+        },
+        columns: [
+        { data: 'fecha' },
+        { data: 'tipo' },
+        { data: 'maestro' },
+        { data: 'nominado' },
+        { data: 'bloque' },
+        { data: 'valor' },
+        { data: 'comentario' },
+        { data: 'evento' }
+        ],
+        language: {
+        url: "https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json"
+        }
+    });
+    }
+
+    function refreshTablaLive(){
+    if(!dtLive) return initTablaLive();
+    dtLive.ajax.url(buildLiveUrl()).load();
+    }
+
+    document.addEventListener('DOMContentLoaded', async ()=>{
+    // 1) Mes live
+    poblarMesLive();
+
+    // 2) maestros live
+    await cargarMaestrosLiveSelect();
+
+    // 3) iniciar tabla
+    initTablaLive();
+
+    // 4) listeners
+    document.getElementById('btn-live-refrescar').addEventListener('click', (e)=>{
+        e.preventDefault();
+        refreshTablaLive();
+    });
+
+    ['live-mes','live-tipo','live-bloque','live-maestro'].forEach(id=>{
+        document.getElementById(id).addEventListener('change', refreshTablaLive);
+    });
+
+    // si cambias el mes principal, también sincroniza el live-mes
+    document.getElementById('mes-dashboard')?.addEventListener('change', ()=>{
+        poblarMesLive();
+        refreshTablaLive();
+    });
+    });
+
+    
+
+
+
 </script>
 
+</body>
+</html>

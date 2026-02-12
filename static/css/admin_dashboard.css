@@ -696,3 +696,115 @@ select {
 .btn-exportar.azul:hover {
     background-color: #0d47a1;
 }
+.reportes-rapidos{
+    margin-top: 10px;
+}
+
+.reportes-rapidos h3{
+    margin-bottom: 8px;
+}
+.reportes-rapidos input[type="checkbox"]{
+    transform: translateY(1px);
+    margin-right: 8px;
+}
+
+    /* =========================================================
+    ✅ Reportes rápidos (personalizable) — mismo look de sección
+    Pegar al FINAL de admin_dashboard.css
+    ========================================================= */
+
+    /* Asegura que cada "export-section" se vea como bloque separado */
+    .export-section{
+    margin-top: 18px;
+    }
+
+    /* Contenedor de reportes rápidos con estilo de card */
+    .reportes-rapidos{
+    background: #fff;
+    border-radius: 14px;
+    padding: 18px 18px;
+    box-shadow: 0 10px 25px rgba(0,0,0,.08);
+    border: 1px solid rgba(0,0,0,.06);
+    }
+
+    /* Título igual de “bloque” */
+    .reportes-rapidos h3{
+    margin: 0 0 14px 0;
+    font-size: 18px;
+    font-weight: 700;
+    }
+
+    /* Reutiliza el layout de tus filtros */
+    .reportes-rapidos .export-filtros{
+    display: flex;
+    align-items: flex-end;
+    gap: 18px;
+    flex-wrap: wrap;
+    }
+
+    /* Campos */
+    .reportes-rapidos .campo{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 220px;
+    }
+
+    .reportes-rapidos label{
+    font-weight: 700;
+    }
+
+    /* Select con look consistente */
+    #rango-reportes{
+    width: 280px;
+    max-width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(120,0,0,.35);
+    outline: none;
+    }
+
+    /* Checkboxes en columna (ya lo haces inline, pero aquí lo refuerza) */
+    .reportes-rapidos .chk-reporte{
+    transform: translateY(1px);
+    }
+
+    /* Botonera alineada */
+    .reportes-rapidos .botones{
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    }
+
+    /* Mensaje inferior */
+    #msg-reportes{
+    margin-top: 10px;
+    }
+
+    /* Responsive: en móvil, que el botón no se vaya a la derecha perdido */
+    @media (max-width: 720px){
+    .reportes-rapidos .botones{
+        margin-left: 0;
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    #rango-reportes{
+        width: 100%;
+    }
+
+    .reportes-rapidos .campo{
+        min-width: 100%;
+    }
+    }
+
+        /* DataTables integración suave */
+    .dataTables_wrapper {
+    margin-top: 12px;
+    }
+    .dataTables_filter input, .dataTables_length select {
+    border-radius: 10px;
+    padding: 6px 10px;
+    border: 1px solid rgba(0,0,0,.15);
+    }

@@ -1725,7 +1725,7 @@ def actualizar_maestro(id):
     nuevo_correo = request.form.get('correo', maestro.correo).strip().lower()
     nueva_pass = request.form.get('nueva_password', '').strip()
 
-    # 1) Validar si el correo ya existe en otro maestro
+    # 1) Validar si el correo ya existe en otro maestroadmin_dashboard()
     correo_en_uso = Maestro.query.filter(
         Maestro.correo == nuevo_correo,
         Maestro.id != maestro.id
@@ -1814,7 +1814,7 @@ def admin_dashboard():
         .all()
     )
     
-        # 🧩 NUEVO: traer los bloques del ciclo activo
+    # 🧩 NUEVO: traer los bloques del ciclo activo
     bloques = (
         Bloque.query
         .filter_by(ciclo_id=ciclo_activo.id)
@@ -1916,59 +1916,6 @@ def data_dashboard_resumen():
     })
 
 
-# -------------------------------
-# 🔹 Endpoints JSON para gráficas
-# -------------------------------
-@admin_bp.route('/dashboard/data/resumen')
-@login_required
-def dashboard_data_resumen():
-    if current_user.rol != 'admin':
-        return jsonify({"error": "Solo administradores"}), 403
-
-    ciclo = CicloEscolar.query.filter_by(activo=True).first()
-    if not ciclo:
-        return jsonify({"error": "No hay ciclo activo"}), 400
-
-    total_maestros = Maestro.query.filter_by(ciclo_id=ciclo.id).count()
-    total_alumnos = Alumno.query.filter_by(ciclo_id=ciclo.id).count()
-    total_nom = Nominacion.query.filter_by(ciclo_id=ciclo.id).count()
-
-    por_tipo = (
-        db.session.query(Nominacion.tipo, db.func.count(Nominacion.id))
-        .filter(Nominacion.ciclo_id == ciclo.id)
-        .group_by(Nominacion.tipo)
-        .all()
-    )
-    por_tipo_dict = {t: c for t, c in por_tipo}
-
-    por_valor = (
-        db.session.query(Valor.nombre, db.func.count(Nominacion.id))
-        .join(Nominacion, Nominacion.valor_id == Valor.id)
-        .filter(Nominacion.ciclo_id == ciclo.id)
-        .group_by(Valor.nombre)
-        .order_by(db.func.count(Nominacion.id).desc())
-        .limit(10)
-        .all()
-    )
-
-    por_dia = (
-        db.session.query(db.func.date(Nominacion.fecha), db.func.count(Nominacion.id))
-        .filter(Nominacion.ciclo_id == ciclo.id)
-        .group_by(db.func.date(Nominacion.fecha))
-        .order_by(db.func.date(Nominacion.fecha))
-        .all()
-    )
-
-    return jsonify({
-        "totales": {
-            "maestros": total_maestros,
-            "alumnos": total_alumnos,
-            "nominaciones": total_nom
-        },
-        "por_tipo": por_tipo_dict,
-        "por_valor": [{"valor": v, "n": n} for v, n in por_valor],
-        "por_dia": [{"fecha": str(f), "n": n} for f, n in por_dia],
-    })
 
 
 from zoneinfo import ZoneInfo
@@ -3512,32 +3459,47 @@ def generar_invitaciones_stream():
         return "No se encontraron nominaciones.", 404
 
     # =====================================================
-    # 🔹 Filtrar duplicados: si un alumno tiene EXCELENCIA,
-    # solo se exporta esa nominación (no las otras)
+    # ✅ Filtro correcto:
+    # - Si un alumno tiene EXCELENCIA en los IDs seleccionados -> exporta SOLO EXCELENCIA
+    # - Si NO tiene EXCELENCIA -> exporta TODAS sus nominaciones seleccionadas (deduplicadas por valor)
+    # - Personal: no se filtra
     # =====================================================
+    from datetime import datetime
+
     nominaciones_filtradas = []
-    procesados = set()
 
+    # 1) "personal" se queda tal cual
+    personales = [n for n in nominaciones if (n.tipo or "").lower() == "personal"]
+    nominaciones_filtradas.extend(personales)
+
+    # 2) Agrupar "alumno" por alumno_id
+    grupos = {}
     for n in nominaciones:
-        if n.alumno_id in procesados:
+        if (n.tipo or "").lower() != "alumno":
             continue
-
-        tiene_excelencia = any(
-            x.alumno_id == n.alumno_id and x.valor and x.valor.nombre.upper() == "EXCELENCIA"
-            for x in nominaciones
-        )
-
-        if tiene_excelencia:
-            excelencia = next(
-                (x for x in nominaciones if x.alumno_id == n.alumno_id and x.valor and x.valor.nombre.upper() == "EXCELENCIA"),
-                None
-            )
-            if excelencia:
-                nominaciones_filtradas.append(excelencia)
-            procesados.add(n.alumno_id)
-        else:
+        if not n.alumno_id:
+            # raro, pero por seguridad lo dejamos pasar
             nominaciones_filtradas.append(n)
-            procesados.add(n.alumno_id)
+            continue
+        grupos.setdefault(n.alumno_id, []).append(n)
+
+    # 3) Aplicar regla EXCELENCIA
+    for alumno_id, arr in grupos.items():
+        excels = [x for x in arr if x.valor and (x.valor.nombre or "").upper() == "EXCELENCIA"]
+
+        if excels:
+            # solo 1 excelencia (la más antigua dentro de los IDs seleccionados)
+            exc = sorted(excels, key=lambda x: x.fecha or datetime.min)[0]
+            nominaciones_filtradas.append(exc)
+        else:
+            # exportar todas las seleccionadas, pero sin duplicar mismo valor
+            seen_valor = set()
+            for x in sorted(arr, key=lambda x: x.fecha or datetime.min):
+                key_val = x.valor_id or ("SIN_VALOR")
+                if key_val in seen_valor:
+                    continue
+                seen_valor.add(key_val)
+                nominaciones_filtradas.append(x)
 
     nominaciones = nominaciones_filtradas
 
@@ -3621,6 +3583,7 @@ def generar_invitaciones_stream():
     mem_zip.close()
 
     return response
+
 
 # ==========================
 # 🌟 MURO PÚBLICO DE NOMINADOS
@@ -4606,3 +4569,341 @@ def contar_lotes_profesores():
     total_lotes = (total + 19) // 20
 
     return jsonify({"total_lotes": total_lotes})
+
+@admin_bp.route('/dashboard/reportes_rapidos_excel')
+@login_required
+def reportes_rapidos_excel():
+    import io
+    import pandas as pd
+    from flask import request, make_response
+    from sqlalchemy import func
+    from models import Nominacion, Alumno, Valor, Maestro, CicloEscolar, EventoAsamblea, Bloque
+
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        return "No hay ciclo activo.", 400
+
+    rango = (request.args.get("rango") or "mes").strip()  # mes | ciclo
+    mes_nombre = (request.args.get("mes") or "").strip()
+    incluye = (request.args.get("incluye") or "").strip()
+    incluye_set = {x.strip() for x in incluye.split(",") if x.strip()}
+
+    if not incluye_set:
+        return "No se seleccionó ningún reporte.", 400
+
+    # =========================
+    # Filtro base de nominaciones
+    # =========================
+    base = (
+        Nominacion.query
+        .join(Alumno, Alumno.id == Nominacion.alumno_id)
+        .filter(Nominacion.ciclo_id == ciclo.id)
+    )
+
+    evento_ids_mes = None
+    if rango == "mes":
+        if not mes_nombre:
+            return "Falta el mes.", 400
+
+        # Todos los eventos de ese mes en el ciclo (por bloque)
+        eventos_mes = EventoAsamblea.query.filter_by(ciclo_id=ciclo.id, nombre_mes=mes_nombre).all()
+        if not eventos_mes:
+            return f"No hay evento de {mes_nombre} en el ciclo.", 404
+
+        evento_ids_mes = [e.id for e in eventos_mes]
+        base = base.filter(Nominacion.evento_id.in_(evento_ids_mes))
+
+    # Para queries repetidas
+    base_subq = base.subquery()
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+
+        # =========================================================
+        # 1) Niño(s) con más nominaciones (top_alumnos)
+        # =========================================================
+        if "top_alumnos" in incluye_set:
+            q = (
+                db.session.query(
+                    Alumno.nombre.label("Alumno"),
+                    Bloque.nombre.label("Bloque"),
+                    func.count(base_subq.c.id).label("Total_nominaciones")
+                )
+                .join(Alumno, Alumno.id == base_subq.c.alumno_id)
+                .outerjoin(Bloque, Bloque.id == Alumno.bloque_id)
+                .group_by(Alumno.nombre, Bloque.nombre)
+                .order_by(func.count(base_subq.c.id).desc())
+            )
+            rows = q.all()
+            df = pd.DataFrame(rows, columns=["Alumno", "Bloque", "Total_nominaciones"])
+            if df.empty:
+                df = pd.DataFrame([{"Alumno": "—", "Bloque": "—", "Total_nominaciones": 0}])
+            df.to_excel(writer, sheet_name="Top alumnos", index=False)
+
+        # =========================================================
+        # 2) Niños sin nominaciones (sin_nominaciones)
+        #    (en el rango elegido)
+        # =========================================================
+        if "sin_nominaciones" in incluye_set:
+            alumnos_q = Alumno.query.filter_by(ciclo_id=ciclo.id).all()
+
+            # alumnos con al menos 1 nominación en el rango
+            alumnos_con = set(
+                db.session.query(base_subq.c.alumno_id).distinct().all()
+            )
+            alumnos_con = {x[0] for x in alumnos_con}
+
+            data = []
+            for a in alumnos_q:
+                if a.id not in alumnos_con:
+                    data.append({
+                        "Alumno": a.nombre,
+                        "Bloque": a.bloque.nombre if a.bloque else "",
+                        "Grado": a.grado,
+                        "Grupo": a.grupo
+                    })
+
+            df = pd.DataFrame(data, columns=["Alumno", "Bloque", "Grado", "Grupo"])
+            if df.empty:
+                df = pd.DataFrame([{"Alumno": "✅ Todos tienen al menos 1 nominación", "Bloque": "", "Grado": "", "Grupo": ""}])
+            df.to_excel(writer, sheet_name="Sin nominaciones", index=False)
+
+        # =========================================================
+        # 3) Valores más frecuentes (top_valores)
+        # =========================================================
+        if "top_valores" in incluye_set:
+            q = (
+                db.session.query(
+                    Valor.nombre.label("Valor"),
+                    func.count(base_subq.c.id).label("Total")
+                )
+                .join(Valor, Valor.id == base_subq.c.valor_id)
+                .group_by(Valor.nombre)
+                .order_by(func.count(base_subq.c.id).desc())
+            )
+            rows = q.all()
+            df = pd.DataFrame(rows, columns=["Valor", "Total"])
+            if df.empty:
+                df = pd.DataFrame([{"Valor": "—", "Total": 0}])
+            df.to_excel(writer, sheet_name="Top valores", index=False)
+
+        # =========================================================
+        # 4) Maestros que más nominan (top_maestros)
+        # =========================================================
+        if "top_maestros" in incluye_set:
+            q = (
+                db.session.query(
+                    Maestro.nombre.label("Maestro"),
+                    func.count(base_subq.c.id).label("Total_nominaciones")
+                )
+                .join(Maestro, Maestro.id == base_subq.c.maestro_id)
+                .group_by(Maestro.nombre)
+                .order_by(func.count(base_subq.c.id).desc())
+            )
+            rows = q.all()
+            df = pd.DataFrame(rows, columns=["Maestro", "Total_nominaciones"])
+            if df.empty:
+                df = pd.DataFrame([{"Maestro": "—", "Total_nominaciones": 0}])
+            df.to_excel(writer, sheet_name="Top maestros", index=False)
+
+    output.seek(0)
+
+    suf = mes_nombre if rango == "mes" else "Ciclo"
+    filename = f"Reportes_Rapidos_{suf}.xlsx"
+
+    resp = make_response(output.read())
+    resp.headers["Content-Type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    resp.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+@admin_bp.route("/dashboard/data/nominaciones")
+@login_required
+def dashboard_data_nominaciones():
+    if current_user.rol != "admin":
+        return jsonify({"error": "Solo administradores"}), 403
+
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        return jsonify({"error": "No hay ciclo activo"}), 400
+
+    # DataTables params
+    draw = request.args.get("draw", type=int, default=1)
+    start = request.args.get("start", type=int, default=0)
+    length = request.args.get("length", type=int, default=25)
+    search_value = request.args.get("search[value]", type=str, default="").strip()
+
+    # Filtros propios
+    mes = request.args.get("mes", type=str)                 # nombre_mes
+    bloque_id = request.args.get("bloque_id", type=int)
+    tipo = request.args.get("tipo", type=str)               # alumno/personal/"" (ambos)
+    maestro_id = request.args.get("maestro_id", type=int)
+    grado = request.args.get("grado", type=str)
+    grupo = request.args.get("grupo", type=str)
+    valor_id = request.args.get("valor_id", type=int)
+
+    q = (
+        Nominacion.query
+        .options(
+            joinedload(Nominacion.maestro),
+            joinedload(Nominacion.valor),
+            joinedload(Nominacion.evento),
+            joinedload(Nominacion.alumno).joinedload(Alumno.bloque),
+            joinedload(Nominacion.maestro_nominado),
+        )
+        .filter(Nominacion.ciclo_id == ciclo.id)
+    )
+
+    # filtro mes
+    if mes:
+        q = q.join(EventoAsamblea).filter(EventoAsamblea.nombre_mes == mes)
+
+    # filtro tipo
+    if tipo in ("alumno", "personal"):
+        q = q.filter(Nominacion.tipo == tipo)
+
+    # filtro maestro nominador
+    if maestro_id:
+        q = q.filter(Nominacion.maestro_id == maestro_id)
+
+    # filtro valor
+    if valor_id:
+        q = q.filter(Nominacion.valor_id == valor_id)
+
+    # filtros alumno (solo si aplica)
+    if bloque_id or grado or grupo:
+        q = q.outerjoin(Alumno, Alumno.id == Nominacion.alumno_id)
+
+        if bloque_id:
+            q = q.filter(Alumno.bloque_id == bloque_id)
+
+        if grado:
+            q = q.filter(Alumno.grado == grado)
+
+        if grupo:
+            q = q.filter(Alumno.grupo == grupo)
+
+    # búsqueda global (texto)
+    if search_value:
+        sv = f"%{search_value.lower()}%"
+        q = q.filter(
+            db.or_(
+                db.func.lower(Nominacion.comentario).like(sv),
+                db.func.lower(Valor.nombre).like(sv),
+                db.func.lower(Maestro.nombre).like(sv),
+                db.func.lower(Alumno.nombre).like(sv),
+                db.func.lower(EventoAsamblea.nombre_mes).like(sv),
+            )
+        )
+
+    records_total = Nominacion.query.filter_by(ciclo_id=ciclo.id).count()
+    records_filtered = q.count()
+
+    rows = (
+        q.order_by(Nominacion.fecha.desc())
+            .offset(start)
+            .limit(length)
+            .all()
+        )
+
+    data = []
+    for n in rows:
+        nominador = n.maestro.nombre if n.maestro else ""
+        valor = n.valor.nombre if n.valor else ""
+        evento_nombre = n.evento.nombre_mes if n.evento else ""
+        fecha = n.fecha.strftime("%d/%m/%Y %H:%M") if n.fecha else ""
+
+        if (n.tipo or "") == "alumno" and n.alumno:
+            nominado = n.alumno.nombre
+            bloque = n.alumno.bloque.nombre if n.alumno.bloque else ""
+            grado_grupo = f"{n.alumno.grado}°{n.alumno.grupo}"
+        else:
+            nominado = n.maestro_nominado.nombre if n.maestro_nominado else ""
+            bloque = ""
+            grado_grupo = ""
+
+        data.append({
+            "fecha": fecha,
+            "tipo": n.tipo or "",
+            "nominado": nominado,
+            "bloque": bloque,
+            "grado_grupo": grado_grupo,
+            "maestro": nominador,
+            "valor": valor,
+            "comentario": n.comentario or "",
+            "evento": evento_nombre,
+        })
+
+    return jsonify({
+        "draw": draw,
+        "recordsTotal": records_total,
+        "recordsFiltered": records_filtered,
+        "data": data
+    })
+
+@admin_bp.route('/dashboard/data/nominaciones_live')
+@login_required
+@admin_required
+def dashboard_nominaciones_live():
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        return jsonify([])
+
+    mes = request.args.get("mes")                 # nombre_mes (ej "Febrero")
+    tipo = request.args.get("tipo")               # alumno | personal | ""
+    bloque_id = request.args.get("bloque_id", type=int)
+    maestro_id = request.args.get("maestro_id", type=int)
+
+    q = (
+        Nominacion.query
+        .options(
+            joinedload(Nominacion.maestro),
+            joinedload(Nominacion.alumno).joinedload(Alumno.bloque),
+            joinedload(Nominacion.maestro_nominado),
+            joinedload(Nominacion.valor),
+            joinedload(Nominacion.evento),
+        )
+        .filter(Nominacion.ciclo_id == ciclo.id)
+    )
+
+    if mes:
+        q = q.join(EventoAsamblea).filter(EventoAsamblea.nombre_mes == mes)
+
+    if tipo:
+        q = q.filter(Nominacion.tipo == tipo)
+
+    if maestro_id:
+        q = q.filter(Nominacion.maestro_id == maestro_id)
+
+    # Si filtras por bloque, tiene sentido solo para alumnos
+    if bloque_id:
+        q = q.join(Alumno, Alumno.id == Nominacion.alumno_id).filter(Alumno.bloque_id == bloque_id)
+
+    nominaciones = (
+        q.order_by(Nominacion.fecha.desc())
+            .limit(2000)   # 🔥 evita matar Render si hay demasiadas
+            .all()
+    )
+
+    out = []
+    for n in nominaciones:
+        tipo_n = (n.tipo or "").lower()
+        if tipo_n == "alumno" and n.alumno:
+            nominado = n.alumno.nombre
+            bloque = n.alumno.bloque.nombre if (n.alumno.bloque) else "—"
+        else:
+            nominado = n.maestro_nominado.nombre if n.maestro_nominado else ""
+            bloque = "—"
+
+        out.append({
+            "fecha": n.fecha.strftime("%Y-%m-%d") if n.fecha else "",
+            "tipo": tipo_n,
+            "maestro": n.maestro.nombre if n.maestro else "",
+            "nominado": nominado,
+            "bloque": bloque,
+            "valor": n.valor.nombre if n.valor else "",
+            "comentario": n.comentario or "",
+            "evento": n.evento.nombre_mes if n.evento else ""
+        })
+
+    return jsonify(out)
