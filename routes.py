@@ -1081,9 +1081,62 @@ def eliminar_alumno(id):
         return jsonify({"error": "No autorizado"}), 403
 
     alumno = Alumno.query.get_or_404(id)
+    # Eliminar primero sus nominaciones para respetar la llave foránea.
+    Nominacion.query.filter_by(alumno_id=alumno.id).delete(synchronize_session=False)
     db.session.delete(alumno)
     db.session.commit()
     return jsonify({"message": f"Alumno {alumno.nombre} eliminado."}), 200
+
+
+# -------------------------------
+# 🔥 Eliminar todos los alumnos del ciclo activo
+# -------------------------------
+@admin_bp.route('/alumnos/eliminar_todos', methods=['POST'])
+@login_required
+@admin_required
+def eliminar_todos_alumnos_ciclo():
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo:
+        flash("⚠️ No hay un ciclo escolar activo.", "warning")
+        return redirect(url_for('admin_bp.alumnos_ciclo'))
+
+    confirmacion_esperada = f"BORRAR {ciclo.nombre}"
+    confirmacion = request.form.get('confirmacion', '').strip()
+    if confirmacion != confirmacion_esperada:
+        flash("❌ Confirmación incorrecta. No se eliminó ningún alumno.", "danger")
+        return redirect(url_for('admin_bp.alumnos_ciclo'))
+
+    ids_alumnos = [
+        alumno_id for (alumno_id,) in
+        db.session.query(Alumno.id).filter_by(ciclo_id=ciclo.id).all()
+    ]
+
+    if not ids_alumnos:
+        flash(f"ℹ️ El ciclo {ciclo.nombre} ya no tiene alumnos.", "warning")
+        return redirect(url_for('admin_bp.alumnos_ciclo'))
+
+    try:
+        nominaciones_eliminadas = Nominacion.query.filter(
+            Nominacion.ciclo_id == ciclo.id,
+            Nominacion.alumno_id.in_(ids_alumnos)
+        ).delete(synchronize_session=False)
+
+        alumnos_eliminados = Alumno.query.filter_by(
+            ciclo_id=ciclo.id
+        ).delete(synchronize_session=False)
+
+        db.session.commit()
+        flash(
+            f"✅ Se eliminaron {alumnos_eliminados} alumnos y "
+            f"{nominaciones_eliminadas} nominaciones del ciclo {ciclo.nombre}. "
+            "Los demás ciclos no fueron modificados.",
+            "success"
+        )
+    except Exception as e:
+        db.session.rollback()
+        flash(f"❌ No se pudo completar la eliminación: {e}", "danger")
+
+    return redirect(url_for('admin_bp.alumnos_ciclo'))
 
 
 # -------------------------------

@@ -59,6 +59,19 @@
             </form>
         </div>
 
+        <div class="zona-peligro">
+            <div>
+                <strong>Limpiar alumnos del ciclo actual</strong>
+                <small>Elimina alumnos y sus nominaciones de {{ ciclo.nombre }}. No afecta ciclos anteriores.</small>
+            </div>
+            <form action="{{ url_for('admin_bp.eliminar_todos_alumnos_ciclo') }}"
+                  method="POST"
+                  onsubmit="return confirmarEliminacionMasiva(this);">
+                <input type="hidden" name="confirmacion" value="">
+                <button type="submit" class="btn btn-eliminar-todos">🗑️ Eliminar todos los alumnos</button>
+            </form>
+        </div>
+
         <!-- 🔹 Título -->
         <h2 class="subtitulo">Listado de alumnos</h2>
 
@@ -105,6 +118,24 @@
 
 <!-- 🔹 Scripts -->
 <script>
+    function confirmarEliminacionMasiva(formulario) {
+        const ciclo = {{ (ciclo.nombre if ciclo else '') | tojson }};
+        const frase = `BORRAR ${ciclo}`;
+
+        if (!confirm(`Se eliminarán TODOS los alumnos y sus nominaciones del ciclo ${ciclo}.\n\n¿Deseas continuar?`)) {
+            return false;
+        }
+
+        const escrita = prompt(`Para confirmar, escribe exactamente:\n${frase}`);
+        if (escrita !== frase) {
+            alert("La frase no coincide. No se eliminó ningún alumno.");
+            return false;
+        }
+
+        formulario.querySelector('[name="confirmacion"]').value = escrita;
+        return true;
+    }
+
     // 💨 Desvanecer mensajes automáticamente
     setTimeout(() => {
         document.querySelectorAll('.flash').forEach(el => {
