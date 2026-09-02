@@ -30,24 +30,11 @@
             <input type="text" id="buscador-alumno" placeholder="Buscar alumno por nombre...">
         </div>
 
-        {% for grupo, alumnos in grupos.items() %}
-
-        {% if 'K' in grupo or 'k' in grupo %}
-            {% set max_permitido = 8 %}
-        {% elif 'SEC' in grupo or 'Sec' in grupo or 'sec' in grupo %}
-            {% set max_permitido = 11 %}
-        {% else %}
-            {% set grado_str = grupo.split('-')[0].strip() %}
-            {% set grado_num = 0 %}
-            {% if grado_str.isdigit() %}
-                {% set grado_num = grado_str | int %}
-            {% endif %}
-            {% if grado_num >= 4 and grado_num <= 6 %}
-                {% set max_permitido = 11 %}
-            {% else %}
-                {% set max_permitido = 8 %}
-            {% endif %}
-        {% endif %}
+        {% for datos_grupo in grupos %}
+        {% set grupo = datos_grupo.nombre %}
+        {% set grupo_corto = datos_grupo.nombre_corto %}
+        {% set alumnos = datos_grupo.alumnos %}
+        {% set max_permitido = datos_grupo.max_permitido %}
 
         {% set total_nominados = alumnos | selectattr('tiene_nominaciones_mes') | list | length %}
 
@@ -55,7 +42,7 @@
             <h3>{{ grupo }}</h3>
 
             <p class="contador-limite">
-                👥 Alumnos nominados en {{ grupo.split()[-1] }}: {{ total_nominados }} / {{ max_permitido }}
+                👥 Alumnos nominados en {{ grupo_corto }}: {{ total_nominados }} / {{ max_permitido }}
                 {% if total_nominados >= max_permitido %}
                     <span>— Límite alcanzado</span>
                 {% endif %}

@@ -2473,11 +2473,14 @@ def mis_grupos():
         flash("⚠️ No se encontró tu registro como maestro activo.", "warning")
         return redirect(url_for('nom.panel_profesor'))
 
-    # 🔹 Traer alumnos del ciclo (orden base; el orden final lo hacemos con parser)
+    # 🔹 Traer alumnos del ciclo junto con su bloque. El bloque es
+    # indispensable porque puede existir 1°A en más de un nivel escolar.
+    from sqlalchemy.orm import joinedload
     alumnos = (
         Alumno.query
+        .options(joinedload(Alumno.bloque))
         .filter_by(ciclo_id=ciclo_activo.id)
-        .order_by(Alumno.grado, Alumno.grupo, Alumno.nombre)
+        .order_by(Alumno.bloque_id, Alumno.grado, Alumno.grupo, Alumno.nombre)
         .all()
     )
 
@@ -2495,7 +2498,6 @@ def mis_grupos():
             evento_por_bloque[e.bloque_id] = e
 
     # ✅ Cargar todas las nominaciones del ciclo en una sola vez (con Valor para evitar N+1)
-    from sqlalchemy.orm import joinedload
     nominaciones_ciclo = (
         Nominacion.query
         .options(joinedload(Nominacion.valor))
@@ -2511,11 +2513,29 @@ def mis_grupos():
 
     grupos = {}
 
+    def numero_bloque(bloque):
+        """Obtiene un orden estable aun si el campo orden no está configurado."""
+        import re
+        if bloque and bloque.orden:
+            return bloque.orden
+        coincidencia = re.search(r'\d+', bloque.nombre if bloque else '')
+        return int(coincidencia.group()) if coincidencia else 99
+
     # Construir estructura base de grupos
     for alumno in alumnos:
-        clave = f"{alumno.grado}°{alumno.grupo}"
+        clave = (alumno.bloque_id, alumno.grado, alumno.grupo)
         if clave not in grupos:
-            grupos[clave] = []
+            orden_bloque = numero_bloque(alumno.bloque)
+            grupos[clave] = {
+                "nombre": f"{alumno.nivel} — {alumno.grado}°{alumno.grupo}",
+                "nombre_corto": f"{alumno.grado}°{alumno.grupo}",
+                "bloque_id": alumno.bloque_id,
+                "grado": alumno.grado,
+                "grupo": alumno.grupo,
+                "orden": (orden_bloque, str(alumno.grado), str(alumno.grupo)),
+                "max_permitido": 11 if orden_bloque in (3, 4) else 8,
+                "alumnos": []
+            }
 
         nominaciones = nominaciones_por_alumno.get(alumno.id, [])
 
@@ -2537,58 +2557,24 @@ def mis_grupos():
                 for n in nominaciones
             )
 
-        grupos[clave].append({
+        grupos[clave]["alumnos"].append({
             "id": alumno.id,
             "nombre": alumno.nombre,
             "tiene_excelencia": tiene_excelencia,
             "tiene_nominaciones_mes": tiene_nominaciones_mes
         })
 
-    # ---------- Parser robusto del token después de "°" (para ordenar) ----------
-    import re
-
-    def parse_grupo_key(nombre_grupo: str):
-        """
-        nombre_grupo ejemplo: '01 - PRIMERO°K1 A', '03 - TERCERO°PP1 B', '05 - QUINTO°P5 C', '01 - PRIMERO°SEC1 A'
-        Devuelve una tupla (orden_seccion, grado_num, letra_grupo)
-        para ordenar correctamente Kinder → Preprimaria → Primaria → Secundaria.
-        """
-        t = (nombre_grupo or "").upper().strip()
-
-        # Busca algo como: °K1  o  °PP1  o  °P5  o  °SEC1
-        m = re.search(r'°\s*([A-Z]+)\s*(\d+)\b', t)
-        if not m:
-            return (99, 99, 'Z')
-
-        seccion_code = m.group(1)
-        grado_num = int(m.group(2))
-
-        # Letra final del grupo (A/B/C...) si existe
-        m2 = re.search(r'\s([A-Z])$', t)
-        letra = m2.group(1) if m2 else ''
-
-        orden_seccion = {'K': 1, 'PP': 2, 'P': 3, 'SEC': 4}.get(seccion_code, 9)
-        return (orden_seccion, grado_num, letra)
-
-    grupos_ordenados = dict(sorted(grupos.items(), key=lambda kv: parse_grupo_key(kv[0])))
-
-    # 🔹 Detectar límite automáticamente (lo sigues usando en template si lo ocupas)
-    def obtener_limite(nombre_grupo):
-        nombre = (nombre_grupo or "").upper()
-        if "SEC" in nombre or "SECUND" in nombre or "BLOQUE 4" in nombre:
-            return 11
-        return 8
+    grupos_ordenados = sorted(grupos.values(), key=lambda datos: datos["orden"])
 
     # 🔹 Numerar alumnos dentro de cada grupo
-    for grupo_nombre, lista_alumnos in grupos_ordenados.items():
-        for i, a in enumerate(lista_alumnos, start=1):
+    for datos_grupo in grupos_ordenados:
+        for i, a in enumerate(datos_grupo["alumnos"], start=1):
             a["numero"] = i
 
     return render_template(
         "mis_grupos.html",
         grupos=grupos_ordenados,
-        ciclo=ciclo_activo,
-        obtener_limite=obtener_limite
+        ciclo=ciclo_activo
     )
 
 @nom.route('/seleccionar_bloque')
