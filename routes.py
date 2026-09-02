@@ -1315,22 +1315,6 @@ def nominar_alumno():
 
 
 
-# 🔧 Función para asegurar que los admins existan como maestros en el ciclo actual
-def sincronizar_admins_como_maestros(ciclo_activo):
-    from models import Usuario, Maestro, db
-    admins = Usuario.query.filter_by(rol='admin').all()
-    for admin in admins:
-        existente = Maestro.query.filter_by(correo=admin.email, ciclo_id=ciclo_activo.id).first()
-        if not existente:
-            nuevo = Maestro(
-                nombre=admin.nombre,
-                correo=admin.email,
-                ciclo_id=ciclo_activo.id,
-                activo=True
-            )
-            db.session.add(nuevo)
-    db.session.commit()
-# Maestro nomina a otro maestro (sin bloque, solo requiere evento activo)
 # ============================================================
 # 🔧 FUNCIÓN AUXILIAR: sincronizar administradores como maestros
 # ============================================================
@@ -1340,12 +1324,23 @@ def sincronizar_admins_como_maestros(ciclo_activo):
 
     admins = Usuario.query.filter_by(rol='admin').all()
     for admin in admins:
-        # Verificar si ya existe en la tabla maestros para este ciclo
-        existente = Maestro.query.filter_by(correo=admin.email, ciclo_id=ciclo_activo.id).first()
-        if not existente:
+        correo = admin.email.strip().lower()
+
+        # El correo de Maestro es único globalmente. Si el administrador ya
+        # existe en otro ciclo, reutilizamos ese registro en vez de duplicarlo.
+        existente = Maestro.query.filter(
+            db.func.lower(Maestro.correo) == correo
+        ).first()
+
+        if existente:
+            existente.nombre = admin.nombre
+            existente.correo = correo
+            existente.ciclo_id = ciclo_activo.id
+            existente.activo = True
+        else:
             nuevo = Maestro(
                 nombre=admin.nombre,
-                correo=admin.email,
+                correo=correo,
                 ciclo_id=ciclo_activo.id,
                 activo=True
             )
