@@ -612,8 +612,6 @@ def importar_maestros_ciclo():
             if usuario:
                 usuario.nombre = nombre
                 usuario.email = correo
-                if password:
-                    usuario.set_password(password)
             else:
                 usuario = Usuario(nombre=nombre, email=correo, rol='profesor')
                 usuario.set_password(password if password else '123456')
@@ -648,7 +646,8 @@ def importar_maestros_ciclo():
         flash(
             f"✅ Importación al ciclo {ciclo_activo.nombre}: "
             f"{creados} creados, {actualizados} actualizados, "
-            f"{sin_cambios} sin cambios y {omitidos} omitidos.",
+            f"{sin_cambios} sin cambios y {omitidos} omitidos. "
+            "Las contraseñas de usuarios existentes se conservaron.",
             "success"
         )
 
