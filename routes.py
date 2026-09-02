@@ -564,12 +564,15 @@ def importar_maestros_ciclo():
             flash("⚠️ No hay ningún ciclo activo. Activa un ciclo primero.", "warning")
             return redirect(url_for('admin_bp.gestionar_ciclos'))
 
-        importados, existentes = 0, 0
+        creados, actualizados, sin_cambios, omitidos = 0, 0, 0, 0
+        correos_procesados = set()
 
         # ✅ Iterar y limpiar datos
         for _, row in df.iterrows():
-            nombre = str(row.get('nombre', '')).strip()
-            correo = str(row.get('email', '')).strip().lower()
+            nombre_raw = row.get('nombre', '')
+            correo_raw = row.get('email', '')
+            nombre = '' if pd.isna(nombre_raw) else str(nombre_raw).strip()
+            correo = '' if pd.isna(correo_raw) else str(correo_raw).strip().lower()
             raw_pass = row.get('contraseña', '')
 
             # 🔍 Convertir contraseñas numéricas a texto limpio
@@ -584,31 +587,70 @@ def importar_maestros_ciclo():
                 if password.isdigit():
                     password = password
 
-            if not nombre or not correo:
+            # Omitir filas incompletas, correos inválidos y duplicados dentro
+            # del mismo archivo. Esto evita que una sola fila cancele el lote.
+            if not nombre or not correo or '@' not in correo:
+                omitidos += 1
                 continue
 
-            # Crear o actualizar usuario
-            usuario = Usuario.query.filter_by(email=correo).first()
-            if not usuario:
+            if correo in correos_procesados:
+                omitidos += 1
+                continue
+            correos_procesados.add(correo)
+
+            # Buscar por correo sin limitar al ciclo. En la base de datos el
+            # correo de maestros es único globalmente, por lo que el mismo
+            # registro se reutiliza al comenzar un ciclo escolar nuevo.
+            with db.session.no_autoflush:
+                usuario = Usuario.query.filter(
+                    db.func.lower(Usuario.email) == correo
+                ).first()
+                maestro = Maestro.query.filter(
+                    db.func.lower(Maestro.correo) == correo
+                ).first()
+
+            if usuario:
+                usuario.nombre = nombre
+                usuario.email = correo
+                if password:
+                    usuario.set_password(password)
+            else:
                 usuario = Usuario(nombre=nombre, email=correo, rol='profesor')
                 usuario.set_password(password if password else '123456')
                 db.session.add(usuario)
+
+            if maestro:
+                cambio = (
+                    maestro.nombre != nombre
+                    or maestro.correo != correo
+                    or maestro.ciclo_id != ciclo_activo.id
+                    or not maestro.activo
+                )
+                maestro.nombre = nombre
+                maestro.correo = correo
+                maestro.ciclo_id = ciclo_activo.id
+                maestro.activo = True
+                if cambio:
+                    actualizados += 1
+                else:
+                    sin_cambios += 1
             else:
-                if password:
-                    usuario.set_password(password)
-
-            # Crear maestro solo si no existe ya
-            existe_maestro = Maestro.query.filter_by(correo=correo, ciclo_id=ciclo_activo.id).first()
-            if existe_maestro:
-                existentes += 1
-                continue
-
-            maestro = Maestro(nombre=nombre, correo=correo, ciclo_id=ciclo_activo.id)
-            db.session.add(maestro)
-            importados += 1
+                maestro = Maestro(
+                    nombre=nombre,
+                    correo=correo,
+                    ciclo_id=ciclo_activo.id,
+                    activo=True
+                )
+                db.session.add(maestro)
+                creados += 1
 
         db.session.commit()
-        flash(f"✅ {importados} maestros importados correctamente al ciclo {ciclo_activo.nombre}. {existentes} ya existían.", "success")
+        flash(
+            f"✅ Importación al ciclo {ciclo_activo.nombre}: "
+            f"{creados} creados, {actualizados} actualizados, "
+            f"{sin_cambios} sin cambios y {omitidos} omitidos.",
+            "success"
+        )
 
     except Exception as e:
         db.session.rollback()
