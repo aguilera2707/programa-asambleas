@@ -182,6 +182,23 @@ document.addEventListener("DOMContentLoaded", () => {
         ]
     };
 
+    // Vincula los nombres del ciclo actual en inglés con el catálogo
+    // institucional en español del ciclo anterior.
+    const equivalenciasValores = {
+        "EXCELLENCE": "EXCELENCIA",
+        "JUSTICE": "JUSTICIA",
+        "TOLERANCE": "TOLERANCIA",
+        "RESPONSIBILITY": "RESPONSABILIDAD",
+        "RESPONSABILITY": "RESPONSABILIDAD", // nombre cargado actualmente
+        "PERSEVERANCE": "PERSEVERANCIA",
+        "SPORTSMANSHIP": "DEPORTIVISMO",
+        "GENEROSITY": "GENEROSIDAD",
+        "RESPECT": "RESPETO",
+        "HONESTY": "HONESTIDAD",
+        "KINDNESS": "AMABILIDAD",
+        "EMPATHY": "EMPATIA"
+    };
+
     // ===============================
     // 2. Normalización de acentos
     // ===============================
@@ -202,16 +219,17 @@ document.addEventListener("DOMContentLoaded", () => {
     // ===============================
     // Cargar comentarios sugeridos
     // ===============================
-    selectValor.addEventListener("change", () => {
+    function cargarComentariosPredeterminados() {
         const valorSel = selectValor.options[selectValor.selectedIndex].text;
-        const clave = normalizar(valorSel);
+        const claveOriginal = normalizar(valorSel);
+        const claveCatalogo = equivalenciasValores[claveOriginal] || claveOriginal;
 
         selectPred.innerHTML = `<option value="">-- Usar comentario predeterminado --</option>`;
         textarea.value = "";
         ayudaPred.style.display = "none";
 
-        if (comentariosPorValor[clave]) {
-            comentariosPorValor[clave].forEach(c => {
+        if (comentariosPorValor[claveCatalogo]) {
+            comentariosPorValor[claveCatalogo].forEach(c => {
                 let opt = document.createElement("option");
                 opt.value = c;
                 opt.textContent = c;
@@ -220,7 +238,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         charCount.textContent = "0";
-    });
+    }
+
+    selectValor.addEventListener("change", cargarComentariosPredeterminados);
+
+    // Cargar sugerencias al abrir la pantalla si ya existe un valor seleccionado.
+    if (selectValor.value) {
+        cargarComentariosPredeterminados();
+    }
 
     // Si elige un predeterminado
     selectPred.addEventListener("change", () => {
