@@ -4,6 +4,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from extensions import db, mail
 from flask_mail import Message
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash
 from models import Valor, Nominacion, Usuario, CicloEscolar
 from utils import generar_pdf, ciclo_actual
 import pandas as pd
@@ -617,14 +618,14 @@ def importar_maestros_ciclo():
                     # PBKDF2 sigue almacenando la contraseña de forma segura y
                     # es compatible con check_password_hash. Para una carga
                     # masiva consume muchos menos recursos que scrypt.
-                    usuario.set_password(
+                    usuario.password_hash = generate_password_hash(
                         password,
                         method="pbkdf2:sha256:260000"
                     )
                     contrasenas_actualizadas += 1
             else:
                 usuario = Usuario(nombre=nombre, email=correo, rol='profesor')
-                usuario.set_password(
+                usuario.password_hash = generate_password_hash(
                     password if password else '123456',
                     method="pbkdf2:sha256:260000"
                 )
