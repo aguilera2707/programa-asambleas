@@ -86,9 +86,9 @@ def nombre_bonito(nombre: str) -> str:
 @nom.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form['email']
+        email = request.form['email'].strip().lower()
         password = request.form['password']
-        user = Usuario.query.filter_by(email=email).first()
+        user = Usuario.query.filter(db.func.lower(Usuario.email) == email).first()
 
         if user and user.check_password(password):
             login_user(user)
@@ -565,6 +565,7 @@ def importar_maestros_ciclo():
             return redirect(url_for('admin_bp.gestionar_ciclos'))
 
         creados, actualizados, sin_cambios, omitidos = 0, 0, 0, 0
+        contrasenas_actualizadas = 0
         correos_procesados = set()
 
         # ✅ Iterar y limpiar datos
@@ -612,9 +613,22 @@ def importar_maestros_ciclo():
             if usuario:
                 usuario.nombre = nombre
                 usuario.email = correo
+                if password:
+                    # PBKDF2 sigue almacenando la contraseña de forma segura y
+                    # es compatible con check_password_hash. Para una carga
+                    # masiva consume muchos menos recursos que scrypt.
+                    usuario.set_password(
+                        password,
+                        method="pbkdf2:sha256:260000"
+                    )
+                    contrasenas_actualizadas += 1
             else:
                 usuario = Usuario(nombre=nombre, email=correo, rol='profesor')
-                usuario.set_password(password if password else '123456')
+                usuario.set_password(
+                    password if password else '123456',
+                    method="pbkdf2:sha256:260000"
+                )
+                contrasenas_actualizadas += 1
                 db.session.add(usuario)
 
             if maestro:
@@ -647,7 +661,7 @@ def importar_maestros_ciclo():
             f"✅ Importación al ciclo {ciclo_activo.nombre}: "
             f"{creados} creados, {actualizados} actualizados, "
             f"{sin_cambios} sin cambios y {omitidos} omitidos. "
-            "Las contraseñas de usuarios existentes se conservaron.",
+            f"{contrasenas_actualizadas} contraseñas actualizadas.",
             "success"
         )
 
