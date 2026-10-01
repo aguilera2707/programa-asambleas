@@ -2799,39 +2799,63 @@ def crear_alumno_manual():
     alumnos_db = Alumno.query.filter_by(ciclo_id=ciclo.id).all()
 
     if request.method == 'POST':
-        nombre = request.form.get('nombre').strip()
-        grado = request.form.get('grado').strip()
-        grupo = request.form.get('grupo').strip()
-        nivel = request.form.get('nivel').strip()
+        nombre = request.form.get('nombre', '').strip()
+        grado = request.form.get('grado', '').strip()
+        grupo = request.form.get('grupo', '').strip().upper()
+
+        # El servidor determina el nivel a partir del grupo. No confiamos en
+        # el campo oculto del navegador porque puede quedar desactualizado.
+        nivel = detectar_nivel_por_grupo(grupo)
 
         if not nombre or not grado or not grupo or not nivel:
-            flash("Todos los campos son obligatorios.", "warning")
+            flash("⚠️ No se pudo identificar el nivel del grupo seleccionado.", "warning")
+            return redirect(url_for('admin_bp.crear_alumno_manual'))
+
+        # Validar que el número del grupo corresponda con el grado elegido.
+        numero_grupo_match = re.search(r'\d+', grupo)
+        numero_grado_match = re.search(r'\d+', grado)
+        numero_grupo = int(numero_grupo_match.group()) if numero_grupo_match else None
+        numero_grado = int(numero_grado_match.group()) if numero_grado_match else None
+
+        if numero_grupo is None or numero_grado is None or numero_grupo != numero_grado:
+            flash("⚠️ El grupo seleccionado no corresponde con el grado.", "warning")
             return redirect(url_for('admin_bp.crear_alumno_manual'))
 
         # 🔍 Validación de duplicado
         dup = Alumno.query.filter_by(
             ciclo_id=ciclo.id,
             grado=grado,
-            grupo=grupo,
-            nombre=nombre.upper()
-        ).first()
+            grupo=grupo
+        ).filter(db.func.lower(Alumno.nombre) == nombre.lower()).first()
 
         if dup:
             flash("⚠️ Ya existe un alumno con ese nombre, grado y grupo en este ciclo.", "warning")
             return redirect(url_for('admin_bp.crear_alumno_manual'))
 
-        # 🔍 AUTOASIGNAR BLOQUE (lógica correcta)
-        alumno_referencia = Alumno.query.filter_by(
-            ciclo_id=ciclo.id,
-            nivel=nivel
-        ).first()
+        # 🔍 AUTOASIGNAR BLOQUE según la estructura institucional:
+        # B1 Kinder, B2 Primaria 1–3, B3 Primaria 4–6, B4 Secundaria.
+        if nivel == "Kinder":
+            numero_bloque_destino = 1
+        elif nivel == "Secundaria":
+            numero_bloque_destino = 4
+        else:
+            numero_bloque_destino = 2 if numero_grado <= 3 else 3
 
-        if not alumno_referencia:
-            flash("⚠️ No se encontró ningún alumno de este nivel para determinar su bloque. "
-                  "Por favor importa primero alumnos o configura los bloques.", "danger")
+        bloques_ciclo = Bloque.query.filter_by(ciclo_id=ciclo.id).all()
+        bloque_destino = None
+        for bloque in bloques_ciclo:
+            numero_nombre = re.search(r'\d+', bloque.nombre or '')
+            numero_en_nombre = int(numero_nombre.group()) if numero_nombre else None
+            if bloque.orden == numero_bloque_destino or numero_en_nombre == numero_bloque_destino:
+                bloque_destino = bloque
+                break
+
+        if not bloque_destino:
+            flash(
+                f"⚠️ No se encontró el Bloque {numero_bloque_destino} en el ciclo activo.",
+                "danger"
+            )
             return redirect(url_for('admin_bp.crear_alumno_manual'))
-
-        bloque_id = alumno_referencia.bloque_id
 
         # Crear alumno
         nuevo = Alumno(
@@ -2840,7 +2864,7 @@ def crear_alumno_manual():
             grupo=grupo,
             nivel=nivel,
             ciclo_id=ciclo.id,
-            bloque_id=bloque_id
+            bloque_id=bloque_destino.id
         )
 
         db.session.add(nuevo)
@@ -2859,22 +2883,19 @@ def crear_alumno_manual():
 
 
     
-def detectar_nivel(grado):
-    g = grado.upper().strip()
+def detectar_nivel_por_grupo(grupo):
+    g = re.sub(r'\s+', '', (grupo or '').upper())
 
-    if g.startswith("K") or g.startswith("PP"):
+    if g.startswith("PP") or g.startswith("K"):
         return "Kinder"
 
-    if g.startswith("01") or g.startswith("02") or g.startswith("03"):
+    if g.startswith("P"):
         return "Primaria"
 
-    if g.startswith("04") or g.startswith("05") or g.startswith("06"):
-        return "Primaria"
-
-    if g.startswith("SEC") or g.startswith("1") or g.startswith("2") or g.startswith("3"):
+    if g.startswith("SEC") or g.startswith("S"):
         return "Secundaria"
 
-    return "Primaria"
+    return ""
 
 # Grupos por grado con separación por nivel
 @nom.route('/bloque/<int:bloque_id>/grado/<grado>')
