@@ -84,11 +84,11 @@
 
     // --- Detectar nivel por prefijo ---
     function detectarNivelPorGrupo(grupo) {
-        let g = grupo.toUpperCase().trim();
+        const g = grupo.toUpperCase().replace(/\s+/g, "");
 
-        if (g.startsWith("K") || g.startsWith("PP")) return "Kinder";
+        if (g.startsWith("PP") || g.startsWith("K")) return "Kinder";
         if (g.startsWith("P")) return "Primaria";
-        if (g.startsWith("SEC")) return "Secundaria";
+        if (g.startsWith("SEC") || g.startsWith("S")) return "Secundaria";
 
         return "";
     }
@@ -167,10 +167,8 @@
     // --- Detectar nivel cuando el usuario elige grupo ---
     grupoSelect.addEventListener("change", function () {
         const nivel = detectarNivelPorGrupo(this.value);
-        if (nivel !== "") {
-            document.getElementById("nivel_detectado").value = nivel;
-            document.getElementById("nivel").value = nivel;
-        }
+        document.getElementById("nivel_detectado").value = nivel;
+        document.getElementById("nivel").value = nivel;
     });
 
     // --- Desvanecer flash ---
