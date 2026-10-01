@@ -105,7 +105,7 @@
 
                             {# Estado basado en la fecha #}
                             {% set hoy = datetime.utcnow() %}
-                            {% if e.fecha_cierre_nominaciones > hoy %}
+                            {% if e.activo and e.fecha_cierre_nominaciones > hoy %}
                                 {% set estado = "Abierto" %}
                                 {% set color_estado = "abierto" %}
                             {% else %}
@@ -126,18 +126,20 @@
                                         <button type="submit">Guardar</button>
                                     </form>
                                 </td>
-                                <td>{{ e.fecha_cierre_nominaciones | hora_mx('%d/%m/%Y %H:%M') }}</td>
+                                <td class="cierre-evento">{{ e.fecha_cierre_nominaciones | hora_mx('%d/%m/%Y %H:%M') }}</td>
                                 <td>{{ e.plantilla.nombre if e.plantilla else 'Predeterminada' }}</td>
 
                                 <!-- Estado basado en fecha -->
                                 <td>
-                                    <span class="estado {{ color_estado }}">{{ estado }}</span>
+                                    <span class="estado {{ color_estado }}" data-estado-id="{{ e.id }}">{{ estado }}</span>
                                 </td>
 
                                 <!-- Activar / Desactivar basado en la BD -->
                                 <td>
-                                    <a href="#" class="btn-toggle" data-id="{{ e.id }}">
-                                        {{ "Desactivar" if e.activo else "Activar" }}
+                                    <a href="#" class="btn-toggle"
+                                       data-id="{{ e.id }}"
+                                       data-abierto="{{ 'true' if estado == 'Abierto' else 'false' }}">
+                                        {{ "Desactivar" if estado == "Abierto" else "Activar" }}
                                     </a>
                                     <span class="separador">|</span>
                                     <a href="#" class="btn-eliminar" data-id="{{ e.id }}">Eliminar</a>
@@ -154,6 +156,7 @@
     </section>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 // 💨 Ocultar mensajes flash automáticamente
 setTimeout(() => {
@@ -181,20 +184,139 @@ document.querySelectorAll('.btn-eliminar').forEach(btn => {
     });
 });
 
-// 🔁 Activar/desactivar evento
+function describirTiempoRestante(segundos) {
+    if (segundos < 60) return 'menos de un minuto';
+
+    const minutosTotales = Math.ceil(segundos / 60);
+    const horas = Math.floor(minutosTotales / 60);
+    const minutos = minutosTotales % 60;
+
+    if (horas === 0) return `${minutos} minuto${minutos === 1 ? '' : 's'}`;
+    if (minutos === 0) return `${horas} hora${horas === 1 ? '' : 's'}`;
+    return `${horas} hora${horas === 1 ? '' : 's'} y ${minutos} minuto${minutos === 1 ? '' : 's'}`;
+}
+
+function actualizarFilaEvento(btn, data) {
+    const fila = btn.closest('tr');
+    const estado = fila.querySelector('.estado');
+    const cierre = fila.querySelector('.cierre-evento');
+
+    btn.dataset.abierto = data.abierto ? 'true' : 'false';
+    btn.textContent = data.abierto ? 'Desactivar' : 'Activar';
+
+    estado.textContent = data.abierto ? 'Abierto' : 'Cerrado';
+    estado.classList.toggle('abierto', data.abierto);
+    estado.classList.toggle('cerrado', !data.abierto);
+
+    if (data.cierre_local) cierre.textContent = data.cierre_local;
+}
+
+async function enviarCambioEvento(id, payload) {
+    const res = await fetch(`/admin/calendario/toggle/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+        throw new Error(data.error || 'No se pudo actualizar el evento.');
+    }
+    return data;
+}
+
+// 🔁 Reapertura temporal y cierre manual
 document.querySelectorAll('.btn-toggle').forEach(btn => {
     btn.addEventListener('click', async e => {
         e.preventDefault();
         const id = btn.dataset.id;
 
-        const res = await fetch(`/admin/calendario/toggle/${id}`, { method: 'POST' });
-        const data = await res.json();
+        try {
+            // Consultar el estado real evita actuar con información vieja.
+            const estadoRes = await fetch(`/admin/calendario/estado/${id}`);
+            const estadoActual = await estadoRes.json();
+            if (!estadoRes.ok || !estadoActual.success) {
+                throw new Error(estadoActual.error || 'No se pudo consultar el evento.');
+            }
 
-        if (data.success) {
-            btn.textContent = data.activo ? 'Desactivar' : 'Activar';
-            alert(`Evento ${data.activo ? 'activado' : 'desactivado'} correctamente.`);
-        } else {
-            alert('Error: ' + (data.error || 'No se pudo actualizar el estado.'));
+            if (estadoActual.abierto) {
+                const restante = describirTiempoRestante(estadoActual.restante_segundos);
+                const confirmacion = await Swal.fire({
+                    icon: 'warning',
+                    title: '¿Desactivar nominaciones?',
+                    text: `Todavía quedan ${restante} del tiempo de gracia. ¿Deseas cerrarlas de todos modos?`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, desactivar',
+                    cancelButtonText: 'Conservar activas',
+                    confirmButtonColor: '#7b0000'
+                });
+
+                if (!confirmacion.isConfirmed) return;
+
+                const data = await enviarCambioEvento(id, { accion: 'desactivar' });
+                actualizarFilaEvento(btn, data);
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Nominaciones desactivadas',
+                    timer: 1700,
+                    showConfirmButton: false
+                });
+                return;
+            }
+
+            const seleccion = await Swal.fire({
+                title: 'Activar nominaciones temporalmente',
+                html: `
+                    <div class="gracia-popup">
+                        <label for="gracia-cantidad">Duración</label>
+                        <input id="gracia-cantidad" class="swal2-input" type="number" min="1" value="10">
+                        <select id="gracia-unidad" class="swal2-select">
+                            <option value="minutos">Minutos</option>
+                            <option value="horas">Horas</option>
+                        </select>
+                    </div>`,
+                showCancelButton: true,
+                confirmButtonText: 'Activar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#7b0000',
+                focusConfirm: false,
+                preConfirm: () => {
+                    const duracion = Number(document.getElementById('gracia-cantidad').value);
+                    const unidad = document.getElementById('gracia-unidad').value;
+                    const minutosTotales = unidad === 'horas' ? duracion * 60 : duracion;
+
+                    if (!Number.isInteger(duracion) || duracion < 1) {
+                        Swal.showValidationMessage('Escribe una duración entera mayor que cero.');
+                        return false;
+                    }
+                    if (minutosTotales > 10080) {
+                        Swal.showValidationMessage('El tiempo máximo es de 7 días.');
+                        return false;
+                    }
+                    return { duracion, unidad };
+                }
+            });
+
+            if (!seleccion.isConfirmed) return;
+
+            const data = await enviarCambioEvento(id, {
+                accion: 'activar',
+                duracion: seleccion.value.duracion,
+                unidad: seleccion.value.unidad
+            });
+            actualizarFilaEvento(btn, data);
+
+            await Swal.fire({
+                icon: 'success',
+                title: 'Nominaciones activadas',
+                text: `Permanecerán abiertas hasta ${data.cierre_local}.`,
+                confirmButtonColor: '#7b0000'
+            });
+        } catch (error) {
+            await Swal.fire({
+                icon: 'error',
+                title: 'No se pudo actualizar',
+                text: error.message
+            });
         }
     });
 });

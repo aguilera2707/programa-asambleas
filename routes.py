@@ -2042,7 +2042,7 @@ def hora_mx(dt, fmt="%d/%m/%Y %H:%M"):
 # ===============================
 # 🗓️ CALENDARIO DE EVENTOS (CORREGIDO)
 # ===============================
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
 from models import EventoAsamblea, PlantillaInvitacion, Bloque, CicloEscolar
 
@@ -2230,13 +2230,106 @@ def eliminar_evento(evento_id):
 @login_required
 @admin_required
 def toggle_evento(evento_id):
-    evento = EventoAsamblea.query.get(evento_id)
-    if not evento:
-        return jsonify({'success': False, 'error': 'Evento no encontrado'}), 404
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    evento = EventoAsamblea.query.get_or_404(evento_id)
 
-    evento.activo = not evento.activo
+    if not ciclo_activo or evento.ciclo_id != ciclo_activo.id:
+        return jsonify({
+            'success': False,
+            'error': 'El evento no pertenece al ciclo activo.'
+        }), 403
+
+    data = request.get_json(silent=True) or {}
+    accion = (data.get('accion') or '').strip().lower()
+    ahora = datetime.utcnow()
+
+    if accion == 'activar':
+        try:
+            duracion = int(data.get('duracion'))
+        except (TypeError, ValueError):
+            return jsonify({
+                'success': False,
+                'error': 'Indica una duración válida.'
+            }), 400
+
+        unidad = (data.get('unidad') or '').strip().lower()
+        if duracion < 1:
+            return jsonify({
+                'success': False,
+                'error': 'La duración debe ser mayor que cero.'
+            }), 400
+
+        if unidad == 'minutos':
+            extension = timedelta(minutes=duracion)
+        elif unidad == 'horas':
+            extension = timedelta(hours=duracion)
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Selecciona minutos u horas.'
+            }), 400
+
+        # Una reapertura es temporal: máximo siete días por activación.
+        if extension > timedelta(days=7):
+            return jsonify({
+                'success': False,
+                'error': 'El tiempo de gracia máximo es de 7 días.'
+            }), 400
+
+        evento.fecha_cierre_nominaciones = ahora + extension
+        evento.activo = True
+
+    elif accion == 'desactivar':
+        evento.activo = False
+    else:
+        return jsonify({
+            'success': False,
+            'error': 'Acción no válida.'
+        }), 400
+
     db.session.commit()
-    return jsonify({'success': True, 'activo': evento.activo})
+    return jsonify(_estado_evento_json(evento))
+
+
+def _estado_evento_json(evento):
+    ahora = datetime.utcnow()
+    cierre = evento.fecha_cierre_nominaciones
+    restante = max(0, int((cierre - ahora).total_seconds())) if cierre else 0
+    abierto = bool(evento.activo and restante > 0)
+
+    cierre_local = ""
+    if cierre:
+        MX = ZoneInfo("America/Merida")
+        UTC = ZoneInfo("UTC")
+        cierre_local = (
+            cierre.replace(tzinfo=UTC)
+            .astimezone(MX)
+            .strftime("%d/%m/%Y %H:%M")
+        )
+
+    return {
+        'success': True,
+        'abierto': abierto,
+        'activo': bool(evento.activo),
+        'restante_segundos': restante,
+        'cierre_local': cierre_local,
+    }
+
+
+@admin_bp.route('/calendario/estado/<int:evento_id>', methods=['GET'])
+@login_required
+@admin_required
+def estado_evento(evento_id):
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    evento = EventoAsamblea.query.get_or_404(evento_id)
+
+    if not ciclo_activo or evento.ciclo_id != ciclo_activo.id:
+        return jsonify({
+            'success': False,
+            'error': 'El evento no pertenece al ciclo activo.'
+        }), 403
+
+    return jsonify(_estado_evento_json(evento))
 
 # ===============================
 # 📊 MATRIZ MENSUAL (Datos JSON)
