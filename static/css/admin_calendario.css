@@ -194,6 +194,33 @@
     .btn-eliminar:hover{ text-decoration:underline; }
     .separador{ color:#999; }
 
+    .hora-evento-form {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    min-width:130px;
+    }
+
+    .hora-evento-form input[type="time"] {
+    width:110px;
+    padding:5px 7px;
+    border:1px solid #ccc;
+    border-radius:6px;
+    }
+
+    .hora-evento-form button {
+    border:0;
+    border-radius:6px;
+    padding:5px 10px;
+    background:#7b0000;
+    color:#fff;
+    cursor:pointer;
+    font-weight:600;
+    }
+
+    .hora-evento-form button:hover { background:#5a0000; }
+
     /* Flash */
     .flash{
     padding:10px; margin-bottom:12px; border-radius:6px; text-align:center; font-weight:500;

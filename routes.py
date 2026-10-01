@@ -2046,6 +2046,45 @@ from datetime import datetime, date
 from zoneinfo import ZoneInfo
 from models import EventoAsamblea, PlantillaInvitacion, Bloque, CicloEscolar
 
+
+def formatear_hora_evento(hora_24):
+    """Convierte HH:MM a un texto legible, por ejemplo 08:30 -> 8:30 a. m."""
+    hora_dt = datetime.strptime(hora_24, "%H:%M")
+    sufijo = "a. m." if hora_dt.hour < 12 else "p. m."
+    hora_12 = hora_dt.hour % 12 or 12
+    return f"{hora_12}:{hora_dt.minute:02d} {sufijo}"
+
+
+def fecha_hora_para_invitacion(evento, bloque_nombre=""):
+    """Devuelve la fecha y hora configuradas para cualquier bloque del ciclo."""
+    if not evento:
+        return ""
+
+    fecha_str = evento.fecha_evento.strftime("%d/%m/%Y") if evento.fecha_evento else ""
+    nombre_bloque = (bloque_nombre or "").strip().upper()
+    if not nombre_bloque and getattr(evento, "bloque", None):
+        nombre_bloque = (evento.bloque.nombre or "").strip().upper()
+
+    # Respaldo para eventos antiguos creados antes de que el calendario
+    # permitiera capturar su hora. Los bloques nuevos usan evento.hora.
+    horas_historicas = {
+        "BLOQUE 1": "8:30 a. m.",
+        "BLOQUE 2": "7:30 a. m.",
+        "BLOQUE 3": "7:30 a. m.",
+        "BLOQUE 4": "8:30 a. m.",
+    }
+    horas_default_antiguas = {
+        "09:00 a.m.", "09:00 a. m.", "9:00 a.m.", "9:00 a. m."
+    }
+
+    hora_str = (evento.hora or "").strip()
+    if nombre_bloque in horas_historicas and (
+        not hora_str or hora_str in horas_default_antiguas
+    ):
+        hora_str = horas_historicas[nombre_bloque]
+
+    return f"{fecha_str} - {hora_str}".strip(" -")
+
 @admin_bp.route('/calendario', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -2071,16 +2110,21 @@ def calendario_eventos():
         nombre_mes = request.form.get('nombre_mes')
         mes_ordinal = request.form.get('mes_ordinal', type=int)
         fecha_evento_str = request.form.get('fecha_evento')               # YYYY-MM-DD
+        hora_evento_str = request.form.get('hora_evento')                 # HH:MM
         fecha_cierre_str = request.form.get('fecha_cierre_nominaciones') # YYYY-MM-DDTHH:MM
         plantilla_id = request.form.get('plantilla_id') or None
 
-        if not all([bloque_id, nombre_mes, mes_ordinal, fecha_evento_str, fecha_cierre_str]):
+        if not all([
+            bloque_id, nombre_mes, mes_ordinal, fecha_evento_str,
+            hora_evento_str, fecha_cierre_str
+        ]):
             flash("⚠️ Todos los campos son obligatorios.", "warning")
             return redirect(url_for('admin_bp.calendario_eventos'))
 
         try:
             # 📅 Fecha del evento solo como DATE (correcto)
             fecha_evento_dt = date.fromisoformat(fecha_evento_str)
+            hora_evento_formateada = formatear_hora_evento(hora_evento_str)
 
             # ⏰ Fecha/hora de cierre → naive (local sin zona)
             cierre_local = datetime.fromisoformat(fecha_cierre_str)
@@ -2111,6 +2155,7 @@ def calendario_eventos():
             nombre_mes=nombre_mes.strip().capitalize(),
             mes_ordinal=mes_ordinal,
             fecha_evento=fecha_evento_dt,
+            hora=hora_evento_formateada,
             fecha_cierre_nominaciones=cierre_utc,
             plantilla_id=plantilla_id
         )
@@ -2135,6 +2180,32 @@ def calendario_eventos():
         eventos=eventos,
         datetime=datetime
     )
+
+
+@admin_bp.route('/calendario/hora/<int:evento_id>', methods=['POST'])
+@login_required
+@admin_required
+def actualizar_hora_evento(evento_id):
+    ciclo_activo = CicloEscolar.query.filter_by(activo=True).first()
+    evento = EventoAsamblea.query.get_or_404(evento_id)
+
+    if not ciclo_activo or evento.ciclo_id != ciclo_activo.id:
+        flash("🚫 El evento no pertenece al ciclo activo.", "danger")
+        return redirect(url_for('admin_bp.calendario_eventos'))
+
+    hora_evento_str = request.form.get('hora_evento', '').strip()
+    try:
+        evento.hora = formatear_hora_evento(hora_evento_str)
+        db.session.commit()
+        flash(
+            f"✅ Hora de {evento.bloque.nombre} actualizada a {evento.hora}.",
+            "success"
+        )
+    except (TypeError, ValueError):
+        db.session.rollback()
+        flash("❌ La hora indicada no es válida.", "danger")
+
+    return redirect(url_for('admin_bp.calendario_eventos'))
     
     
 
@@ -3662,7 +3733,11 @@ def generar_invitaciones_stream():
                     "quien_nomina": quien_nomina,
                     "nominado": nominado,
                     "valor": n.valor.nombre if n.valor else "",
-                    "fecha_evento": n.evento.fecha_evento.strftime("%d/%m/%Y") if n.evento else "",
+                    "fecha_evento": fecha_hora_para_invitacion(
+                        n.evento,
+                        n.alumno.bloque.nombre
+                        if n.alumno and n.alumno.bloque else ""
+                    ),
                     "texto_adicional": comentario_final,
                 }
 
@@ -4053,30 +4128,14 @@ def generar_invitaciones_bloque_unico():
 
                         comentario_final = rt
 
-                # =========================================================
-                # ✅ FECHA + HORA (SOLO ALUMNOS)
-                # Bloque 1 = 8:30 am
-                # Bloque 2 = 7:30 am
-                # Bloque 3 = 7:30 am
-                # Bloque 4 = 8:30 am
-                # =========================================================
-                hora_por_bloque = {
-                    "BLOQUE 1": "8:30 a. m.",
-                    "BLOQUE 2": "7:30 a. m.",
-                    "BLOQUE 3": "7:30 a. m.",
-                    "BLOQUE 4": "8:30 a. m.",
-                }
-
-                fecha_str = ""
-                if n.evento and n.evento.fecha_evento:
-                    fecha_str = n.evento.fecha_evento.strftime("%d/%m/%Y")
-
                 bloque_nombre = ""
                 if n.alumno and n.alumno.bloque and n.alumno.bloque.nombre:
-                    bloque_nombre = n.alumno.bloque.nombre.strip().upper()
+                    bloque_nombre = n.alumno.bloque.nombre
 
-                hora_str = hora_por_bloque.get(bloque_nombre, "")
-                fecha_con_hora = f"{fecha_str} - {hora_str}".strip(" -")
+                fecha_con_hora = fecha_hora_para_invitacion(
+                    n.evento,
+                    bloque_nombre
+                )
 
                 # =========================================================
 
@@ -4431,11 +4490,7 @@ def generar_invitaciones_profesores():
             comentario = (n.comentario or "").strip()
 
             # ✅ ARREGLADO (sin SyntaxError)
-            fecha_evento = (
-                n.evento.fecha_evento.strftime("%d/%m/%Y")
-                if (n.evento and n.evento.fecha_evento)
-                else ""
-            )
+            fecha_evento = fecha_hora_para_invitacion(n.evento)
 
             # ✅ SOLO VISUAL
             nominado_bonito = nombre_bonito(nominado)

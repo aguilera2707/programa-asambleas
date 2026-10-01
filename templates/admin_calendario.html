@@ -58,6 +58,11 @@
                 <input type="date" id="fecha_evento" name="fecha_evento" required>
             </div>
 
+            <div class="field">
+                <label>🕘 Hora del evento</label>
+                <input type="time" id="hora_evento" name="hora_evento" value="09:00" required>
+            </div>
+
             <div class="field span-2">
                 <label>⏰ Cierre de nominaciones (fecha y hora)</label>
                 <input type="datetime-local" id="fecha_cierre_nominaciones" name="fecha_cierre_nominaciones" required>
@@ -88,6 +93,7 @@
                         <th>Mes</th>
                         <th>Bloque</th>
                         <th>Fecha del evento</th>
+                        <th>Hora del evento</th>
                         <th>Cierre de nominaciones</th>
                         <th>Plantilla</th>
                         <th>Estado</th>
@@ -112,6 +118,14 @@
                                 <td>{{ e.mes_ordinal }} – {{ e.nombre_mes }}</td>
                                 <td>{{ e.bloque.nombre }}</td>
                                 <td>{{ e.fecha_evento.strftime('%d/%m/%Y') }}</td>
+                                <td>
+                                    <form action="{{ url_for('admin_bp.actualizar_hora_evento', evento_id=e.id) }}"
+                                          method="POST" class="hora-evento-form">
+                                        <span>{{ e.hora or 'Sin hora' }}</span>
+                                        <input type="time" name="hora_evento" required>
+                                        <button type="submit">Guardar</button>
+                                    </form>
+                                </td>
                                 <td>{{ e.fecha_cierre_nominaciones | hora_mx('%d/%m/%Y %H:%M') }}</td>
                                 <td>{{ e.plantilla.nombre if e.plantilla else 'Predeterminada' }}</td>
 
