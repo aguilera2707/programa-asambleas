@@ -25,6 +25,16 @@
             <label>Nivel:</label>
             <input type="text" name="nivel" value="{{ alumno.nivel }}" required>
 
+            <label>Bloque:</label>
+            <select name="bloque_id" required>
+                {% for bloque in bloques %}
+                    <option value="{{ bloque.id }}"
+                            {% if alumno.bloque_id == bloque.id %}selected{% endif %}>
+                        {{ bloque.nombre }}
+                    </option>
+                {% endfor %}
+            </select>
+
             <button type="submit" class="btn-guardar">💾 Guardar cambios</button>
         </form>
     </main>

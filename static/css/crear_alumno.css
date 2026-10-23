@@ -84,6 +84,17 @@ html, body {
     cursor: not-allowed;
 }
 
+.ayuda-bloque {
+    margin-top: 7px;
+    color: #666;
+    line-height: 1.35;
+}
+
+.ayuda-bloque.detectado {
+    color: #176b32;
+    font-weight: 600;
+}
+
 .formulario input:focus,
 .formulario select:focus {
     outline: none;

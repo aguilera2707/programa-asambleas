@@ -123,6 +123,13 @@ td[contenteditable="true"] {
     background-color: #fffbe6;
 }
 
+.bloque-alumno {
+    min-width: 115px;
+    width: 100%;
+    border-color: #b98b8b;
+    background: #fff;
+}
+
 .sin-datos {
     text-align: center;
     color: #666;

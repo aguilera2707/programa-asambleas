@@ -72,8 +72,18 @@
             <!-- Valor real que se enviará -->
             <input type="hidden" name="nivel" id="nivel">
 
-            <!-- Bloque autoasignado -->
-            <input type="hidden" name="bloque_id" id="bloque_id">
+            <div class="campo">
+                <label for="bloque_id">Bloque:</label>
+                <select name="bloque_id" id="bloque_id" required>
+                    <option value="">Selecciona</option>
+                    {% for bloque in bloques %}
+                        <option value="{{ bloque.id }}">{{ bloque.nombre }}</option>
+                    {% endfor %}
+                </select>
+                <small id="ayuda_bloque" class="ayuda-bloque">
+                    Si el grupo ya existe, se seleccionará automáticamente su bloque actual.
+                </small>
+            </div>
 
             <button type="submit" class="btn-crear">Guardar alumno</button>
         </form>
@@ -98,17 +108,11 @@
     const nombreInput = document.getElementById("nombre");
     const gradoInput = document.getElementById("grado");
     const grupoInput = document.getElementById("grupo");
+    const bloqueInput = document.getElementById("bloque_id");
+    const ayudaBloque = document.getElementById("ayuda_bloque");
 
     // preparamos lista de alumnos ya existentes (desde Jinja)
-    const alumnosExistentes = [
-        {% for a in alumnos_db %}
-            {
-                nombre: "{{ a.nombre }}",
-                grado: "{{ a.grado }}",
-                grupo: "{{ a.grupo }}"
-            },
-        {% endfor %}
-    ];
+    const alumnosExistentes = {{ alumnos_json | tojson }};
 
     function existeDuplicado(nombre, grado, grupo) {
         return alumnosExistentes.some(a =>
@@ -134,6 +138,26 @@
     const grupoSelect = document.getElementById("grupo");
 
     const gruposOriginales = [...grupoSelect.options].map(opt => opt.value);
+
+    function actualizarBloqueDelGrupo() {
+        const grado = gradoSelect.value;
+        const grupo = grupoSelect.value;
+        const bloquesDelGrupo = [...new Set(
+            alumnosExistentes
+                .filter(a => a.grado === grado && a.grupo === grupo && a.bloque_id)
+                .map(a => String(a.bloque_id))
+        )];
+
+        if (bloquesDelGrupo.length === 1) {
+            bloqueInput.value = bloquesDelGrupo[0];
+            const textoBloque = bloqueInput.options[bloqueInput.selectedIndex]?.text || "el bloque registrado";
+            ayudaBloque.textContent = `Este grupo ya pertenece a ${textoBloque}; se usará ese bloque.`;
+            ayudaBloque.classList.add("detectado");
+        } else {
+            ayudaBloque.textContent = "Selecciona el bloque al que pertenece el grupo.";
+            ayudaBloque.classList.remove("detectado");
+        }
+    }
 
     gradoSelect.addEventListener("change", function () {
         const gradoSeleccionado = this.value.substring(0, 2); // "01", "02", etc
@@ -162,6 +186,9 @@
                 grupoSelect.appendChild(opt);
             }
         });
+
+        bloqueInput.value = "";
+        actualizarBloqueDelGrupo();
     });
 
     // --- Detectar nivel cuando el usuario elige grupo ---
@@ -169,6 +196,7 @@
         const nivel = detectarNivelPorGrupo(this.value);
         document.getElementById("nivel_detectado").value = nivel;
         document.getElementById("nivel").value = nivel;
+        actualizarBloqueDelGrupo();
     });
 
     // --- Desvanecer flash ---

@@ -773,7 +773,7 @@ def importar_alumnos_ciclo():
             flash("⚠️ No hay un ciclo activo. Activa un ciclo primero.", "warning")
             return redirect(url_for('admin_bp.gestionar_ciclos'))
 
-        importados, existentes = 0, 0
+        importados, existentes, reasignados = 0, 0, 0
 
         for _, row in df.iterrows():
             nombre = str(row["nombre"]).strip().title()
@@ -801,7 +801,18 @@ def importar_alumnos_ciclo():
             ).first()
 
             if ya:
-                existentes += 1
+                # Si el alumno ya existe, la fila más reciente del archivo es
+                # la fuente correcta para su bloque. Antes se omitía sin más y
+                # podía quedar atrapado en un bloque equivocado.
+                ya.nombre = nombre
+                ya.grado = grado
+                ya.grupo = grupo
+                ya.nivel = nivel
+                if ya.bloque_id != bloque.id:
+                    ya.bloque_id = bloque.id
+                    reasignados += 1
+                else:
+                    existentes += 1
                 continue
 
             nuevo = Alumno(
@@ -816,7 +827,11 @@ def importar_alumnos_ciclo():
             importados += 1
 
         db.session.commit()
-        flash(f"✅ {importados} alumnos importados al ciclo {ciclo_activo.nombre}. {existentes} ya existían.", "success")
+        flash(
+            f"✅ {importados} alumnos importados al ciclo {ciclo_activo.nombre}. "
+            f"{reasignados} reasignados al bloque correcto y {existentes} ya estaban correctos.",
+            "success"
+        )
 
     except Exception as e:
         db.session.rollback()
@@ -971,24 +986,35 @@ def importar_alumnos_por_bloque():
             flash(f"❌ Faltan columnas requeridas: {faltan}", "danger")
             return redirect(url_for('admin_bp.alumnos_ciclo'))
 
-        importados, existentes = 0, 0
+        importados, existentes, reasignados = 0, 0, 0
 
         # ✅ Iterar e importar alumnos
         for _, row in df.iterrows():
             nombre = str(row.get("nombre", "")).strip()
             grado = str(row.get("grado", "")).strip()
-            grupo = str(row.get("grupo", "")).strip()
-            nivel = str(row.get("nivel", "")).strip()
+            grupo = str(row.get("grupo", "")).strip().upper()
+            nivel = str(row.get("nivel", "")).strip().capitalize()
 
             if not (nombre and grado and grupo and nivel):
                 continue
 
-            existente = Alumno.query.filter_by(
-                nombre=nombre, grado=grado, grupo=grupo, ciclo_id=ciclo.id
+            existente = Alumno.query.filter(
+                db.func.lower(Alumno.nombre) == nombre.lower(),
+                Alumno.grado == grado,
+                db.func.upper(Alumno.grupo) == grupo,
+                Alumno.ciclo_id == ciclo.id
             ).first()
 
             if existente:
-                existentes += 1
+                existente.nombre = nombre
+                existente.grado = grado
+                existente.grupo = grupo
+                existente.nivel = nivel
+                if existente.bloque_id != bloque.id:
+                    existente.bloque_id = bloque.id
+                    reasignados += 1
+                else:
+                    existentes += 1
                 continue
 
             nuevo = Alumno(
@@ -1003,7 +1029,11 @@ def importar_alumnos_por_bloque():
             importados += 1
 
         db.session.commit()
-        flash(f"✅ {importados} alumnos importados a «{bloque.nombre}». {existentes} ya existían.", "success")
+        flash(
+            f"✅ {importados} alumnos importados a «{bloque.nombre}». "
+            f"{reasignados} reasignados a este bloque y {existentes} ya estaban correctos.",
+            "success"
+        )
 
     except Exception as e:
         db.session.rollback()
@@ -1060,15 +1090,41 @@ def editar_alumno(id):
         return jsonify({"error": "No autorizado"}), 403
 
     alumno = Alumno.query.get_or_404(id)
-    data = request.get_json()
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo or alumno.ciclo_id != ciclo.id:
+        return jsonify({"error": "El alumno no pertenece al ciclo activo."}), 403
 
-    alumno.nombre = data.get("nombre", alumno.nombre).title()
-    alumno.grado = data.get("grado", alumno.grado)
-    alumno.grupo = data.get("grupo", alumno.grupo).upper()
-    alumno.nivel = data.get("nivel", alumno.nivel).capitalize()
+    data = request.get_json(silent=True) or {}
+
+    try:
+        bloque_id = int(data.get("bloque_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Selecciona un bloque válido."}), 400
+
+    bloque = Bloque.query.filter_by(id=bloque_id, ciclo_id=ciclo.id).first()
+    if not bloque:
+        return jsonify({"error": "El bloque seleccionado no pertenece al ciclo activo."}), 400
+
+    nombre = str(data.get("nombre", alumno.nombre)).strip()
+    grado = str(data.get("grado", alumno.grado)).strip()
+    grupo = str(data.get("grupo", alumno.grupo)).strip().upper()
+    nivel = str(data.get("nivel", alumno.nivel)).strip().capitalize()
+
+    if not nombre or not grado or not grupo or not nivel:
+        return jsonify({"error": "Nombre, grado, grupo y nivel son obligatorios."}), 400
+
+    alumno.nombre = nombre.title()
+    alumno.grado = grado
+    alumno.grupo = grupo
+    alumno.nivel = nivel
+    alumno.bloque_id = bloque.id
 
     db.session.commit()
-    return jsonify({"message": f"Alumno {alumno.nombre} actualizado con éxito."}), 200
+    return jsonify({
+        "message": f"Alumno {alumno.nombre} actualizado y asignado a {bloque.nombre}.",
+        "bloque_id": bloque.id,
+        "bloque_nombre": bloque.nombre
+    }), 200
 
 
 # -------------------------------
@@ -1721,10 +1777,21 @@ def editar_alumno_vista(id):
         return redirect(url_for('nom.principal'))
 
     alumno = Alumno.query.get_or_404(id)
-    return render_template('editar_alumno.html', alumno=alumno)
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    if not ciclo or alumno.ciclo_id != ciclo.id:
+        flash("🚫 El alumno no pertenece al ciclo activo.", "danger")
+        return redirect(url_for('nom.panel_usuarios'))
+
+    bloques = (
+        Bloque.query
+        .filter_by(ciclo_id=ciclo.id)
+        .order_by(Bloque.orden.asc(), Bloque.nombre.asc())
+        .all()
+    )
+    return render_template('editar_alumno.html', alumno=alumno, bloques=bloques)
 
 
-@admin_bp.route('/alumnos/editar/<int:id>', methods=['POST'])
+@admin_bp.route('/alumnos/editar_form/<int:id>', methods=['POST'])
 @login_required
 def actualizar_alumno(id):
     if current_user.rol != 'admin':
@@ -1732,13 +1799,28 @@ def actualizar_alumno(id):
         return redirect(url_for('nom.principal'))
 
     alumno = Alumno.query.get_or_404(id)
+    ciclo = CicloEscolar.query.filter_by(activo=True).first()
+    bloque_id = request.form.get('bloque_id', type=int)
+    bloque = (
+        Bloque.query.filter_by(id=bloque_id, ciclo_id=ciclo.id).first()
+        if ciclo and alumno.ciclo_id == ciclo.id and bloque_id
+        else None
+    )
+    if not bloque:
+        flash("⚠️ Selecciona un bloque válido del ciclo activo.", "warning")
+        return redirect(url_for('admin_bp.editar_alumno_vista', id=alumno.id))
+
     alumno.nombre = request.form.get('nombre', alumno.nombre).strip().title()
     alumno.grado = request.form.get('grado', alumno.grado).strip()
     alumno.grupo = request.form.get('grupo', alumno.grupo).strip().upper()
     alumno.nivel = request.form.get('nivel', alumno.nivel).strip().capitalize()
+    alumno.bloque_id = bloque.id
 
     db.session.commit()
-    flash(f"✅ Alumno {alumno.nombre} actualizado correctamente.", "success")
+    flash(
+        f"✅ Alumno {alumno.nombre} actualizado y asignado a {bloque.nombre}.",
+        "success"
+    )
     return redirect(url_for('nom.panel_usuarios'))
 
 # -------------------------------
@@ -2961,18 +3043,34 @@ def crear_alumno_manual():
     grados = sorted({a.grado for a in Alumno.query.filter_by(ciclo_id=ciclo.id).all()})
     grupos = sorted({a.grupo for a in Alumno.query.filter_by(ciclo_id=ciclo.id).all()})
     alumnos_db = Alumno.query.filter_by(ciclo_id=ciclo.id).all()
+    bloques = (
+        Bloque.query
+        .filter_by(ciclo_id=ciclo.id)
+        .order_by(Bloque.orden.asc(), Bloque.nombre.asc())
+        .all()
+    )
+    alumnos_json = [
+        {
+            "nombre": alumno.nombre,
+            "grado": alumno.grado,
+            "grupo": alumno.grupo,
+            "bloque_id": alumno.bloque_id,
+        }
+        for alumno in alumnos_db
+    ]
 
     if request.method == 'POST':
         nombre = request.form.get('nombre', '').strip()
         grado = request.form.get('grado', '').strip()
         grupo = request.form.get('grupo', '').strip().upper()
+        bloque_id = request.form.get('bloque_id', type=int)
 
         # El servidor determina el nivel a partir del grupo. No confiamos en
         # el campo oculto del navegador porque puede quedar desactualizado.
         nivel = detectar_nivel_por_grupo(grupo)
 
-        if not nombre or not grado or not grupo or not nivel:
-            flash("⚠️ No se pudo identificar el nivel del grupo seleccionado.", "warning")
+        if not nombre or not grado or not grupo or not nivel or not bloque_id:
+            flash("⚠️ Completa los datos y selecciona el bloque del alumno.", "warning")
             return redirect(url_for('admin_bp.crear_alumno_manual'))
 
         # Validar que el número del grupo corresponda con el grado elegido.
@@ -2996,29 +3094,41 @@ def crear_alumno_manual():
             flash("⚠️ Ya existe un alumno con ese nombre, grado y grupo en este ciclo.", "warning")
             return redirect(url_for('admin_bp.crear_alumno_manual'))
 
-        # 🔍 AUTOASIGNAR BLOQUE según la estructura institucional:
-        # B1 Kinder, B2 Primaria 1–3, B3 Primaria 4–6, B4 Secundaria.
-        if nivel == "Kinder":
-            numero_bloque_destino = 1
-        elif nivel == "Secundaria":
-            numero_bloque_destino = 4
-        else:
-            numero_bloque_destino = 2 if numero_grado <= 3 else 3
-
-        bloques_ciclo = Bloque.query.filter_by(ciclo_id=ciclo.id).all()
-        bloque_destino = None
-        for bloque in bloques_ciclo:
-            numero_nombre = re.search(r'\d+', bloque.nombre or '')
-            numero_en_nombre = int(numero_nombre.group()) if numero_nombre else None
-            if bloque.orden == numero_bloque_destino or numero_en_nombre == numero_bloque_destino:
-                bloque_destino = bloque
-                break
-
+        # El bloque ya no se deduce con una tabla fija: la distribución puede
+        # cambiar entre ciclos. Si el grupo ya tiene compañeros, usamos el
+        # bloque real de ese grupo para impedir que un solo alumno quede aislado.
+        bloque_destino = Bloque.query.filter_by(id=bloque_id, ciclo_id=ciclo.id).first()
         if not bloque_destino:
+            flash("⚠️ El bloque seleccionado no pertenece al ciclo activo.", "danger")
+            return redirect(url_for('admin_bp.crear_alumno_manual'))
+
+        bloques_del_grupo = {
+            bloque_existente
+            for (bloque_existente,) in db.session.query(Alumno.bloque_id).filter_by(
+                ciclo_id=ciclo.id,
+                grado=grado,
+                grupo=grupo
+            ).distinct().all()
+            if bloque_existente is not None
+        }
+
+        if len(bloques_del_grupo) > 1:
             flash(
-                f"⚠️ No se encontró el Bloque {numero_bloque_destino} en el ciclo activo.",
+                f"⚠️ El grupo {grupo} ya aparece en varios bloques. "
+                "Corrige esa inconsistencia desde el listado de alumnos antes de agregar otro.",
                 "danger"
             )
+            return redirect(url_for('admin_bp.crear_alumno_manual'))
+
+        if len(bloques_del_grupo) == 1:
+            bloque_grupo_id = next(iter(bloques_del_grupo))
+            bloque_destino = Bloque.query.filter_by(
+                id=bloque_grupo_id,
+                ciclo_id=ciclo.id
+            ).first()
+
+        if not bloque_destino:
+            flash("⚠️ No se pudo determinar un bloque válido para el grupo.", "danger")
             return redirect(url_for('admin_bp.crear_alumno_manual'))
 
         # Crear alumno
@@ -3042,7 +3152,8 @@ def crear_alumno_manual():
         ciclo=ciclo,
         grados=grados,
         grupos=grupos,
-        alumnos_db=alumnos_db
+        bloques=bloques,
+        alumnos_json=alumnos_json
     )
 
 

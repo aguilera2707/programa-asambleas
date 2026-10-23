@@ -36,7 +36,11 @@
         {% if ciclo %}
         <!-- 🔹 Barra de acciones mejorada -->
         <div class="acciones-bar">
-            <form action="{{ url_for('admin_bp.importar_alumnos_por_bloque') }}" method="POST" enctype="multipart/form-data" class="form-import">
+            <form action="{{ url_for('admin_bp.importar_alumnos_por_bloque') }}"
+                  method="POST"
+                  enctype="multipart/form-data"
+                  class="form-import"
+                  onsubmit="return confirmarImportacionBloque(this);">
 
                 <div class="input-group">
                     <label for="bloque_id">Bloque:</label>
@@ -99,7 +103,17 @@
                     <td contenteditable="true">{{ a.grado }}</td>
                     <td contenteditable="true">{{ a.grupo }}</td>
                     <td contenteditable="true">{{ a.nivel }}</td>
-                    <td>{{ a.bloque.nombre if a.bloque else '—' }}</td>
+                    <td>
+                        <select class="bloque-alumno" aria-label="Bloque de {{ a.nombre }}">
+                            <option value="">Selecciona</option>
+                            {% for bloque in bloques %}
+                                <option value="{{ bloque.id }}"
+                                        {% if a.bloque_id == bloque.id %}selected{% endif %}>
+                                    {{ bloque.nombre }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </td>
                     <td class="acciones">
                         <button class="btn-accion guardar" title="Guardar cambios">💾</button>
                         <button class="btn-accion eliminar" title="Eliminar alumno">🗑️</button>
@@ -118,6 +132,20 @@
 
 <!-- 🔹 Scripts -->
 <script>
+    function confirmarImportacionBloque(formulario) {
+        const selector = formulario.querySelector('[name="bloque_id"]');
+        const archivo = formulario.querySelector('[name="file"]');
+        const bloque = selector.options[selector.selectedIndex]?.text || "el bloque seleccionado";
+
+        if (!selector.value || !archivo.files.length) return true;
+
+        return confirm(
+            `Se importará el archivo en ${bloque}.\n\n` +
+            `Si un alumno del archivo ya existe en otro bloque, será movido a ${bloque}.\n\n` +
+            "¿La selección es correcta?"
+        );
+    }
+
     function confirmarEliminacionMasiva(formulario) {
         const ciclo = {{ (ciclo.nombre if ciclo else '') | tojson }};
         const frase = `BORRAR ${ciclo}`;
@@ -147,22 +175,34 @@
 
     // 💾 Guardar cambios
     document.querySelectorAll(".guardar").forEach(btn => {
-        btn.addEventListener("click", e => {
+        btn.addEventListener("click", async e => {
             const row = e.target.closest("tr");
             const id = row.dataset.id;
             const datos = {
                 nombre: row.cells[0].innerText.trim(),
                 grado: row.cells[1].innerText.trim(),
                 grupo: row.cells[2].innerText.trim(),
-                nivel: row.cells[3].innerText.trim()
+                nivel: row.cells[3].innerText.trim(),
+                bloque_id: row.querySelector(".bloque-alumno").value
             };
-            fetch(`/admin/alumnos/editar/${id}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(datos)
-            }).then(r => r.json()).then(res => {
-                alert(res.message);
-            });
+
+            btn.disabled = true;
+            try {
+                const respuesta = await fetch(`/admin/alumnos/editar/${id}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(datos)
+                });
+                const resultado = await respuesta.json();
+                if (!respuesta.ok) {
+                    throw new Error(resultado.error || "No se pudo actualizar el alumno.");
+                }
+                alert(resultado.message);
+            } catch (error) {
+                alert(`❌ ${error.message}`);
+            } finally {
+                btn.disabled = false;
+            }
         });
     });
 
